@@ -73,7 +73,11 @@ async function extractTokenFromMaildev() {
       const email = emails.find(e => e.to?.[0]?.address === TEST_EMAIL);
       if (email) {
         const match = (email.html || email.text || '').match(/token=([a-f0-9]{64})/);
-        if (match) return match[1];
+        if (match) {
+          // Delete the email so the next call finds a fresh one
+          await fetch(`${MAILDEV_URL}/email/${email.id}`, { method: 'DELETE' });
+          return match[1];
+        }
       }
     } catch { /* maildev not ready yet */ }
   }
