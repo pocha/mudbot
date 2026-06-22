@@ -1,4 +1,5 @@
 node_modules/
-mudslide
 package-lock.json
-tokens.json.old
+.env
+users/**/.mudslide
+users/**/logs.txt

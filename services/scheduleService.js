@@ -2,222 +2,154 @@ const fs = require('fs').promises;
 const path = require('path');
 const { spawn } = require('child_process');
 const crypto = require('crypto');
+const { encryptData, decryptData } = require('./userService');
 
 const CONFIG = {
   USERS_DIR: path.join(__dirname, '..', 'users')
 };
 
-// Helper to generate unique schedule ID
 function generateScheduleId() {
   return crypto.randomBytes(8).toString('hex');
 }
 
-// Create a new schedule
-async function createSchedule(userDir, scheduleData) {
+function scheduleDir(userDir, scheduleId) {
+  return path.join(CONFIG.USERS_DIR, userDir, 'schedules', scheduleId);
+}
+
+async function writeSchedule(userDir, email, scheduleId, schedule) {
+  const file = path.join(scheduleDir(userDir, scheduleId), 'schedule.json');
+  await fs.writeFile(file, encryptData(JSON.stringify(schedule), email));
+}
+
+async function readSchedule(userDir, email, scheduleId) {
+  const file = path.join(scheduleDir(userDir, scheduleId), 'schedule.json');
+  const raw = await fs.readFile(file, 'utf8');
+  return JSON.parse(decryptData(raw, email));
+}
+
+async function createSchedule(userDir, email, scheduleData) {
   const scheduleId = generateScheduleId();
-  const schedulesDir = path.join(CONFIG.USERS_DIR, userDir, 'schedules');
-  const scheduleDir = path.join(schedulesDir, scheduleId);
-  
-  // Create schedule directory
-  await fs.mkdir(scheduleDir, { recursive: true });
-  
-  // Prepare schedule metadata
+  await fs.mkdir(scheduleDir(userDir, scheduleId), { recursive: true });
+
   const schedule = {
     id: scheduleId,
     name: scheduleData.name,
-    recipients: scheduleData.recipients, // Array of phone numbers
+    recipients: scheduleData.recipients,
     message: scheduleData.message,
-    media: scheduleData.media || null, // Optional media path
+    media: scheduleData.media || null,
     cronExpression: scheduleData.cronExpression,
     enabled: scheduleData.enabled !== false,
     createdAt: new Date().toISOString(),
-    lastRun: null,
-    nextRun: null
+    lastRun: null
   };
-  
-  // Save schedule metadata
-  await fs.writeFile(
-    path.join(scheduleDir, 'schedule.json'),
-    JSON.stringify(schedule, null, 2)
-  );
-  
+
+  await writeSchedule(userDir, email, scheduleId, schedule);
   return schedule;
 }
 
-// List all schedules for a user
-async function listSchedules(userDir) {
-  const schedulesDir = path.join(CONFIG.USERS_DIR, userDir, 'schedules');
-  
+async function listSchedules(userDir, email) {
+  const dir = path.join(CONFIG.USERS_DIR, userDir, 'schedules');
   try {
-    const entries = await fs.readdir(schedulesDir, { withFileTypes: true });
+    const entries = await fs.readdir(dir, { withFileTypes: true });
     const schedules = [];
-    
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        const scheduleFile = path.join(schedulesDir, entry.name, 'schedule.json');
         try {
-          const data = await fs.readFile(scheduleFile, 'utf8');
-          schedules.push(JSON.parse(data));
-        } catch (error) {
-          // Skip invalid schedules
-          console.error(`Error reading schedule ${entry.name}:`, error.message);
+          schedules.push(await readSchedule(userDir, email, entry.name));
+        } catch (err) {
+          console.error(`Error reading schedule ${entry.name}:`, err.message);
         }
       }
     }
-    
     return schedules;
-  } catch (error) {
+  } catch {
     return [];
   }
 }
 
-// Get a specific schedule
-async function getSchedule(userDir, scheduleId) {
-  const scheduleFile = path.join(CONFIG.USERS_DIR, userDir, 'schedules', scheduleId, 'schedule.json');
-  
+async function getSchedule(userDir, email, scheduleId) {
   try {
-    const data = await fs.readFile(scheduleFile, 'utf8');
-    return JSON.parse(data);
-  } catch (error) {
+    return await readSchedule(userDir, email, scheduleId);
+  } catch {
     return null;
   }
 }
 
-// Update a schedule
-async function updateSchedule(userDir, scheduleId, updates) {
-  const schedule = await getSchedule(userDir, scheduleId);
-  
-  if (!schedule) {
-    throw new Error('Schedule not found');
-  }
-  
-  // Merge updates
+async function updateSchedule(userDir, email, scheduleId, updates) {
+  const schedule = await getSchedule(userDir, email, scheduleId);
+  if (!schedule) throw new Error('Schedule not found');
+
   Object.assign(schedule, updates);
   schedule.updatedAt = new Date().toISOString();
-  
-  // Save updated schedule
-  const scheduleFile = path.join(CONFIG.USERS_DIR, userDir, 'schedules', scheduleId, 'schedule.json');
-  await fs.writeFile(scheduleFile, JSON.stringify(schedule, null, 2));
-  
+
+  await writeSchedule(userDir, email, scheduleId, schedule);
   return schedule;
 }
 
-// Delete a schedule
-async function deleteSchedule(userDir, scheduleId) {
-  const scheduleDir = path.join(CONFIG.USERS_DIR, userDir, 'schedules', scheduleId);
-  
-  try {
-    // Remove from crontab first
-    await removeCronJob(userDir, scheduleId);
-    
-    // Delete schedule directory
-    await fs.rm(scheduleDir, { recursive: true, force: true });
-    
-    return { success: true };
-  } catch (error) {
-    throw new Error(`Failed to delete schedule: ${error.message}`);
-  }
+async function deleteSchedule(userDir, email, scheduleId) {
+  await removeCronJob(userDir, scheduleId);
+  await fs.rm(scheduleDir(userDir, scheduleId), { recursive: true, force: true });
+  return { success: true };
 }
 
-// Get schedule logs
 async function getScheduleLogs(userDir, scheduleId, limit = 50) {
-  const logsFile = path.join(CONFIG.USERS_DIR, userDir, 'schedules', scheduleId, 'logs.txt');
-  
+  const logsFile = path.join(scheduleDir(userDir, scheduleId), 'logs.txt');
   try {
     const data = await fs.readFile(logsFile, 'utf8');
-    const lines = data.trim().split('\n');
-    
-    // Return last N lines
+    const lines = data.trim().split('\n').filter(Boolean);
     return lines.slice(-limit);
-  } catch (error) {
+  } catch {
     return [];
   }
 }
 
-// Append log entry
 async function appendLog(userDir, scheduleId, logEntry) {
-  const logsFile = path.join(CONFIG.USERS_DIR, userDir, 'schedules', scheduleId, 'logs.txt');
-  const timestamp = new Date().toISOString();
-  const logLine = `[${timestamp}] ${logEntry}\n`;
-  
-  await fs.appendFile(logsFile, logLine);
+  const logsFile = path.join(scheduleDir(userDir, scheduleId), 'logs.txt');
+  await fs.appendFile(logsFile, `[${new Date().toISOString()}] ${logEntry}\n`);
 }
 
-// Add cron job for schedule
 async function addCronJob(userDir, scheduleId, cronExpression) {
+  const scriptPath = path.join(__dirname, '..', 'scripts', 'run-schedule.js');
+  const cronCommand = `${cronExpression} node ${scriptPath} ${userDir} ${scheduleId}`;
+  const cronLabel = `# watobot-${userDir}-${scheduleId}`;
+
   return new Promise((resolve, reject) => {
-    const scriptPath = path.join(__dirname, '..', 'scripts', 'run-schedule.sh');
-    const cronCommand = `${cronExpression} ${scriptPath} ${userDir} ${scheduleId}`;
-    const cronLabel = `# mudbot-${userDir}-${scheduleId}`;
-    
-    // Get current crontab
     const getCrontab = spawn('crontab', ['-l']);
-    let currentCrontab = '';
-    
-    getCrontab.stdout.on('data', (data) => {
-      currentCrontab += data.toString();
-    });
-    
-    getCrontab.on('close', (code) => {
-      // Remove old entry if exists
-      const lines = currentCrontab.split('\n').filter(line => 
-        !line.includes(`mudbot-${userDir}-${scheduleId}`)
-      );
-      
-      // Add new entry
-      lines.push(cronLabel);
-      lines.push(cronCommand);
-      lines.push(''); // Empty line at end
-      
-      const newCrontab = lines.join('\n');
-      
-      // Set new crontab
+    let current = '';
+    getCrontab.stdout.on('data', d => { current += d.toString(); });
+    getCrontab.stderr.on('data', () => {});
+
+    getCrontab.on('close', () => {
+      const lines = current.split('\n')
+        .filter(l => !l.includes(`watobot-${userDir}-${scheduleId}`));
+      lines.push(cronLabel, cronCommand, '');
+
       const setCrontab = spawn('crontab', ['-']);
-      setCrontab.stdin.write(newCrontab);
+      setCrontab.stdin.write(lines.join('\n'));
       setCrontab.stdin.end();
-      
-      setCrontab.on('close', (code) => {
-        if (code === 0) {
-          resolve({ success: true });
-        } else {
-          reject(new Error('Failed to update crontab'));
-        }
+      setCrontab.on('close', code => {
+        if (code === 0) resolve({ success: true });
+        else reject(new Error('Failed to update crontab'));
       });
     });
   });
 }
 
-// Remove cron job for schedule
 async function removeCronJob(userDir, scheduleId) {
-  return new Promise((resolve, reject) => {
-    // Get current crontab
+  return new Promise((resolve) => {
     const getCrontab = spawn('crontab', ['-l']);
-    let currentCrontab = '';
-    
-    getCrontab.stdout.on('data', (data) => {
-      currentCrontab += data.toString();
-    });
-    
-    getCrontab.stderr.on('data', () => {
-      // Ignore stderr (might be "no crontab for user")
-    });
-    
+    let current = '';
+    getCrontab.stdout.on('data', d => { current += d.toString(); });
+    getCrontab.stderr.on('data', () => {});
+
     getCrontab.on('close', () => {
-      // Remove entries related to this schedule
-      const lines = currentCrontab.split('\n').filter(line => 
-        !line.includes(`mudbot-${userDir}-${scheduleId}`)
-      );
-      
-      const newCrontab = lines.join('\n');
-      
-      // Set new crontab
+      const lines = current.split('\n')
+        .filter(l => !l.includes(`watobot-${userDir}-${scheduleId}`));
+
       const setCrontab = spawn('crontab', ['-']);
-      setCrontab.stdin.write(newCrontab);
+      setCrontab.stdin.write(lines.join('\n'));
       setCrontab.stdin.end();
-      
-      setCrontab.on('close', (code) => {
-        resolve({ success: true });
-      });
+      setCrontab.on('close', () => resolve({ success: true }));
     });
   });
 }

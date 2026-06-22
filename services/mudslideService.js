@@ -3,197 +3,77 @@ const path = require('path');
 const fs = require('fs').promises;
 
 const CONFIG = {
-  MUDSLIDE_PATH: path.join(__dirname, '..', 'mudslide'),
+  MUDSLIDE_PATH: 'mudslide',
   USERS_DIR: path.join(__dirname, '..', 'users')
 };
 
-// Check if user has Mudslide credentials (is logged in)
+function credentialsPath(userDir) {
+  return path.join(CONFIG.USERS_DIR, userDir, '.mudslide');
+}
+
 async function isLoggedIn(userDir) {
-  const credentialsPath = path.join(CONFIG.USERS_DIR, userDir, '.mudslide');
-  
   try {
-    await fs.access(credentialsPath);
-    // Check if directory has session files
-    const files = await fs.readdir(credentialsPath);
+    const files = await fs.readdir(credentialsPath(userDir));
     return files.length > 0;
-  } catch (error) {
+  } catch {
     return false;
   }
 }
 
-// Get QR code for WhatsApp login
-async function getQRCode(userDir) {
+function runMudslide(args, timeoutMs) {
   return new Promise((resolve, reject) => {
-    const credentialsPath = path.join(CONFIG.USERS_DIR, userDir, '.mudslide');
-    
-    const mudslide = spawn(CONFIG.MUDSLIDE_PATH, [
-      '-c', credentialsPath,
-      'qr'
-    ]);
-    
-    let qrData = '';
-    let errorData = '';
-    
-    mudslide.stdout.on('data', (data) => {
-      qrData += data.toString();
+    const proc = spawn(CONFIG.MUDSLIDE_PATH, args);
+    let stdout = '';
+    let stderr = '';
+
+    proc.stdout.on('data', d => { stdout += d.toString(); });
+    proc.stderr.on('data', d => { stderr += d.toString(); });
+
+    const timer = setTimeout(() => {
+      proc.kill();
+      reject(new Error('mudslide timeout'));
+    }, timeoutMs);
+
+    proc.on('close', code => {
+      clearTimeout(timer);
+      if (code === 0) resolve(stdout.trim());
+      else reject(new Error(stderr.trim() || `mudslide exited with code ${code}`));
     });
-    
-    mudslide.stderr.on('data', (data) => {
-      errorData += data.toString();
-    });
-    
-    mudslide.on('close', (code) => {
-      if (code === 0) {
-        // Extract QR code from output
-        resolve({ success: true, qr: qrData.trim() });
-      } else {
-        reject(new Error(errorData || 'Failed to generate QR code'));
-      }
-    });
-    
-    // Timeout after 30 seconds
-    setTimeout(() => {
-      mudslide.kill();
-      reject(new Error('QR code generation timeout'));
-    }, 30000);
   });
 }
 
-// Check login status by attempting to verify connection
+async function getQRCode(userDir) {
+  const qr = await runMudslide(['-c', credentialsPath(userDir), 'qr'], 30000);
+  return { success: true, qr };
+}
+
 async function checkLoginStatus(userDir) {
-  const loggedIn = await isLoggedIn(userDir);
-  
-  if (!loggedIn) {
+  if (!(await isLoggedIn(userDir))) return { loggedIn: false };
+  try {
+    const info = await runMudslide(['-c', credentialsPath(userDir), 'info'], 10000);
+    return { loggedIn: true, info };
+  } catch {
     return { loggedIn: false };
   }
-  
-  // Additional verification by trying to get connection info
-  return new Promise((resolve) => {
-    const credentialsPath = path.join(CONFIG.USERS_DIR, userDir, '.mudslide');
-    
-    const mudslide = spawn(CONFIG.MUDSLIDE_PATH, [
-      '-c', credentialsPath,
-      'info'
-    ]);
-    
-    let outputData = '';
-    
-    mudslide.stdout.on('data', (data) => {
-      outputData += data.toString();
-    });
-    
-    mudslide.on('close', (code) => {
-      if (code === 0) {
-        resolve({ loggedIn: true, info: outputData.trim() });
-      } else {
-        resolve({ loggedIn: false });
-      }
-    });
-    
-    // Timeout after 10 seconds
-    setTimeout(() => {
-      mudslide.kill();
-      resolve({ loggedIn: false });
-    }, 10000);
-  });
 }
 
-// Send WhatsApp message
 async function sendMessage(userDir, to, message) {
-  return new Promise((resolve, reject) => {
-    const credentialsPath = path.join(CONFIG.USERS_DIR, userDir, '.mudslide');
-    
-    const mudslide = spawn(CONFIG.MUDSLIDE_PATH, [
-      '-c', credentialsPath,
-      'send',
-      to,
-      message
-    ]);
-    
-    let outputData = '';
-    let errorData = '';
-    
-    mudslide.stdout.on('data', (data) => {
-      outputData += data.toString();
-    });
-    
-    mudslide.stderr.on('data', (data) => {
-      errorData += data.toString();
-    });
-    
-    mudslide.on('close', (code) => {
-      if (code === 0) {
-        resolve({ 
-          success: true, 
-          message: 'Message sent successfully',
-          output: outputData.trim()
-        });
-      } else {
-        reject(new Error(errorData || 'Failed to send message'));
-      }
-    });
-    
-    // Timeout after 30 seconds
-    setTimeout(() => {
-      mudslide.kill();
-      reject(new Error('Message send timeout'));
-    }, 30000);
-  });
+  const output = await runMudslide(['-c', credentialsPath(userDir), 'send', to, message], 30000);
+  return { success: true, message: 'Message sent successfully', output };
 }
 
-// Send message with media (image, document, etc.)
 async function sendMedia(userDir, to, mediaPath, caption = '') {
-  return new Promise((resolve, reject) => {
-    const credentialsPath = path.join(CONFIG.USERS_DIR, userDir, '.mudslide');
-    
-    const args = [
-      '-c', credentialsPath,
-      'send',
-      to,
-      '--media', mediaPath
-    ];
-    
-    if (caption) {
-      args.push('--caption', caption);
-    }
-    
-    const mudslide = spawn(CONFIG.MUDSLIDE_PATH, args);
-    
-    let outputData = '';
-    let errorData = '';
-    
-    mudslide.stdout.on('data', (data) => {
-      outputData += data.toString();
-    });
-    
-    mudslide.stderr.on('data', (data) => {
-      errorData += data.toString();
-    });
-    
-    mudslide.on('close', (code) => {
-      if (code === 0) {
-        resolve({ 
-          success: true, 
-          message: 'Media sent successfully',
-          output: outputData.trim()
-        });
-      } else {
-        reject(new Error(errorData || 'Failed to send media'));
-      }
-    });
-    
-    // Timeout after 60 seconds for media upload
-    setTimeout(() => {
-      mudslide.kill();
-      reject(new Error('Media send timeout'));
-    }, 60000);
-  });
+  const args = ['-c', credentialsPath(userDir), 'send', to, '--media', mediaPath];
+  if (caption) args.push('--caption', caption);
+  const output = await runMudslide(args, 60000);
+  return { success: true, message: 'Media sent successfully', output };
 }
 
-module.exports = {
-  isLoggedIn,
-  getQRCode,
-  checkLoginStatus,
-  sendMessage,
-  sendMedia
-};
+async function logout(userDir) {
+  await runMudslide(['-c', credentialsPath(userDir), 'logout'], 10000);
+  // Remove local session files
+  await fs.rm(credentialsPath(userDir), { recursive: true, force: true });
+  return { success: true };
+}
+
+module.exports = { isLoggedIn, getQRCode, checkLoginStatus, sendMessage, sendMedia, logout };
