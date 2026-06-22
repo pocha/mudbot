@@ -27,7 +27,19 @@ case "$ARCH" in
   *)               error "Unsupported architecture: $ARCH" ;;
 esac
 
-info "Detected: $OS_NAME / $ARCH_NAME"
+# Map to actual release asset names:
+#   macOS         -> mudslide-macos.tgz  (tgz, arch-independent)
+#   Linux x64     -> mudslide-linuxstatic-x64
+#   Linux arm64   -> mudslide-linuxstatic-arm64
+if [ "$OS_NAME" = "macos" ]; then
+  ASSET_NAME="mudslide-macos.tgz"
+  IS_ARCHIVE=true
+else
+  ASSET_NAME="mudslide-linuxstatic-${ARCH_NAME}"
+  IS_ARCHIVE=false
+fi
+
+info "Detected: $OS_NAME / $ARCH_NAME (asset: $ASSET_NAME)"
 
 # --- Install Node.js + npm ---
 if command -v node &>/dev/null && command -v npm &>/dev/null; then
@@ -66,22 +78,29 @@ else
   RELEASE_URL="https://api.github.com/repos/robvanderleek/mudslide/releases/latest"
   LATEST_JSON=$(curl -fsSL "$RELEASE_URL")
 
-  # Build expected binary name pattern
-  BINARY_PATTERN="mudslide-${OS_NAME}-${ARCH_NAME}"
-  info "Looking for asset matching: $BINARY_PATTERN"
-
-  DOWNLOAD_URL=$(echo "$LATEST_JSON" | grep -o '"browser_download_url": *"[^"]*'"$BINARY_PATTERN"'[^"]*"' | grep -o 'https://[^"]*' | head -1)
+  DOWNLOAD_URL=$(echo "$LATEST_JSON" | grep -o '"browser_download_url": *"[^"]*'"$ASSET_NAME"'"' | grep -o 'https://[^"]*' | head -1)
 
   if [ -z "$DOWNLOAD_URL" ]; then
-    error "No mudslide binary found for $OS_NAME/$ARCH_NAME. Check https://github.com/robvanderleek/mudslide/releases"
+    error "No mudslide asset '$ASSET_NAME' found. Check https://github.com/robvanderleek/mudslide/releases"
   fi
 
   info "Downloading $DOWNLOAD_URL..."
-  TMPFILE=$(mktemp)
-  curl -fsSL "$DOWNLOAD_URL" -o "$TMPFILE"
-  chmod +x "$TMPFILE"
+  TMPDIR_MUDSLIDE=$(mktemp -d)
 
-  sudo mv "$TMPFILE" /usr/local/bin/mudslide
+  if [ "$IS_ARCHIVE" = true ]; then
+    curl -fsSL "$DOWNLOAD_URL" -o "$TMPDIR_MUDSLIDE/mudslide.tgz"
+    tar -xzf "$TMPDIR_MUDSLIDE/mudslide.tgz" -C "$TMPDIR_MUDSLIDE"
+    BINARY=$(find "$TMPDIR_MUDSLIDE" -type f -name "mudslide" | head -1)
+    [ -z "$BINARY" ] && error "Could not find mudslide binary inside archive"
+    chmod +x "$BINARY"
+    sudo mv "$BINARY" /usr/local/bin/mudslide
+  else
+    curl -fsSL "$DOWNLOAD_URL" -o "$TMPDIR_MUDSLIDE/mudslide"
+    chmod +x "$TMPDIR_MUDSLIDE/mudslide"
+    sudo mv "$TMPDIR_MUDSLIDE/mudslide" /usr/local/bin/mudslide
+  fi
+
+  rm -rf "$TMPDIR_MUDSLIDE"
   success "mudslide installed to /usr/local/bin/mudslide"
 fi
 
@@ -106,7 +125,7 @@ SMTP_PORT=1025
 SMTP_SECURE=false
 SMTP_USER=
 SMTP_PASS=
-EMAIL_FROM=noreply@watobot.local
+EMAIL_FROM=noreply@mudbot.local
 BASE_URL=http://localhost:3000
 EOF
     info ".env created with generated SERVER_SECRET. Edit SMTP settings before use."

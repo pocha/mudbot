@@ -111,7 +111,7 @@ async function appendLog(userDir, scheduleId, logEntry) {
 async function addCronJob(userDir, scheduleId, cronExpression) {
   const scriptPath = path.join(__dirname, '..', 'scripts', 'run-schedule.js');
   const cronCommand = `${cronExpression} node ${scriptPath} ${userDir} ${scheduleId}`;
-  const cronLabel = `# watobot-${userDir}-${scheduleId}`;
+  const cronLabel = `# mudbot-${userDir}-${scheduleId}`;
 
   return new Promise((resolve, reject) => {
     const getCrontab = spawn('crontab', ['-l']);
@@ -121,7 +121,7 @@ async function addCronJob(userDir, scheduleId, cronExpression) {
 
     getCrontab.on('close', () => {
       const lines = current.split('\n')
-        .filter(l => !l.includes(`watobot-${userDir}-${scheduleId}`));
+        .filter(l => !l.includes(`mudbot-${userDir}-${scheduleId}`));
       lines.push(cronLabel, cronCommand, '');
 
       const setCrontab = spawn('crontab', ['-']);
@@ -144,7 +144,7 @@ async function removeCronJob(userDir, scheduleId) {
 
     getCrontab.on('close', () => {
       const lines = current.split('\n')
-        .filter(l => !l.includes(`watobot-${userDir}-${scheduleId}`));
+        .filter(l => !l.includes(`mudbot-${userDir}-${scheduleId}`));
 
       const setCrontab = spawn('crontab', ['-']);
       setCrontab.stdin.write(lines.join('\n'));
