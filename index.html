@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Watobot - Automate Your WhatsApp Messaging</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Plus+Jakarta+Sans:wght@600;700;800&amp;family=Geist&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface-variant": "#3c4a3d",
+                        "inverse-surface": "#2d3133",
+                        "on-surface": "#191c1e",
+                        "error": "#ba1a1a",
+                        "tertiary-fixed": "#c0e8ff",
+                        "on-tertiary-container": "#004f69",
+                        "secondary-container": "#76f6cd",
+                        "on-error": "#ffffff",
+                        "surface-bright": "#f7f9fc",
+                        "surface-container-lowest": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "on-primary-container": "#005523",
+                        "on-secondary": "#ffffff",
+                        "background": "#f7f9fc",
+                        "inverse-on-surface": "#eff1f4",
+                        "secondary": "#006b53",
+                        "error-container": "#ffdad6",
+                        "secondary-fixed-dim": "#59dcb5",
+                        "on-background": "#191c1e",
+                        "surface-container-high": "#e6e8eb",
+                        "on-primary-fixed-variant": "#005322",
+                        "surface-container": "#eceef1",
+                        "surface": "#f7f9fc",
+                        "on-secondary-container": "#007057",
+                        "surface-tint": "#006d2f",
+                        "primary-fixed-dim": "#3de273",
+                        "secondary-fixed": "#79f9d0",
+                        "on-tertiary-fixed": "#001e2b",
+                        "surface-container-highest": "#e0e3e6",
+                        "tertiary": "#006686",
+                        "tertiary-fixed-dim": "#70d2ff",
+                        "on-secondary-fixed-variant": "#00513e",
+                        "surface-dim": "#d8dadd",
+                        "on-secondary-fixed": "#002117",
+                        "primary-container": "#25d366",
+                        "on-primary": "#ffffff",
+                        "primary": "#006d2f",
+                        "outline": "#6c7b6b",
+                        "tertiary-container": "#5bc4f2",
+                        "outline-variant": "#bbcbb9",
+                        "inverse-primary": "#3de273",
+                        "surface-container-low": "#f2f4f7",
+                        "primary-fixed": "#66ff8e",
+                        "on-primary-fixed": "#002109",
+                        "on-tertiary-fixed-variant": "#004d66",
+                        "on-tertiary": "#ffffff",
+                        "surface-variant": "#e0e3e6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "stack-gap": "12px",
+                        "unit": "4px",
+                        "gutter": "16px",
+                        "sidebar-width": "320px",
+                        "container-padding": "24px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Inter"],
+                        "code-sm": ["Geist"],
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "headline-lg": ["Plus Jakarta Sans"],
+                        "label-md": ["Inter"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "code-sm": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "headline-lg": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "label-md": ["13px", {"lineHeight": "18px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .whatsapp-shadow {
+            box-shadow: 0px 4px 12px rgba(11, 20, 26, 0.08);
+        }
+        .modal-overlay {
+            backdrop-filter: blur(4px);
+            background-color: rgba(25, 28, 30, 0.4);
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body-md selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopNavBar -->
+<nav class="bg-surface border-b border-outline-variant shadow-sm flex justify-between items-center w-full px-gutter py-2 sticky top-0 z-50">
+<div class="flex items-center gap-3">
+<img alt="Watobot Logo" class="w-10 h-10 rounded-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDW3B7BZHq7vkpuUN8La6eIXDtHo66XaqiEzXxfE3rJ4Ll8_IR_uqFo7tBCdI9iVY0TiNJE5OaQY05cXkAtvbKi_cgmo1qBhqsGFZSQbpR9pFiAS0LeHpFy_ePFNz4kmQ7QtQZEZK_JTB7V9dh0v-ARjlMQeeS2PkZu0NoIPr6JO3LjU56LK-kGFXIdnGJdC42ehmiO1w8HKb-1-pbCiIrS1aZhJLcJxGTOdOZx2zbaJj5R7fo15AwFyMu2jQ9wFi4T8j9d1K9Mccg"/>
+<span class="font-headline-md text-headline-md font-bold text-primary">Watobot</span>
+</div>
+<div class="hidden md:flex items-center gap-8">
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors" href="#features">Features</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors" href="#pricing">Pricing</a>
+<button class="font-label-md text-label-md bg-primary-container text-on-primary-container px-6 py-2 rounded-xl font-bold hover:opacity-90 active:scale-95 transition-all" onclick="toggleModal()">Login</button>
+</div>
+<button class="md:hidden text-primary">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</nav>
+<main>
+<!-- Hero Section -->
+<section class="min-h-[80vh] flex flex-col md:flex-row items-center px-gutter md:px-24 py-12 gap-12 overflow-hidden">
+<div class="w-full md:w-1/2 flex justify-center items-center">
+<div class="relative w-full max-w-lg aspect-[1.49]">
+<img alt="Watobot Transformer Hero with WhatsApp details" class="w-full h-full object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAmZOfhK1QK4xSIr7sXFxKhAiKjj9D-3YN0kcvfTuuBG5dAvImFszS7SQ8kZXP9dHG-ds8yPuQt5dbXLHuUJyqPhv8TfP2zoUmkYmsHcT8KF2UvWjPEmufx-2Arbt6fmrMzJ577pQcekDm51lIV1JCfakZxdE-PIe3TiIqxySs39rUxiSOq2CN5TS8Ham_HVAKGtuaIZWiDhQYsmynlhuaQ_BxWaKj66RoGelWrX___MMPFw-iVEHXvwc--PBG_LKJMdoKUcSo3ZGA"/>
+<div class="absolute -z-10 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-gradient-to-tr from-primary-container/20 to-transparent rounded-full blur-3xl"></div>
+</div>
+</div>
+<div class="w-full md:w-1/2 flex flex-col items-start gap-stack-gap">
+<span class="font-label-md text-label-md text-secondary bg-secondary-container/30 px-3 py-1 rounded-full uppercase tracking-widest">Enterprise Automation</span>
+<h1 class="font-headline-lg text-4xl md:text-6xl font-extrabold text-on-surface leading-tight">
+                    Automate Your <br/><span class="text-primary">WhatsApp Messaging</span>
+</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-md">
+                    Empower your business with high-performance API endpoints and intelligent scheduled messaging. Precision-engineered for technical teams.
+                </p>
+<div class="flex flex-wrap gap-4 mt-4">
+<button class="font-label-md text-label-md bg-primary-container text-on-primary-container px-8 py-4 rounded-xl font-bold text-lg hover:opacity-90 active:scale-95 transition-all whatsapp-shadow" onclick="toggleModal()">
+                        Try Watobot Now
+                    </button>
+<div class="flex items-center gap-2 px-4 py-4 text-on-surface-variant font-label-md text-label-md">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                        No credit card required
+                    </div>
+</div>
+</div>
+</section>
+<!-- Feature Bento Grid -->
+<section class="px-gutter md:px-24 py-24 bg-surface-container-low" id="features">
+<div class="text-center mb-16">
+<h2 class="font-headline-lg text-headline-lg text-on-surface">Powerful Infrastructure</h2>
+<p class="text-on-surface-variant font-body-md">Built for reliability, designed for scale.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Card 1 -->
+<div class="bg-surface p-8 rounded-xl border border-outline-variant whatsapp-shadow hover:border-primary transition-colors flex flex-col gap-4 group">
+<div class="w-12 h-12 bg-primary-container flex items-center justify-center rounded-lg text-on-primary-container">
+<span class="material-symbols-outlined">api</span>
+</div>
+<h3 class="font-headline-md text-headline-md">Remote API Access</h3>
+<p class="text-on-surface-variant font-body-md">Seamlessly integrate with our RESTful API. Deploy message triggers from any backend environment with sub-second latency.</p>
+<div class="mt-auto pt-4 flex items-center text-primary font-bold gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        Read Docs <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface p-8 rounded-xl border border-outline-variant whatsapp-shadow hover:border-primary transition-colors flex flex-col gap-4 group">
+<div class="w-12 h-12 bg-secondary-container flex items-center justify-center rounded-lg text-on-secondary-container">
+<span class="material-symbols-outlined">schedule</span>
+</div>
+<h3 class="font-headline-md text-headline-md">Scheduled Cadence</h3>
+<p class="text-on-surface-variant font-body-md">Set complex message cycles and automated follow-ups. Ensure your communication hits the inbox exactly when it matters most.</p>
+<div class="mt-auto pt-4 flex items-center text-secondary font-bold gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        View Scheduler <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface p-8 rounded-xl border border-outline-variant whatsapp-shadow hover:border-primary transition-colors flex flex-col gap-4 group">
+<div class="w-12 h-12 bg-tertiary-container flex items-center justify-center rounded-lg text-on-tertiary-container">
+<span class="material-symbols-outlined">bolt</span>
+</div>
+<h3 class="font-headline-md text-headline-md">Real-time Webhooks</h3>
+<p class="text-on-surface-variant font-body-md">Receive instant delivery reports and inbound message events. Keep your dashboard synchronized with live conversation data.</p>
+<div class="mt-auto pt-4 flex items-center text-tertiary font-bold gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        Learn More <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Pricing Section -->
+<section class="px-gutter md:px-24 py-24 bg-surface" id="pricing">
+<div class="max-w-4xl mx-auto bg-surface border-4 border-primary-container rounded-xl p-8 md:p-12 whatsapp-shadow relative overflow-hidden">
+<!-- Accent Background Decoration -->
+<div class="absolute top-0 right-0 w-64 h-64 bg-primary-container/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+<div class="flex flex-col md:flex-row justify-between items-center gap-12 relative z-10">
+<div class="flex flex-col gap-4 text-center md:text-left">
+<div class="flex items-center gap-2 justify-center md:justify-start">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="font-label-md text-label-md text-primary font-bold uppercase tracking-widest">Transparent Pricing</span>
+</div>
+<h2 class="font-headline-lg text-4xl font-black text-on-surface">10 Cents <span class="text-on-surface-variant text-xl font-normal">/ message</span></h2>
+<ul class="space-y-3 font-body-md text-on-surface-variant">
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">check</span> No upfront setup fees</li>
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">check</span> Pay-as-you-grow model</li>
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">check</span> No monthly platform subscriptions</li>
+</ul>
+</div>
+<div class="bg-surface-container p-8 rounded-xl flex flex-col items-center gap-6 border border-outline-variant w-full md:w-auto">
+<div class="text-center">
+<h4 class="font-headline-md text-headline-md text-primary">Free Trial</h4>
+<p class="font-body-md text-on-surface-variant">1 Week Duration</p>
+</div>
+<div class="text-4xl font-bold text-on-surface">30 <span class="text-lg font-medium text-on-surface-variant">Messages</span></div>
+<button class="w-full font-label-md text-label-md bg-on-surface text-surface px-8 py-3 rounded-xl font-bold hover:opacity-90 transition-all" onclick="toggleModal()">
+                            Start Trial
+                        </button>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-surface-dim border-t border-outline-variant w-full py-8 px-gutter flex flex-col md:flex-row justify-between items-center gap-stack-gap">
+<div class="flex flex-col items-center md:items-start gap-2">
+<span class="font-label-md text-label-md font-bold text-on-surface">Watobot Automation</span>
+<p class="text-on-surface-variant font-body-md">© 2024 Watobot Automation. All rights reserved.</p>
+</div>
+<div class="flex gap-6">
+<a class="text-on-surface-variant hover:text-primary font-body-md underline transition-colors" href="#">Privacy Policy</a>
+<a class="text-on-surface-variant hover:text-primary font-body-md underline transition-colors" href="#">Terms of Service</a>
+<a class="text-on-surface-variant hover:text-primary font-body-md underline transition-colors" href="#">API Docs</a>
+<a class="text-on-surface-variant hover:text-primary font-body-md underline transition-colors" href="#">Support</a>
+</div>
+</footer>
+<!-- Login Modal -->
+<div class="fixed inset-0 z-[100] hidden flex items-center justify-center px-4" id="loginModal">
+<div class="modal-overlay absolute inset-0" onclick="toggleModal()"></div>
+<div class="bg-surface-container-lowest w-full max-w-md rounded-xl p-8 whatsapp-shadow relative z-10 border border-outline-variant"><div class="flex justify-between items-center mb-6"><h3 class="font-headline-md text-headline-md text-on-surface">Get Started</h3><button class="text-on-surface-variant hover:text-error transition-colors" onclick="toggleModal()"><span class="material-symbols-outlined">close</span></button></div><p class="text-on-surface-variant font-body-md mb-6">Enter your email to receive a secure login link. You can use this same link to sign in from any browser in the future.</p><form class="flex flex-col gap-4" onsubmit="event.preventDefault()"><div class="flex flex-col gap-1"><label class="font-label-md text-label-md text-on-surface-variant">Email Address</label><input class="bg-surface-container-low border-b-2 border-transparent focus:border-primary focus:ring-0 rounded-lg p-3 transition-all outline-none" placeholder="name@company.com" type="email"/></div><button class="bg-primary-container text-on-primary-container font-bold py-4 rounded-xl mt-4 hover:opacity-90 active:scale-95 transition-all">Send Login Link</button><p class="text-center font-body-md text-on-surface-variant mt-4">By continuing, you agree to our <a class="text-primary font-bold" href="#">Terms of Service</a>.</p></form></div>
+</div>
+<script>
+        function toggleModal() {
+            const modal = document.getElementById('loginModal');
+            modal.classList.toggle('hidden');
+            if (!modal.classList.contains('hidden')) {
+                document.body.style.overflow = 'hidden';
+            } else {
+                document.body.style.overflow = 'auto';
+            }
+        }
+
+        // Add some micro-interactions
+        document.querySelectorAll('button, a').forEach(el => {
+            el.addEventListener('mousedown', () => {
+                el.classList.add('scale-95');
+            });
+            el.addEventListener('mouseup', () => {
+                el.classList.remove('scale-95');
+            });
+            el.addEventListener('mouseleave', () => {
+                el.classList.remove('scale-95');
+            });
+        });
+    </script>
+</body></html>

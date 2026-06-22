@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>WatoBot | Dashboard</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700;800&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;family=Plus+Jakarta+Sans:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Style Guidance Implementation -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-surface-variant": "#3c4a3d",
+                    "inverse-surface": "#2d3133",
+                    "on-surface": "#191c1e",
+                    "error": "#ba1a1a",
+                    "tertiary-fixed": "#c0e8ff",
+                    "on-tertiary-container": "#004f69",
+                    "secondary-container": "#76f6cd",
+                    "on-error": "#ffffff",
+                    "surface-bright": "#f7f9fc",
+                    "surface-container-lowest": "#ffffff",
+                    "on-error-container": "#93000a",
+                    "on-primary-container": "#005523",
+                    "on-secondary": "#ffffff",
+                    "background": "#f7f9fc",
+                    "inverse-on-surface": "#eff1f4",
+                    "secondary": "#006b53",
+                    "error-container": "#ffdad6",
+                    "secondary-fixed-dim": "#59dcb5",
+                    "on-background": "#191c1e",
+                    "surface-container-high": "#e6e8eb",
+                    "on-primary-fixed-variant": "#005322",
+                    "surface-container": "#eceef1",
+                    "surface": "#f7f9fc",
+                    "on-secondary-container": "#007057",
+                    "surface-tint": "#006d2f",
+                    "primary-fixed-dim": "#3de273",
+                    "secondary-fixed": "#79f9d0",
+                    "on-tertiary-fixed": "#001e2b",
+                    "surface-container-highest": "#e0e3e6",
+                    "tertiary": "#006686",
+                    "tertiary-fixed-dim": "#70d2ff",
+                    "on-secondary-fixed-variant": "#00513e",
+                    "surface-dim": "#d8dadd",
+                    "on-secondary-fixed": "#002117",
+                    "primary-container": "#25d366",
+                    "on-primary": "#ffffff",
+                    "primary": "#006d2f",
+                    "outline": "#6c7b6b",
+                    "tertiary-container": "#5bc4f2",
+                    "outline-variant": "#bbcbb9",
+                    "inverse-primary": "#3de273",
+                    "surface-container-low": "#f2f4f7",
+                    "primary-fixed": "#66ff8e",
+                    "on-primary-fixed": "#002109",
+                    "on-tertiary-fixed-variant": "#004d66",
+                    "on-tertiary": "#ffffff",
+                    "surface-variant": "#e0e3e6"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "stack-gap": "12px",
+                    "unit": "4px",
+                    "gutter": "16px",
+                    "sidebar-width": "320px",
+                    "container-padding": "24px"
+            },
+            "fontFamily": {
+                    "body-lg": ["Inter"],
+                    "code-sm": ["Geist"],
+                    "headline-md": ["Plus Jakarta Sans"],
+                    "headline-lg": ["Plus Jakarta Sans"],
+                    "label-md": ["Inter"],
+                    "body-md": ["Inter"]
+            },
+            "fontSize": {
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "code-sm": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                    "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "headline-lg": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "label-md": ["13px", {"lineHeight": "18px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .whatsapp-border { border-left: 4px solid #25D366; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #bbcbb9; border-radius: 10px; }
+        
+        /* Step Logic Visuals */
+        .step-active { opacity: 1; pointer-events: auto; }
+        .step-disabled { opacity: 0.5; pointer-events: none; filter: grayscale(1); }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body-md overflow-hidden">
+<!-- Top Navigation -->
+<header class="flex justify-between items-center w-full px-gutter py-2 sticky top-0 z-50 bg-surface dark:bg-inverse-surface border-b border-outline-variant dark:border-on-surface-variant shadow-sm h-16">
+<div class="flex items-center gap-4">
+<span class="font-headline-md text-headline-md font-bold"><span class="text-primary">Wato</span><span class="text-on-surface">Bot</span></span>
+</div>
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-on-surface-variant hover:bg-surface-container-high p-2 rounded-full transition-all">notifications</button>
+<button class="material-symbols-outlined text-on-surface-variant hover:bg-surface-container-high p-2 rounded-full transition-all">settings</button>
+<button class="flex items-center gap-2 text-error hover:bg-error/10 px-3 py-2 rounded-xl transition-all font-label-md">
+<span class="material-symbols-outlined text-[20px]">logout</span>
+<span class="hidden md:inline">Logout</span>
+</button>
+<button class="bg-primary-container text-on-primary-container px-4 py-2 rounded-xl font-label-md active:scale-95 transition-transform">New Automation</button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of a user" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBintC49tqV-v1aq9sNiwE5r2ZxAqPXqbiNEoEMpR2ko_-mMZ6SS6Iy23Dd8qbo104hjvFoH9vEH7qyNFlNXxIeG-R0xwM8NDTauybYMAP0MpPp19JoOfLMGwIxCrjDaCSp0qthYGPjLCd1I2eg-_9LirkhIZu32gN9J3e2NfsXlP4rORXTtA4UDv5kNcHa8su4MbPdfIzkLNC3hGOw8--oaVBpgYfB4snRbc7xoIqMujf14bsLwbfwFYv7OpjIOR4WFLOevVhrH2o"/>
+</div>
+</div>
+</header>
+<div class="flex h-[calc(100vh-64px)] overflow-hidden justify-center">
+<!-- Main Workspace -->
+<main class="flex-1 overflow-y-auto custom-scrollbar p-container-padding bg-background">
+<div class="max-w-6xl mx-auto space-y-stack-gap">
+<!-- Onboarding Bento Grid -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-stack-gap">
+<!-- Step 1: Connect WhatsApp -->
+<section class="md:col-span-7 bg-surface-container-lowest p-6 rounded-xl border border-outline-variant shadow-sm flex flex-col md:flex-row gap-6 transition-all duration-500" id="step-1">
+<div class="flex-1 space-y-4">
+<div class="flex items-center gap-2">
+<span class="bg-primary text-on-primary w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">1</span>
+<h3 class="font-headline-md text-headline-md">Connect your WhatsApp</h3>
+</div>
+<p class="text-on-surface-variant text-body-md">Scan this QR code with your WhatsApp mobile app to authorize WatoBot and begin automating your messaging workflows.</p>
+<ul class="space-y-2 text-on-surface-variant text-body-md">
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-[18px]">check_circle</span> Open WhatsApp on your phone</li>
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-[18px]">check_circle</span> Tap Menu or Settings and select Linked Devices</li>
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-[18px]">check_circle</span> Point your phone to this screen to capture the code</li>
+</ul>
+</div>
+<div class="w-48 h-48 bg-surface-container mx-auto p-4 rounded-xl border-2 border-dashed border-primary/30 flex items-center justify-center relative group overflow-hidden">
+<img class="w-full h-full opacity-80 group-hover:opacity-100 transition-opacity" data-alt="A clean QR code" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCtMhINDQB1dh_mvNlIPMyn6YYNmFvtCV5y0m5C5aZKS99BKhfuye8Fh6l4x_98KPzR0bITovxVFMWIqk67YHF7U82pmzFxZPkJqcZ8ehvtbB-76g0WDnN9y7dn7JAAk-ZOJvh6QthGT1OlMymZ1sY3XiAd22pdkx6sWqpv55J4ZcjP56gm5psPxVFFn4rhBt_uG5StQvLWzpd5jnr3tQgBXyc37QBOuf66mLm7DcYDY5s1DdLfVOzCM3d5WFXgJJMG-8pkRHKnN2I"/>
+<div class="absolute inset-0 bg-primary/5 flex items-center justify-center pointer-events-none">
+<span class="material-symbols-outlined text-primary text-4xl animate-pulse">qr_code_scanner</span>
+</div>
+</div>
+</section>
+<!-- Step 2: API Key -->
+<section class="md:col-span-5 bg-surface-container-lowest p-6 rounded-xl border border-outline-variant shadow-sm flex flex-col justify-between step-disabled transition-all duration-500" id="step-2">
+<div class="space-y-4">
+<div class="flex items-center gap-2">
+<span class="bg-outline text-on-primary w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">2</span>
+<h3 class="font-headline-md text-headline-md">API Access</h3>
+</div>
+<p class="text-on-surface-variant text-body-md">Your secure API key for external integrations and custom logic.</p>
+<div class="bg-surface-variant p-3 rounded-lg flex items-center justify-between gap-2 overflow-hidden">
+<code class="font-code-sm text-code-sm truncate text-on-surface-variant">wat_live_83920xky_92mzn01LqpZ39</code>
+<button class="material-symbols-outlined text-primary hover:bg-white p-1 rounded transition-colors cursor-pointer" onclick="this.innerText='check'">content_copy</button>
+</div>
+</div>
+<div class="mt-4">
+<button class="text-secondary font-label-md flex items-center gap-1 hover:underline">
+<span class="material-symbols-outlined text-[18px]">description</span> View API Documentation
+                            </button>
+</div>
+</section>
+</div>
+<!-- Main Automation Area -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-stack-gap">
+<!-- Scheduled Messages Builder -->
+<section class="lg:col-span-2 space-y-stack-gap">
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden flex flex-col">
+<div class="p-6 border-b border-outline-variant flex justify-between items-center">
+<div>
+<h3 class="font-headline-md text-headline-md">Schedule a Message</h3>
+<p class="text-on-surface-variant text-body-md">Configure automated messaging triggers</p>
+</div>
+</div>
+<div class="p-6 space-y-gutter">
+<!-- Form Area -->
+<div class="whatsapp-border bg-surface-container-low p-5 rounded-xl space-y-4">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="space-y-2">
+<label class="font-label-md text-on-surface-variant">Recipient (User/Group)</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" placeholder="Search contacts..." type="text"/>
+</div>
+</div>
+<div class="space-y-2">
+<label class="font-label-md text-on-surface-variant">Frequency</label>
+<select class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all appearance-none">
+<option>Once</option>
+<option>Daily</option>
+<option>Weekly</option>
+<option>Monthly</option>
+</select>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="space-y-2">
+<label class="font-label-md text-on-surface-variant">Date &amp; Time</label>
+<div class="flex gap-2">
+<input class="flex-1 px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 outline-none" type="date"/>
+<input class="w-32 px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 outline-none" type="time"/>
+</div>
+</div>
+<div class="space-y-2 flex flex-col justify-end">
+<button class="w-full h-[42px] bg-secondary-container text-on-secondary-container rounded-lg font-label-md hover:opacity-90 transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[20px]">send_time_extension</span> Test Sending
+                                        </button>
+</div>
+</div>
+<div class="space-y-2">
+<label class="font-label-md text-on-surface-variant">Message Content</label>
+<textarea class="w-full px-4 py-3 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all resize-none" placeholder="Type your message here..." rows="3"></textarea>
+</div>
+<div class="pt-2">
+<button class="w-full bg-primary text-on-primary py-3 rounded-xl font-label-md flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-md">
+<span class="material-symbols-outlined">add_task</span> Create Schedule
+                                    </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Active Schedules Section -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden flex flex-col">
+<div class="p-6 border-b border-outline-variant">
+<h3 class="font-headline-md text-headline-md">Active Schedules</h3>
+</div>
+<div class="p-0">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low text-on-surface-variant text-label-md border-b border-outline-variant">
+<th class="px-6 py-3 font-semibold">Recipient</th>
+<th class="px-6 py-3 font-semibold">Frequency</th>
+<th class="px-6 py-3 font-semibold">Next Run</th>
+<th class="px-6 py-3 font-semibold text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-sm">person</span>
+</div>
+<span class="font-body-md text-on-surface">Marketing Team (Group)</span>
+</div>
+</td>
+<td class="px-6 py-4 text-on-surface-variant text-body-md">Daily</td>
+<td class="px-6 py-4 text-on-surface-variant text-body-md">Tomorrow, 09:00 AM</td>
+<td class="px-6 py-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-1 hover:text-primary transition-colors"><span class="material-symbols-outlined text-[20px]">edit</span></button>
+<button class="p-1 hover:text-error transition-colors"><span class="material-symbols-outlined text-[20px]">delete</span></button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-sm">person</span>
+</div>
+<span class="font-body-md text-on-surface">John Doe</span>
+</div>
+</td>
+<td class="px-6 py-4 text-on-surface-variant text-body-md">Weekly</td>
+<td class="px-6 py-4 text-on-surface-variant text-body-md">Monday, 10:00 AM</td>
+<td class="px-6 py-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-1 hover:text-primary transition-colors"><span class="material-symbols-outlined text-[20px]">edit</span></button>
+<button class="p-1 hover:text-error transition-colors"><span class="material-symbols-outlined text-[20px]">delete</span></button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="p-6 text-center text-on-surface-variant opacity-50 italic text-body-md hidden">
+<span class="material-symbols-outlined text-4xl mb-2 block">event_busy</span>
+No active schedules yet. Use the form above to get started.
+</div>
+</div>
+</div>
+</section>
+<!-- Logs Accordion -->
+<section class="lg:col-span-1 space-y-4">
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden h-full flex flex-col">
+<div class="p-6 border-b border-outline-variant">
+<h3 class="font-headline-md text-headline-md">Recent Logs</h3>
+</div>
+<div class="flex-1 overflow-y-auto custom-scrollbar">
+<!-- Accordion Items -->
+<div class="divide-y divide-outline-variant">
+<details class="group">
+<summary class="list-none cursor-pointer p-4 hover:bg-surface-container transition-colors flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+<div>
+<p class="font-label-md text-on-surface">Daily Report - Marketing</p>
+<p class="text-xs text-on-surface-variant">Today at 09:00 AM</p>
+</div>
+</div>
+<span class="material-symbols-outlined group-open:rotate-180 transition-transform">expand_more</span>
+</summary>
+<div class="px-4 pb-4 pt-1 text-body-md text-on-surface-variant bg-surface-container-low/50">
+<div class="bg-white p-3 rounded border border-outline-variant/30 text-xs font-code-sm">
+<p><span class="text-primary font-bold">SUCCESS:</span> Message sent to +1234567890</p>
+<p><span class="text-secondary font-bold">ID:</span> msg_9210_xq</p>
+<p><span class="text-secondary font-bold">LATENCY:</span> 1.2s</p>
+</div>
+</div>
+</details>
+<details class="group">
+<summary class="list-none cursor-pointer p-4 hover:bg-surface-container transition-colors flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-2 h-2 rounded-full bg-primary"></div>
+<div>
+<p class="font-label-md text-on-surface">Client Onboarding</p>
+<p class="text-xs text-on-surface-variant">Yesterday at 14:30 PM</p>
+</div>
+</div>
+<span class="material-symbols-outlined group-open:rotate-180 transition-transform">expand_more</span>
+</summary>
+<div class="px-4 pb-4 pt-1 text-body-md text-on-surface-variant bg-surface-container-low/50">
+<div class="bg-white p-3 rounded border border-outline-variant/30 text-xs font-code-sm">
+<p><span class="text-primary font-bold">SUCCESS:</span> Message sent to 12 members</p>
+<p><span class="text-secondary font-bold">ID:</span> batch_881_mn</p>
+</div>
+</div>
+</details>
+<details class="group">
+<summary class="list-none cursor-pointer p-4 hover:bg-surface-container transition-colors flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-2 h-2 rounded-full bg-error"></div>
+<div>
+<p class="font-label-md text-on-surface">Weekly Cleanup</p>
+<p class="text-xs text-on-surface-variant">Jan 12 at 00:00 AM</p>
+</div>
+</div>
+<span class="material-symbols-outlined group-open:rotate-180 transition-transform">expand_more</span>
+</summary>
+<div class="px-4 pb-4 pt-1 text-body-md text-on-surface-variant bg-surface-container-low/50">
+<div class="bg-error-container/20 p-3 rounded border border-error/30 text-xs font-code-sm">
+<p><span class="text-error font-bold">FAILED:</span> Recipient not found</p>
+<p><span class="text-secondary font-bold">CODE:</span> 404_ERR</p>
+</div>
+</div>
+</details>
+</div>
+</div>
+<div class="p-4 bg-surface-container-high/50 text-center">
+<button class="text-primary font-label-md hover:underline">Download Full History</button>
+</div>
+</div>
+</section>
+</div>
+</div>
+</main>
+</div>
+<!-- Footer -->
+<footer class="w-full py-8 px-gutter flex flex-col md:flex-row justify-between items-center gap-stack-gap bg-surface-dim dark:bg-inverse-surface border-t border-outline-variant">
+<div class="flex flex-col items-center md:items-start">
+<span class="font-label-md text-label-md font-bold text-on-surface">WatoBot Automation</span>
+<p class="text-on-surface-variant text-body-md">© 2024 WatoBot Automation. All rights reserved.</p>
+</div>
+<div class="flex gap-6">
+<a class="text-on-surface-variant hover:text-primary transition-opacity hover:opacity-80 underline font-body-md text-body-md" href="#">Privacy Policy</a>
+<a class="text-on-surface-variant hover:text-primary transition-opacity hover:opacity-80 underline font-body-md text-body-md" href="#">Terms of Service</a>
+<a class="text-on-surface-variant hover:text-primary transition-opacity hover:opacity-80 underline font-body-md text-body-md" href="#">API Docs</a>
+<a class="text-on-surface-variant hover:text-primary transition-opacity hover:opacity-80 underline font-body-md text-body-md" href="#">Support</a>
+</div>
+</footer>
+<!-- Interactive Logic (Vanilla JS) -->
+<script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const step1 = document.getElementById('step-1');
+            const step2 = document.getElementById('step-2');
+            
+            setTimeout(() => {
+                if(step1) {
+                    step1.classList.add('border-primary');
+                    const pulse = step1.querySelector('.animate-pulse');
+                    if(pulse) pulse.classList.remove('animate-pulse');
+                    const icon = step1.querySelector('.material-symbols-outlined');
+                    if(icon && icon.innerText === 'qr_code_scanner') icon.innerText = 'verified';
+                }
+                
+                if(step2) {
+                    step2.classList.remove('step-disabled');
+                    const badge = step2.querySelector('.bg-outline');
+                    if(badge) badge.classList.replace('bg-outline', 'bg-primary');
+                }
+            }, 5000);
+        });
+
+        const copyBtn = document.querySelector('[onclick*="check"]');
+        if(copyBtn) {
+            copyBtn.addEventListener('click', () => {
+                const originalText = copyBtn.innerText;
+                copyBtn.innerText = 'check';
+                copyBtn.style.color = '#006d2f';
+                setTimeout(() => {
+                    copyBtn.innerText = originalText;
+                    copyBtn.style.color = '';
+                }, 2000);
+            });
+        }
+    </script>
+</body></html>
