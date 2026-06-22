@@ -1,0 +1,27 @@
+nohup: ignoring input
+◇ injected env (9) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+{"level":30,"time":1782160955347,"pid":21838,"hostname":"vm-f64c1596-a5e0-4660-a029-6fa237862ba5","msg":"Server listening at http://127.0.0.1:3000"}
+Server listening on 0.0.0.0:3000
+{"level":30,"time":1782160955348,"pid":21838,"hostname":"vm-f64c1596-a5e0-4660-a029-6fa237862ba5","msg":"Server listening at http://10.202.0.77:3000"}
+{"level":30,"time":1782160958300,"pid":21838,"hostname":"vm-f64c1596-a5e0-4660-a029-6fa237862ba5","reqId":"req-1","req":{"method":"POST","url":"/api/register","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":60756},"msg":"incoming request"}
+Email sent: <93937ec5-02d2-d61c-351c-746d914f487f@mudbot.local>
+{"level":30,"time":1782160958578,"pid":21838,"hostname":"vm-f64c1596-a5e0-4660-a029-6fa237862ba5","reqId":"req-1","res":{"statusCode":200},"responseTime":277.47679000068456,"msg":"request completed"}
+{"level":30,"time":1782160989088,"pid":21838,"hostname":"vm-f64c1596-a5e0-4660-a029-6fa237862ba5","reqId":"req-2","req":{"method":"POST","url":"/api/register","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":47732},"msg":"incoming request"}
+Email sent: <18a225b9-a865-80c4-874c-7df5467071c3@mudbot.local>
+{"level":30,"time":1782160989247,"pid":21838,"hostname":"vm-f64c1596-a5e0-4660-a029-6fa237862ba5","reqId":"req-2","res":{"statusCode":200},"responseTime":158.82811899948865,"msg":"request completed"}
+{"level":30,"time":1782160991335,"pid":21838,"hostname":"vm-f64c1596-a5e0-4660-a029-6fa237862ba5","reqId":"req-3","req":{"method":"GET","url":"/api/verify/6e79f87c39dce933edca5179ed612643d400850368d4027eeabf68135089b405","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":47738},"msg":"incoming request"}
+{"level":30,"time":1782160991416,"pid":21838,"hostname":"vm-f64c1596-a5e0-4660-a029-6fa237862ba5","reqId":"req-3","res":{"statusCode":200},"responseTime":80.95747199933976,"msg":"request completed"}
+{"level":30,"time":1782161093595,"pid":21838,"hostname":"vm-f64c1596-a5e0-4660-a029-6fa237862ba5","reqId":"req-4","req":{"method":"POST","url":"/api/register","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":42452},"msg":"incoming request"}
+Email sent: <3a0f8372-b331-31ac-0962-7eb2d55d1138@mudbot.local>
+{"level":30,"time":1782161093752,"pid":21838,"hostname":"vm-f64c1596-a5e0-4660-a029-6fa237862ba5","reqId":"req-4","res":{"statusCode":200},"responseTime":156.26443099975586,"msg":"request completed"}
+{"level":30,"time":1782161095819,"pid":21838,"hostname":"vm-f64c1596-a5e0-4660-a029-6fa237862ba5","reqId":"req-5","req":{"method":"GET","url":"/api/verify/6e79f87c39dce933edca5179ed612643d400850368d4027eeabf68135089b405","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":40946},"msg":"incoming request"}
+{"level":30,"time":1782161095883,"pid":21838,"hostname":"vm-f64c1596-a5e0-4660-a029-6fa237862ba5","reqId":"req-5","res":{"statusCode":200},"responseTime":64.22006299998611,"msg":"request completed"}
+{"level":30,"time":1782161184448,"pid":21838,"hostname":"vm-f64c1596-a5e0-4660-a029-6fa237862ba5","reqId":"req-6","req":{"method":"POST","url":"/api/register","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":60594},"msg":"incoming request"}
+Email sent: <17e7c2ba-386f-0793-3f39-e73986b46462@mudbot.local>
+{"level":30,"time":1782161184604,"pid":21838,"hostname":"vm-f64c1596-a5e0-4660-a029-6fa237862ba5","reqId":"req-6","res":{"statusCode":200},"responseTime":155.2408720003441,"msg":"request completed"}
+{"level":30,"time":1782161186676,"pid":21838,"hostname":"vm-f64c1596-a5e0-4660-a029-6fa237862ba5","reqId":"req-7","req":{"method":"GET","url":"/api/verify/6e79f87c39dce933edca5179ed612643d400850368d4027eeabf68135089b405","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":60602},"msg":"incoming request"}
+{"level":30,"time":1782161186744,"pid":21838,"hostname":"vm-f64c1596-a5e0-4660-a029-6fa237862ba5","reqId":"req-7","res":{"statusCode":200},"responseTime":67.96113999933004,"msg":"request completed"}
+{"level":30,"time":1782161186795,"pid":21838,"hostname":"vm-f64c1596-a5e0-4660-a029-6fa237862ba5","reqId":"req-8","req":{"method":"POST","url":"/api/apikey/generate","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":60608},"msg":"incoming request"}
+{"level":30,"time":1782161186863,"pid":21838,"hostname":"vm-f64c1596-a5e0-4660-a029-6fa237862ba5","reqId":"req-8","res":{"statusCode":200},"responseTime":68.03435799945146,"msg":"request completed"}
+{"level":30,"time":1782161402042,"pid":21838,"hostname":"vm-f64c1596-a5e0-4660-a029-6fa237862ba5","reqId":"req-9","req":{"method":"GET","url":"/","host":"","remoteAddress":"198.235.24.52","remotePort":57260},"msg":"incoming request"}
+{"level":30,"time":1782161402050,"pid":21838,"hostname":"vm-f64c1596-a5e0-4660-a029-6fa237862ba5","reqId":"req-9","res":{"statusCode":200},"responseTime":7.646739000454545,"msg":"request completed"}

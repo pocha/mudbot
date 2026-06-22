@@ -1,0 +1,29 @@
+{
+  "name": "mudbot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pocha/mudbot.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/pocha/mudbot/issues"
+  },
+  "homepage": "https://github.com/pocha/mudbot#readme",
+  "dependencies": {
+    "@fastify/cors": "^11.2.0",
+    "@fastify/static": "^9.1.3",
+    "dotenv": "^17.4.2",
+    "fastify": "^5.8.5",
+    "maildev": "^2.2.1",
+    "nodemailer": "^9.0.1"
+  }
+}

@@ -242,9 +242,28 @@
 <!-- Login Modal -->
 <div class="fixed inset-0 z-[100] hidden flex items-center justify-center px-4" id="loginModal">
 <div class="modal-overlay absolute inset-0" onclick="toggleModal()"></div>
-<div class="bg-surface-container-lowest w-full max-w-md rounded-xl p-8 whatsapp-shadow relative z-10 border border-outline-variant"><div class="flex justify-between items-center mb-6"><h3 class="font-headline-md text-headline-md text-on-surface">Get Started</h3><button class="text-on-surface-variant hover:text-error transition-colors" onclick="toggleModal()"><span class="material-symbols-outlined">close</span></button></div><p class="text-on-surface-variant font-body-md mb-6">Enter your email to receive a secure login link. You can use this same link to sign in from any browser in the future.</p><form class="flex flex-col gap-4" onsubmit="event.preventDefault()"><div class="flex flex-col gap-1"><label class="font-label-md text-label-md text-on-surface-variant">Email Address</label><input class="bg-surface-container-low border-b-2 border-transparent focus:border-primary focus:ring-0 rounded-lg p-3 transition-all outline-none" placeholder="name@company.com" type="email"/></div><button class="bg-primary-container text-on-primary-container font-bold py-4 rounded-xl mt-4 hover:opacity-90 active:scale-95 transition-all">Send Login Link</button><p class="text-center font-body-md text-on-surface-variant mt-4">By continuing, you agree to our <a class="text-primary font-bold" href="#">Terms of Service</a>.</p></form></div>
+<div class="bg-surface-container-lowest w-full max-w-md rounded-xl p-8 whatsapp-shadow relative z-10 border border-outline-variant">
+    <div class="flex justify-between items-center mb-6">
+        <h3 class="font-headline-md text-headline-md text-on-surface">Get Started</h3>
+        <button class="text-on-surface-variant hover:text-error transition-colors" onclick="toggleModal()">
+            <span class="material-symbols-outlined">close</span>
+        </button>
+    </div>
+    <p class="text-on-surface-variant font-body-md mb-6">Enter your email to receive a secure login link. You can use this same link to sign in from any browser in the future.</p>
+    <form class="flex flex-col gap-4" onsubmit="handleRegistration(event)">
+        <div class="flex flex-col gap-1">
+            <label class="font-label-md text-label-md text-on-surface-variant">Email Address</label>
+            <input id="emailInput" class="bg-surface-container-low border-b-2 border-transparent focus:border-primary focus:ring-0 rounded-lg p-3 transition-all outline-none" placeholder="name@company.com" type="email" required/>
+        </div>
+        <div id="message" class="min-h-[20px]"></div>
+        <button id="submitBtn" type="submit" class="bg-primary-container text-on-primary-container font-bold py-4 rounded-xl hover:opacity-90 active:scale-95 transition-all">Send Login Link</button>
+        <p class="text-center font-body-md text-on-surface-variant mt-2">By continuing, you agree to our <a class="text-primary font-bold" href="#">Terms of Service</a>.</p>
+    </form>
+</div>
 </div>
 <script>
+        const API_BASE = '';  // Same origin
+
         function toggleModal() {
             const modal = document.getElementById('loginModal');
             modal.classList.toggle('hidden');
@@ -253,6 +272,64 @@
             } else {
                 document.body.style.overflow = 'auto';
             }
+        }
+
+        async function handleRegistration(event) {
+            event.preventDefault();
+            
+            const emailInput = document.getElementById('emailInput');
+            const submitBtn = document.getElementById('submitBtn');
+            const messageDiv = document.getElementById('message');
+            const email = emailInput.value.trim();
+
+            if (!email) {
+                showMessage('Please enter a valid email address', 'error');
+                return;
+            }
+
+            // Disable button and show loading state
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Sending...';
+            messageDiv.textContent = '';
+
+            try {
+                const response = await fetch(`${API_BASE}/api/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessage(`Success! Check your email (${email}) for the login link.`, 'success');
+                    emailInput.value = '';
+                    
+                    // Close modal after 3 seconds
+                    setTimeout(() => {
+                        toggleModal();
+                        messageDiv.textContent = '';
+                    }, 3000);
+                } else {
+                    showMessage(data.message || 'Registration failed. Please try again.', 'error');
+                }
+            } catch (error) {
+                console.error('Registration error:', error);
+                showMessage('Network error. Please check your connection and try again.', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Send Login Link';
+            }
+        }
+
+        function showMessage(text, type) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = text;
+            messageDiv.className = type === 'error' 
+                ? 'text-error font-body-md mt-2' 
+                : 'text-primary font-body-md mt-2';
         }
 
         // Add some micro-interactions

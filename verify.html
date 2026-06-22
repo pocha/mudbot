@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify - Mudbot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-green-50 to-blue-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <div class="max-w-2xl mx-auto">
+            <!-- Header -->
+            <div class="text-center mb-8">
+                <h1 class="text-4xl font-bold text-gray-800 mb-2">Mudbot</h1>
+                <p class="text-gray-600">WhatsApp Scheduler</p>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loading" class="bg-white rounded-lg shadow-lg p-8 text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+                <p class="text-gray-600">Verifying your access...</p>
+            </div>
+
+            <!-- Error State -->
+            <div id="error" class="hidden bg-white rounded-lg shadow-lg p-8">
+                <div class="text-center">
+                    <svg class="mx-auto h-12 w-12 text-red-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Verification Failed</h2>
+                    <p id="errorMessage" class="text-gray-600 mb-6">Invalid or expired link.</p>
+                    <a href="/" class="inline-block bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition">
+                        Return to Home
+                    </a>
+                </div>
+            </div>
+
+            <!-- WhatsApp QR Code -->
+            <div id="qrCode" class="hidden bg-white rounded-lg shadow-lg p-8">
+                <div class="text-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Connect WhatsApp</h2>
+                    <p class="text-gray-600">Scan this QR code with your WhatsApp mobile app</p>
+                </div>
+                
+                <div class="bg-gray-100 rounded-lg p-8 mb-6">
+                    <div id="qrDisplay" class="flex justify-center items-center min-h-[300px]">
+                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="flex items-start space-x-3 text-sm text-gray-600">
+                        <span class="flex-shrink-0 w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-semibold">1</span>
+                        <p>Open WhatsApp on your phone</p>
+                    </div>
+                    <div class="flex items-start space-x-3 text-sm text-gray-600">
+                        <span class="flex-shrink-0 w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-semibold">2</span>
+                        <p>Tap Menu or Settings and select Linked Devices</p>
+                    </div>
+                    <div class="flex items-start space-x-3 text-sm text-gray-600">
+                        <span class="flex-shrink-0 w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-semibold">3</span>
+                        <p>Point your phone to this screen to scan the code</p>
+                    </div>
+                </div>
+
+                <div class="mt-6 text-center">
+                    <button id="refreshQR" class="text-green-600 hover:text-green-700 font-medium">
+                        Refresh QR Code
+                    </button>
+                </div>
+            </div>
+
+            <!-- Success State -->
+            <div id="success" class="hidden bg-white rounded-lg shadow-lg p-8">
+                <div class="text-center">
+                    <svg class="mx-auto h-12 w-12 text-green-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Connected!</h2>
+                    <p class="text-gray-600 mb-6">Redirecting to dashboard...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        let checkInterval = null;
+
+        if (!token) {
+            showError('No verification token provided');
+        } else {
+            verifyToken();
+        }
+
+        async function verifyToken() {
+            try {
+                const response = await fetch(`/api/verify/${token}`);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showError(data.error || 'Verification failed');
+                    return;
+                }
+
+                // Store token in localStorage
+                localStorage.setItem('mudbot_token', token);
+                localStorage.setItem('mudbot_email', data.user.email);
+
+                if (data.user.whatsappConnected) {
+                    // Already connected, redirect to dashboard
+                    showSuccess();
+                    setTimeout(() => {
+                        window.location.href = '/dashboard.html';
+                    }, 1500);
+                } else {
+                    // Show QR code
+                    showQRCode();
+                }
+            } catch (error) {
+                console.error('Verification error:', error);
+                showError('Failed to verify. Please try again.');
+            }
+        }
+
+        async function loadQRCode() {
+            try {
+                const response = await fetch('/api/whatsapp/qr', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                const data = await response.json();
+
+                if (response.ok && data.qr) {
+                    // Display QR code as ASCII art or convert to image
+                    const qrDisplay = document.getElementById('qrDisplay');
+                    qrDisplay.innerHTML = `<pre class="text-xs leading-tight">${escapeHtml(data.qr)}</pre>`;
+                    
+                    // Start checking for connection
+                    startConnectionCheck();
+                } else {
+                    document.getElementById('qrDisplay').innerHTML = 
+                        '<p class="text-red-600">Failed to load QR code. Please refresh.</p>';
+                }
+            } catch (error) {
+                console.error('QR code error:', error);
+                document.getElementById('qrDisplay').innerHTML = 
+                    '<p class="text-red-600">Failed to load QR code. Please refresh.</p>';
+            }
+        }
+
+        function startConnectionCheck() {
+            // Check connection status every 3 seconds
+            checkInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('/api/whatsapp/status', {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    const data = await response.json();
+
+                    if (data.loggedIn) {
+                        clearInterval(checkInterval);
+                        showSuccess();
+                        setTimeout(() => {
+                            window.location.href = '/dashboard.html';
+                        }, 1500);
+                    }
+                } catch (error) {
+                    console.error('Status check error:', error);
+                }
+            }, 3000);
+        }
+
+        function showError(message) {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('error').classList.remove('hidden');
+            document.getElementById('errorMessage').textContent = message;
+        }
+
+        function showQRCode() {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('qrCode').classList.remove('hidden');
+            loadQRCode();
+        }
+
+        function showSuccess() {
+            if (checkInterval) {
+                clearInterval(checkInterval);
+            }
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('qrCode').classList.add('hidden');
+            document.getElementById('success').classList.remove('hidden');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Refresh QR code button
+        document.getElementById('refreshQR')?.addEventListener('click', () => {
+            if (checkInterval) {
+                clearInterval(checkInterval);
+            }
+            document.getElementById('qrDisplay').innerHTML = 
+                '<div class="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>';
+            loadQRCode();
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (checkInterval) {
+                clearInterval(checkInterval);
+            }
+        });
+    </script>
+</body>
+</html>

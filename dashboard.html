@@ -385,40 +385,282 @@ No active schedules yet. Use the form above to get started.
 <a class="text-on-surface-variant hover:text-primary transition-opacity hover:opacity-80 underline font-body-md text-body-md" href="#">Support</a>
 </div>
 </footer>
-<!-- Interactive Logic (Vanilla JS) -->
+<!-- Backend Integration Script -->
 <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const step1 = document.getElementById('step-1');
-            const step2 = document.getElementById('step-2');
-            
-            setTimeout(() => {
-                if(step1) {
-                    step1.classList.add('border-primary');
-                    const pulse = step1.querySelector('.animate-pulse');
-                    if(pulse) pulse.classList.remove('animate-pulse');
-                    const icon = step1.querySelector('.material-symbols-outlined');
-                    if(icon && icon.innerText === 'qr_code_scanner') icon.innerText = 'verified';
-                }
-                
-                if(step2) {
-                    step2.classList.remove('step-disabled');
-                    const badge = step2.querySelector('.bg-outline');
-                    if(badge) badge.classList.replace('bg-outline', 'bg-primary');
-                }
-            }, 5000);
-        });
+const API_BASE = window.location.origin;
+let authToken = null;
+let schedules = [];
+let connectionStatus = { connected: false };
 
-        const copyBtn = document.querySelector('[onclick*="check"]');
-        if(copyBtn) {
-            copyBtn.addEventListener('click', () => {
-                const originalText = copyBtn.innerText;
-                copyBtn.innerText = 'check';
-                copyBtn.style.color = '#006d2f';
-                setTimeout(() => {
-                    copyBtn.innerText = originalText;
-                    copyBtn.style.color = '';
-                }, 2000);
-            });
+// Check authentication on page load
+document.addEventListener('DOMContentLoaded', async () => {
+    // Get token from URL or localStorage
+    const urlParams = new URLSearchParams(window.location.search);
+    authToken = urlParams.get('token') || localStorage.getItem('authToken');
+    
+    if (!authToken) {
+        alert('Authentication required. Redirecting to home page...');
+        window.location.href = '/';
+        return;
+    }
+    
+    // Store token for future use
+    localStorage.setItem('authToken', authToken);
+    
+    // Initialize dashboard
+    await checkConnectionStatus();
+    await loadSchedules();
+    
+    // Setup event listeners
+    setupEventListeners();
+});
+
+// Check WhatsApp connection status
+async function checkConnectionStatus() {
+    try {
+        const response = await fetch(`${API_BASE}/api/whatsapp/status`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (response.ok) {
+            connectionStatus = await response.json();
+            updateConnectionUI();
+        } else if (response.status === 401) {
+            alert('Session expired. Please login again.');
+            localStorage.removeItem('authToken');
+            window.location.href = '/';
         }
-    </script>
+    } catch (error) {
+        console.error('Error checking connection:', error);
+    }
+}
+
+// Update UI based on connection status
+function updateConnectionUI() {
+    const step1 = document.getElementById('step-1');
+    const step2 = document.getElementById('step-2');
+    
+    if (connectionStatus.connected) {
+        // Update step 1 to show connected
+        if (step1) {
+            step1.classList.add('border-primary');
+            const pulse = step1.querySelector('.animate-pulse');
+            if (pulse) pulse.classList.remove('animate-pulse');
+            const icon = step1.querySelector('.material-symbols-outlined');
+            if (icon && icon.innerText === 'qr_code_scanner') icon.innerText = 'verified';
+        }
+        
+        // Enable step 2
+        if (step2) {
+            step2.classList.remove('step-disabled');
+            const badge = step2.querySelector('.bg-outline');
+            if (badge) badge.classList.replace('bg-outline', 'bg-primary');
+        }
+    } else {
+        // Show not connected - redirect to verify page
+        alert('WhatsApp not connected. Please scan QR code first.');
+        window.location.href = `/verify.html?token=${authToken}`;
+    }
+}
+
+// Load all schedules
+async function loadSchedules() {
+    try {
+        const response = await fetch(`${API_BASE}/api/schedules`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (response.ok) {
+            schedules = await response.json();
+            renderSchedules();
+        }
+    } catch (error) {
+        console.error('Error loading schedules:', error);
+    }
+}
+
+// Render schedules in the table
+function renderSchedules() {
+    const tbody = document.querySelector('table tbody');
+    if (!tbody) return;
+    
+    if (schedules.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="4" class="px-6 py-8 text-center text-on-surface-variant">
+                    No schedules yet. Create your first schedule above!
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    tbody.innerHTML = schedules.map(schedule => {
+        const nextRun = new Date(schedule.nextRun || Date.now()).toLocaleString();
+        const frequency = schedule.frequency || 'Once';
+        
+        return `
+            <tr class="hover:bg-surface-container-low/50 transition-colors">
+                <td class="px-6 py-4">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                            <span class="material-symbols-outlined text-sm">person</span>
+                        </div>
+                        <span class="font-body-md text-on-surface">${escapeHtml(schedule.recipient)}</span>
+                    </div>
+                </td>
+                <td class="px-6 py-4 text-on-surface-variant text-body-md">${frequency}</td>
+                <td class="px-6 py-4 text-on-surface-variant text-body-md">${nextRun}</td>
+                <td class="px-6 py-4 text-right">
+                    <div class="flex justify-end gap-2">
+                        <button onclick="editSchedule('${schedule.id}')" class="p-1 hover:text-primary transition-colors">
+                            <span class="material-symbols-outlined text-[20px]">edit</span>
+                        </button>
+                        <button onclick="deleteSchedule('${schedule.id}')" class="p-1 hover:text-error transition-colors">
+                            <span class="material-symbols-outlined text-[20px]">delete</span>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// Setup event listeners
+function setupEventListeners() {
+    // Create schedule button
+    const createBtn = document.querySelector('button[class*="Create Schedule"]');
+    if (createBtn) {
+        createBtn.addEventListener('click', handleCreateSchedule);
+    }
+    
+    // Test sending button
+    const testBtn = document.querySelector('button[class*="Test Sending"]');
+    if (testBtn) {
+        testBtn.addEventListener('click', handleTestMessage);
+    }
+}
+
+// Handle schedule creation
+async function handleCreateSchedule() {
+    const recipient = document.querySelector('input[placeholder*="Search contacts"]').value;
+    const frequency = document.querySelector('select').value;
+    const date = document.querySelector('input[type="date"]').value;
+    const time = document.querySelector('input[type="time"]').value;
+    const message = document.querySelector('textarea').value;
+    
+    if (!recipient || !message) {
+        alert('Please fill in recipient and message fields');
+        return;
+    }
+    
+    const scheduleData = {
+        recipient,
+        frequency: frequency.toLowerCase(),
+        datetime: `${date} ${time}`,
+        message
+    };
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/schedules`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(scheduleData)
+        });
+        
+        if (response.ok) {
+            alert('Schedule created successfully!');
+            await loadSchedules();
+            // Clear form
+            document.querySelector('input[placeholder*="Search contacts"]').value = '';
+            document.querySelector('textarea').value = '';
+        } else {
+            const error = await response.json();
+            alert(`Error: ${error.error || 'Failed to create schedule'}`);
+        }
+    } catch (error) {
+        console.error('Error creating schedule:', error);
+        alert('Failed to create schedule');
+    }
+}
+
+// Handle test message
+async function handleTestMessage() {
+    const recipient = document.querySelector('input[placeholder*="Search contacts"]').value;
+    const message = document.querySelector('textarea').value;
+    
+    if (!recipient || !message) {
+        alert('Please fill in recipient and message fields');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/whatsapp/send`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ recipient, message })
+        });
+        
+        if (response.ok) {
+            alert('Test message sent successfully!');
+        } else {
+            const error = await response.json();
+            alert(`Error: ${error.error || 'Failed to send message'}`);
+        }
+    } catch (error) {
+        console.error('Error sending test message:', error);
+        alert('Failed to send test message');
+    }
+}
+
+// Delete schedule
+async function deleteSchedule(scheduleId) {
+    if (!confirm('Are you sure you want to delete this schedule?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/schedules/${scheduleId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (response.ok) {
+            alert('Schedule deleted successfully!');
+            await loadSchedules();
+        } else {
+            alert('Failed to delete schedule');
+        }
+    } catch (error) {
+        console.error('Error deleting schedule:', error);
+        alert('Failed to delete schedule');
+    }
+}
+
+// Edit schedule (simplified - just redirect to form)
+function editSchedule(scheduleId) {
+    const schedule = schedules.find(s => s.id === scheduleId);
+    if (schedule) {
+        // Populate form with schedule data
+        document.querySelector('input[placeholder*="Search contacts"]').value = schedule.recipient;
+        document.querySelector('textarea').value = schedule.message;
+        alert('Schedule loaded into form. Modify and click "Create Schedule" to update.');
+        
+        // TODO: Implement proper edit with PUT request
+    }
+}
+
+// Utility function to escape HTML
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
 </body></html>
