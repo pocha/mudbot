@@ -110,6 +110,7 @@
         /* Step Logic Visuals */
         .step-active { opacity: 1; pointer-events: auto; }
         .step-disabled { opacity: 0.5; pointer-events: none; filter: grayscale(1); }
+        .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     </style>
 </head>
 <body class="bg-surface text-on-surface font-body-md overflow-hidden">
@@ -264,22 +265,10 @@ Cancel Edit
 <div class="p-6 border-b border-outline-variant">
 <h3 class="font-headline-md text-headline-md">Active Schedules</h3>
 </div>
-<div class="p-0">
-<table class="w-full text-left border-collapse">
-<thead>
-<tr class="bg-surface-container-low text-on-surface-variant text-label-md border-b border-outline-variant">
-<th class="px-6 py-3 font-semibold">Recipient</th>
-<th class="px-6 py-3 font-semibold">Frequency</th>
-<th class="px-6 py-3 font-semibold">Next Run</th>
-<th class="px-6 py-3 font-semibold text-right">Actions</th>
-</tr>
-</thead>
-<tbody id="schedules-tbody" class="divide-y divide-outline-variant"></tbody>
-</table>
+<div id="schedules-tbody" class="divide-y divide-outline-variant"></div>
 <div id="schedules-empty" class="p-6 text-center text-on-surface-variant opacity-50 italic text-body-md">
 <span class="material-symbols-outlined text-4xl mb-2 block">event_busy</span>
 No active schedules yet. Use the form above to get started.
-</div>
 </div>
 </div>
 </section>
@@ -414,37 +403,40 @@ function renderSchedules() {
     if (emptyState) emptyState.classList.add('hidden');
 
     tbody.innerHTML = schedules.map(schedule => {
+        const name = (schedule.name || 'Untitled');
+        const truncatedName = name.length > 20 ? name.slice(0, 20) + '…' : name;
         const frequency = cronToFrequency(schedule.cronExpression);
-        const lastRun = schedule.lastRun ? new Date(schedule.lastRun).toLocaleString() : 'Never';
-        const msg = escapeHtml(schedule.message || '');
+        const parts = (schedule.cronExpression || '').trim().split(/\s+/);
+        let timeStr = '';
+        if (parts.length === 5 && parts[1] !== '*' && parts[0] !== '*') {
+            const h = String(parts[1]).padStart(2, '0');
+            const m = String(parts[0]).padStart(2, '0');
+            timeStr = `${h}:${m}`;
+        }
         const sid = escapeHtml(schedule.id);
+        const msg = escapeHtml(schedule.message || '');
 
         return `
-            <tr class="hover:bg-surface-container-low/50 transition-colors">
-                <td class="px-6 py-4">
-                    <div class="flex items-center gap-2">
-                        <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
-                            <span class="material-symbols-outlined text-sm">group</span>
-                        </div>
-                        <span class="font-body-md text-on-surface">${escapeHtml(schedule.name || 'Untitled')}</span>
+            <div class="flex items-start gap-3 px-5 py-4 hover:bg-surface-container-low/50 transition-colors">
+                <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary flex-shrink-0 mt-0.5">
+                    <span class="material-symbols-outlined text-[18px]">group</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-baseline gap-2">
+                        <span class="font-label-md text-on-surface">${escapeHtml(truncatedName)}</span>
+                        <span class="text-xs text-on-surface-variant">${escapeHtml(frequency)}${timeStr ? ' · ' + timeStr : ''}</span>
                     </div>
-                </td>
-                <td class="px-6 py-4 text-on-surface-variant text-body-md">${frequency}</td>
-                <td class="px-6 py-4 text-on-surface-variant text-body-md">${lastRun}</td>
-                <td class="px-6 py-4 text-right">
-                    <div class="flex justify-end gap-1">
-                        <button onclick="loadScheduleIntoForm('${sid}')" class="p-1 hover:text-primary transition-colors" title="Edit">
-                            <span class="material-symbols-outlined text-[20px]">edit</span>
-                        </button>
-                        <button onclick="deleteSchedule('${sid}')" class="p-1 hover:text-error transition-colors" title="Delete">
-                            <span class="material-symbols-outlined text-[20px]">delete</span>
-                        </button>
-                    </div>
-                </td>
-            </tr>
-            <tr class="border-b border-outline-variant">
-                <td colspan="4" class="px-6 pb-3 text-xs text-on-surface-variant truncate max-w-0">${msg}</td>
-            </tr>
+                    <p class="text-xs text-on-surface-variant mt-0.5 line-clamp-2 leading-relaxed">${msg}</p>
+                </div>
+                <div class="flex gap-1 flex-shrink-0 mt-0.5">
+                    <button onclick="loadScheduleIntoForm('${sid}')" class="p-1 text-on-surface-variant hover:text-primary transition-colors" title="Edit">
+                        <span class="material-symbols-outlined text-[20px]">edit</span>
+                    </button>
+                    <button onclick="deleteSchedule('${sid}')" class="p-1 text-on-surface-variant hover:text-error transition-colors" title="Delete">
+                        <span class="material-symbols-outlined text-[20px]">delete</span>
+                    </button>
+                </div>
+            </div>
         `;
     }).join('');
 }
