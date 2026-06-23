@@ -4,3 +4,4 @@ package-lock.json
 users/**/.mudslide
 users/**/logs.txt
 .claude/
+server.log
