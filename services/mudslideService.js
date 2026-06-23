@@ -98,6 +98,29 @@ async function sendMedia(userDir, to, mediaPath, caption = '') {
   return { success: true, message: 'Media sent successfully', output };
 }
 
+async function getGroups(userDir) {
+  const output = await runMudslide(['-c', credentialsPath(userDir), 'groups'], 15000);
+
+  // mudslide may output a JSON array or one JSON object per line
+  try {
+    const parsed = JSON.parse(output);
+    if (Array.isArray(parsed)) {
+      return parsed.map(g => ({ name: g.subject || g.name || g.id, id: g.id })).filter(g => g.id);
+    }
+  } catch {}
+
+  return output.split('\n').filter(Boolean).map(line => {
+    try {
+      const g = JSON.parse(line);
+      if (g && g.id) return { name: g.subject || g.name || g.id, id: g.id };
+    } catch {}
+    const match = line.match(/^(.*?)\s*\(([^)]+@g\.us)\)\s*$/);
+    if (match) return { name: match[1].trim(), id: match[2].trim() };
+    if (line.includes('@g.us')) return { name: line.trim(), id: line.trim() };
+    return null;
+  }).filter(Boolean);
+}
+
 async function logout(userDir) {
   await runMudslide(['-c', credentialsPath(userDir), 'logout'], 10000);
   // Remove local session files
@@ -105,4 +128,4 @@ async function logout(userDir) {
   return { success: true };
 }
 
-module.exports = { isLoggedIn, getQRCode, checkLoginStatus, sendMessage, sendMedia, logout };
+module.exports = { isLoggedIn, getQRCode, checkLoginStatus, sendMessage, sendMedia, getGroups, logout };

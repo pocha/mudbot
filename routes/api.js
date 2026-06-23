@@ -99,6 +99,16 @@ async function routes(fastify, options) {
     }
   });
 
+  fastify.get('/api/whatsapp/groups', { preHandler: authenticateUser }, async (request, reply) => {
+    try {
+      const groups = await mudslideService.getGroups(request.user.userDir);
+      return { groups };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Failed to fetch groups' });
+    }
+  });
+
   fastify.post('/api/whatsapp/logout', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       await mudslideService.logout(request.user.userDir);

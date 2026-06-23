@@ -121,14 +121,11 @@
 <div class="flex items-center gap-4">
 <button class="material-symbols-outlined text-on-surface-variant hover:bg-surface-container-high p-2 rounded-full transition-all">notifications</button>
 <button class="material-symbols-outlined text-on-surface-variant hover:bg-surface-container-high p-2 rounded-full transition-all">settings</button>
-<button class="flex items-center gap-2 text-error hover:bg-error/10 px-3 py-2 rounded-xl transition-all font-label-md">
+<button id="logout-btn" class="flex items-center gap-2 text-error hover:bg-error/10 px-3 py-2 rounded-xl transition-all font-label-md">
 <span class="material-symbols-outlined text-[20px]">logout</span>
 <span class="hidden md:inline">Logout</span>
 </button>
-<button class="bg-primary-container text-on-primary-container px-4 py-2 rounded-xl font-label-md active:scale-95 transition-transform">New Automation</button>
-<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant">
-<img class="w-full h-full object-cover" data-alt="A professional headshot of a user" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBintC49tqV-v1aq9sNiwE5r2ZxAqPXqbiNEoEMpR2ko_-mMZ6SS6Iy23Dd8qbo104hjvFoH9vEH7qyNFlNXxIeG-R0xwM8NDTauybYMAP0MpPp19JoOfLMGwIxCrjDaCSp0qthYGPjLCd1I2eg-_9LirkhIZu32gN9J3e2NfsXlP4rORXTtA4UDv5kNcHa8su4MbPdfIzkLNC3hGOw8--oaVBpgYfB4snRbc7xoIqMujf14bsLwbfwFYv7OpjIOR4WFLOevVhrH2o"/>
-</div>
+
 </div>
 </header>
 <div class="flex h-[calc(100vh-64px)] overflow-hidden justify-center">
@@ -137,26 +134,46 @@
 <div class="max-w-6xl mx-auto space-y-stack-gap">
 <!-- Onboarding Bento Grid -->
 <div class="grid grid-cols-1 md:grid-cols-12 gap-stack-gap">
-<!-- Step 1: Connect WhatsApp -->
-<section class="md:col-span-7 bg-surface-container-lowest p-6 rounded-xl border border-outline-variant shadow-sm flex flex-col md:flex-row gap-6 transition-all duration-500" id="step-1">
-<div class="flex-1 space-y-4">
-<div class="flex items-center gap-2">
-<span class="bg-primary text-on-primary w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">1</span>
-<h3 class="font-headline-md text-headline-md">Connect your WhatsApp</h3>
-</div>
-<p class="text-on-surface-variant text-body-md">Scan this QR code with your WhatsApp mobile app to authorize WatoBot and begin automating your messaging workflows.</p>
-<ul class="space-y-2 text-on-surface-variant text-body-md">
-<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-[18px]">check_circle</span> Open WhatsApp on your phone</li>
-<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-[18px]">check_circle</span> Tap Menu or Settings and select Linked Devices</li>
-<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-[18px]">check_circle</span> Point your phone to this screen to capture the code</li>
-</ul>
-</div>
-<div class="w-48 h-48 bg-surface-container mx-auto p-4 rounded-xl border-2 border-dashed border-primary/30 flex items-center justify-center relative group overflow-hidden">
-<img class="w-full h-full opacity-80 group-hover:opacity-100 transition-opacity" data-alt="A clean QR code" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCtMhINDQB1dh_mvNlIPMyn6YYNmFvtCV5y0m5C5aZKS99BKhfuye8Fh6l4x_98KPzR0bITovxVFMWIqk67YHF7U82pmzFxZPkJqcZ8ehvtbB-76g0WDnN9y7dn7JAAk-ZOJvh6QthGT1OlMymZ1sY3XiAd22pdkx6sWqpv55J4ZcjP56gm5psPxVFFn4rhBt_uG5StQvLWzpd5jnr3tQgBXyc37QBOuf66mLm7DcYDY5s1DdLfVOzCM3d5WFXgJJMG-8pkRHKnN2I"/>
-<div class="absolute inset-0 bg-primary/5 flex items-center justify-center pointer-events-none">
-<span class="material-symbols-outlined text-primary text-4xl animate-pulse">qr_code_scanner</span>
-</div>
-</div>
+<!-- Step 1: WhatsApp Connect -->
+<section class="md:col-span-7 bg-surface-container-lowest p-6 rounded-xl border border-outline-variant shadow-sm transition-all duration-500" id="step-1">
+  <!-- Not connected -->
+  <div id="wa-not-connected" class="flex flex-col md:flex-row gap-6">
+    <div class="flex-1 space-y-4">
+      <div class="flex items-center gap-2">
+        <span class="bg-primary text-on-primary w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">1</span>
+        <h3 class="font-headline-md text-headline-md">Connect your WhatsApp</h3>
+      </div>
+      <p class="text-on-surface-variant text-body-md">Scan this QR code with your WhatsApp mobile app to authorize WatoBot and begin automating your messaging workflows.</p>
+      <ul class="space-y-2 text-on-surface-variant text-body-md">
+        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-[18px]">check_circle</span> Open WhatsApp on your phone</li>
+        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-[18px]">check_circle</span> Tap Menu or Settings and select Linked Devices</li>
+        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-[18px]">check_circle</span> Point your phone to this screen to capture the code</li>
+      </ul>
+    </div>
+    <div class="w-48 h-48 bg-surface-container mx-auto p-4 rounded-xl border-2 border-dashed border-primary/30 flex items-center justify-center relative overflow-hidden">
+      <div class="absolute inset-0 bg-primary/5 flex items-center justify-center pointer-events-none">
+        <span class="material-symbols-outlined text-primary text-4xl animate-pulse">qr_code_scanner</span>
+      </div>
+    </div>
+  </div>
+  <!-- Connected -->
+  <div id="wa-connected" class="hidden flex-col gap-4">
+    <div class="flex items-center gap-3">
+      <span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings:'FILL' 1">check_circle</span>
+      <h3 class="font-headline-md text-headline-md text-primary">WhatsApp Connected</h3>
+    </div>
+    <p class="text-on-surface-variant text-body-md">WhatsApp is connected and ready to send messages.</p>
+    <div class="bg-surface-container p-4 rounded-xl border border-outline-variant space-y-2 text-body-md text-on-surface-variant">
+      <p class="font-semibold text-on-surface">Want to connect a different account?</p>
+      <p>1. Click <strong>Disconnect</strong> below.</p>
+      <p>2. On your phone go to WhatsApp → <strong>Linked Devices</strong> and remove the entry labelled <strong>"Google Chrome"</strong>.</p>
+    </div>
+    <div>
+      <button disabled class="flex items-center gap-2 text-error border border-error/50 px-4 py-2 rounded-xl font-label-md opacity-40 cursor-not-allowed">
+        <span class="material-symbols-outlined text-[18px]">link_off</span> Disconnect (coming soon)
+      </button>
+    </div>
+  </div>
 </section>
 <!-- Step 2: API Key -->
 <section class="md:col-span-5 bg-surface-container-lowest p-6 rounded-xl border border-outline-variant shadow-sm flex flex-col justify-between step-disabled transition-all duration-500" id="step-2">
@@ -195,14 +212,17 @@
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 <div class="space-y-2">
 <label class="font-label-md text-on-surface-variant">Recipient (User/Group)</label>
-<div class="relative">
-<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60">search</span>
-<input class="w-full pl-10 pr-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" placeholder="Search contacts..." type="text"/>
+<div class="relative" id="recipient-combobox">
+  <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60 z-10">search</span>
+  <input id="recipient-input" class="w-full pl-10 pr-10 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" placeholder="Tap to load groups..." type="text" autocomplete="off"/>
+  <span id="recipient-spinner" class="hidden absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></span>
+  <input type="hidden" id="recipient-value"/>
+  <div id="recipient-dropdown" class="hidden absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-outline-variant rounded-lg shadow-lg max-h-48 overflow-y-auto"></div>
 </div>
 </div>
 <div class="space-y-2">
 <label class="font-label-md text-on-surface-variant">Frequency</label>
-<select class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all appearance-none">
+<select id="frequency-select" class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all appearance-none">
 <option>Once</option>
 <option>Daily</option>
 <option>Weekly</option>
@@ -214,24 +234,24 @@
 <div class="space-y-2">
 <label class="font-label-md text-on-surface-variant">Date &amp; Time</label>
 <div class="flex gap-2">
-<input class="flex-1 px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 outline-none" type="date"/>
-<input class="w-32 px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 outline-none" type="time"/>
+<input id="schedule-date" class="flex-1 px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 outline-none" type="date"/>
+<input id="schedule-time" class="w-32 px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 outline-none" type="time"/>
 </div>
 </div>
 <div class="space-y-2 flex flex-col justify-end">
-<button class="w-full h-[42px] bg-secondary-container text-on-secondary-container rounded-lg font-label-md hover:opacity-90 transition-all flex items-center justify-center gap-2">
+<button id="test-send-btn" class="w-full h-[42px] bg-secondary-container text-on-secondary-container rounded-lg font-label-md hover:opacity-90 transition-all flex items-center justify-center gap-2">
 <span class="material-symbols-outlined text-[20px]">send_time_extension</span> Test Sending
-                                        </button>
+</button>
 </div>
 </div>
 <div class="space-y-2">
 <label class="font-label-md text-on-surface-variant">Message Content</label>
-<textarea class="w-full px-4 py-3 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all resize-none" placeholder="Type your message here..." rows="3"></textarea>
+<textarea id="schedule-message" class="w-full px-4 py-3 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all resize-none" placeholder="Type your message here..." rows="3"></textarea>
 </div>
 <div class="pt-2">
-<button class="w-full bg-primary text-on-primary py-3 rounded-xl font-label-md flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-md">
+<button id="create-schedule-btn" class="w-full bg-primary text-on-primary py-3 rounded-xl font-label-md flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-md">
 <span class="material-symbols-outlined">add_task</span> Create Schedule
-                                    </button>
+</button>
 </div>
 </div>
 </div>
@@ -251,46 +271,9 @@
 <th class="px-6 py-3 font-semibold text-right">Actions</th>
 </tr>
 </thead>
-<tbody class="divide-y divide-outline-variant">
-<tr class="hover:bg-surface-container-low/50 transition-colors">
-<td class="px-6 py-4">
-<div class="flex items-center gap-2">
-<div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-<span class="material-symbols-outlined text-sm">person</span>
-</div>
-<span class="font-body-md text-on-surface">Marketing Team (Group)</span>
-</div>
-</td>
-<td class="px-6 py-4 text-on-surface-variant text-body-md">Daily</td>
-<td class="px-6 py-4 text-on-surface-variant text-body-md">Tomorrow, 09:00 AM</td>
-<td class="px-6 py-4 text-right">
-<div class="flex justify-end gap-2">
-<button class="p-1 hover:text-primary transition-colors"><span class="material-symbols-outlined text-[20px]">edit</span></button>
-<button class="p-1 hover:text-error transition-colors"><span class="material-symbols-outlined text-[20px]">delete</span></button>
-</div>
-</td>
-</tr>
-<tr class="hover:bg-surface-container-low/50 transition-colors">
-<td class="px-6 py-4">
-<div class="flex items-center gap-2">
-<div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-<span class="material-symbols-outlined text-sm">person</span>
-</div>
-<span class="font-body-md text-on-surface">John Doe</span>
-</div>
-</td>
-<td class="px-6 py-4 text-on-surface-variant text-body-md">Weekly</td>
-<td class="px-6 py-4 text-on-surface-variant text-body-md">Monday, 10:00 AM</td>
-<td class="px-6 py-4 text-right">
-<div class="flex justify-end gap-2">
-<button class="p-1 hover:text-primary transition-colors"><span class="material-symbols-outlined text-[20px]">edit</span></button>
-<button class="p-1 hover:text-error transition-colors"><span class="material-symbols-outlined text-[20px]">delete</span></button>
-</div>
-</td>
-</tr>
-</tbody>
+<tbody id="schedules-tbody" class="divide-y divide-outline-variant"></tbody>
 </table>
-<div class="p-6 text-center text-on-surface-variant opacity-50 italic text-body-md hidden">
+<div id="schedules-empty" class="p-6 text-center text-on-surface-variant opacity-50 italic text-body-md">
 <span class="material-symbols-outlined text-4xl mb-2 block">event_busy</span>
 No active schedules yet. Use the form above to get started.
 </div>
@@ -303,68 +286,8 @@ No active schedules yet. Use the form above to get started.
 <div class="p-6 border-b border-outline-variant">
 <h3 class="font-headline-md text-headline-md">Recent Logs</h3>
 </div>
-<div class="flex-1 overflow-y-auto custom-scrollbar">
-<!-- Accordion Items -->
-<div class="divide-y divide-outline-variant">
-<details class="group">
-<summary class="list-none cursor-pointer p-4 hover:bg-surface-container transition-colors flex items-center justify-between">
-<div class="flex items-center gap-3">
-<div class="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
-<div>
-<p class="font-label-md text-on-surface">Daily Report - Marketing</p>
-<p class="text-xs text-on-surface-variant">Today at 09:00 AM</p>
-</div>
-</div>
-<span class="material-symbols-outlined group-open:rotate-180 transition-transform">expand_more</span>
-</summary>
-<div class="px-4 pb-4 pt-1 text-body-md text-on-surface-variant bg-surface-container-low/50">
-<div class="bg-white p-3 rounded border border-outline-variant/30 text-xs font-code-sm">
-<p><span class="text-primary font-bold">SUCCESS:</span> Message sent to +1234567890</p>
-<p><span class="text-secondary font-bold">ID:</span> msg_9210_xq</p>
-<p><span class="text-secondary font-bold">LATENCY:</span> 1.2s</p>
-</div>
-</div>
-</details>
-<details class="group">
-<summary class="list-none cursor-pointer p-4 hover:bg-surface-container transition-colors flex items-center justify-between">
-<div class="flex items-center gap-3">
-<div class="w-2 h-2 rounded-full bg-primary"></div>
-<div>
-<p class="font-label-md text-on-surface">Client Onboarding</p>
-<p class="text-xs text-on-surface-variant">Yesterday at 14:30 PM</p>
-</div>
-</div>
-<span class="material-symbols-outlined group-open:rotate-180 transition-transform">expand_more</span>
-</summary>
-<div class="px-4 pb-4 pt-1 text-body-md text-on-surface-variant bg-surface-container-low/50">
-<div class="bg-white p-3 rounded border border-outline-variant/30 text-xs font-code-sm">
-<p><span class="text-primary font-bold">SUCCESS:</span> Message sent to 12 members</p>
-<p><span class="text-secondary font-bold">ID:</span> batch_881_mn</p>
-</div>
-</div>
-</details>
-<details class="group">
-<summary class="list-none cursor-pointer p-4 hover:bg-surface-container transition-colors flex items-center justify-between">
-<div class="flex items-center gap-3">
-<div class="w-2 h-2 rounded-full bg-error"></div>
-<div>
-<p class="font-label-md text-on-surface">Weekly Cleanup</p>
-<p class="text-xs text-on-surface-variant">Jan 12 at 00:00 AM</p>
-</div>
-</div>
-<span class="material-symbols-outlined group-open:rotate-180 transition-transform">expand_more</span>
-</summary>
-<div class="px-4 pb-4 pt-1 text-body-md text-on-surface-variant bg-surface-container-low/50">
-<div class="bg-error-container/20 p-3 rounded border border-error/30 text-xs font-code-sm">
-<p><span class="text-error font-bold">FAILED:</span> Recipient not found</p>
-<p><span class="text-secondary font-bold">CODE:</span> 404_ERR</p>
-</div>
-</div>
-</details>
-</div>
-</div>
-<div class="p-4 bg-surface-container-high/50 text-center">
-<button class="text-primary font-label-md hover:underline">Download Full History</button>
+<div id="logs-container" class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-outline-variant">
+<p class="p-6 text-center text-on-surface-variant text-body-md opacity-50">No logs yet.</p>
 </div>
 </div>
 </section>
@@ -390,41 +313,36 @@ No active schedules yet. Use the form above to get started.
 const API_BASE = window.location.origin;
 let authToken = null;
 let schedules = [];
-let connectionStatus = { connected: false };
+let allGroups = [];
 
-// Check authentication on page load
 document.addEventListener('DOMContentLoaded', async () => {
-    // Get token from URL or localStorage
     const urlParams = new URLSearchParams(window.location.search);
     authToken = urlParams.get('token') || localStorage.getItem('authToken');
-    
+
     if (!authToken) {
         alert('Authentication required. Redirecting to home page...');
         window.location.href = '/';
         return;
     }
-    
-    // Store token for future use
+
     localStorage.setItem('authToken', authToken);
-    
-    // Initialize dashboard
+
     await checkConnectionStatus();
     await loadSchedules();
-    
-    // Setup event listeners
+
     setupEventListeners();
+    setupRecipientCombobox();
 });
 
-// Check WhatsApp connection status
 async function checkConnectionStatus() {
     try {
         const response = await fetch(`${API_BASE}/api/whatsapp/status`, {
             headers: { 'Authorization': `Bearer ${authToken}` }
         });
-        
+
         if (response.ok) {
-            connectionStatus = await response.json();
-            updateConnectionUI();
+            const status = await response.json();
+            updateConnectionUI(status.loggedIn);
         } else if (response.status === 401) {
             alert('Session expired. Please login again.');
             localStorage.removeItem('authToken');
@@ -435,151 +353,251 @@ async function checkConnectionStatus() {
     }
 }
 
-// Update UI based on connection status
-function updateConnectionUI() {
-    const step1 = document.getElementById('step-1');
+function updateConnectionUI(loggedIn) {
+    const notConnected = document.getElementById('wa-not-connected');
+    const connected = document.getElementById('wa-connected');
     const step2 = document.getElementById('step-2');
-    
-    if (connectionStatus.loggedIn) {
-        // Update step 1 to show connected
-        if (step1) {
-            step1.classList.add('border-primary');
-            const pulse = step1.querySelector('.animate-pulse');
-            if (pulse) pulse.classList.remove('animate-pulse');
-            const icon = step1.querySelector('.material-symbols-outlined');
-            if (icon && icon.innerText === 'qr_code_scanner') icon.innerText = 'verified';
-        }
-        
-        // Enable step 2
-        if (step2) {
-            step2.classList.remove('step-disabled');
-            const badge = step2.querySelector('.bg-outline');
-            if (badge) badge.classList.replace('bg-outline', 'bg-primary');
-        }
+
+    if (loggedIn) {
+        notConnected.classList.add('hidden');
+        connected.classList.remove('hidden');
+        connected.classList.add('flex');
+        if (step2) step2.classList.remove('step-disabled');
     } else {
-        // Show not connected - redirect to verify page
         alert('WhatsApp not connected. Please scan QR code first.');
         window.location.href = `/verify.html?token=${authToken}`;
     }
 }
 
-// Load all schedules
 async function loadSchedules() {
     try {
         const response = await fetch(`${API_BASE}/api/schedules`, {
             headers: { 'Authorization': `Bearer ${authToken}` }
         });
-        
+
         if (response.ok) {
-            schedules = await response.json();
+            schedules = (await response.json()).schedules || [];
             renderSchedules();
+            await renderLogs();
         }
     } catch (error) {
         console.error('Error loading schedules:', error);
     }
 }
 
-// Render schedules in the table
 function renderSchedules() {
-    const tbody = document.querySelector('table tbody');
+    const tbody = document.getElementById('schedules-tbody');
+    const emptyState = document.getElementById('schedules-empty');
     if (!tbody) return;
-    
+
     if (schedules.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="4" class="px-6 py-8 text-center text-on-surface-variant">
-                    No schedules yet. Create your first schedule above!
-                </td>
-            </tr>
-        `;
+        tbody.innerHTML = '';
+        if (emptyState) emptyState.classList.remove('hidden');
         return;
     }
-    
+
+    if (emptyState) emptyState.classList.add('hidden');
+
     tbody.innerHTML = schedules.map(schedule => {
-        const nextRun = new Date(schedule.nextRun || Date.now()).toLocaleString();
-        const frequency = schedule.frequency || 'Once';
-        
+        const recipient = (schedule.recipients && schedule.recipients[0]) || '—';
+        const cron = schedule.cronExpression || '—';
+        const lastRun = schedule.lastRun ? new Date(schedule.lastRun).toLocaleString() : 'Never';
+
         return `
             <tr class="hover:bg-surface-container-low/50 transition-colors">
                 <td class="px-6 py-4">
                     <div class="flex items-center gap-2">
                         <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                            <span class="material-symbols-outlined text-sm">person</span>
+                            <span class="material-symbols-outlined text-sm">group</span>
                         </div>
-                        <span class="font-body-md text-on-surface">${escapeHtml(schedule.recipient)}</span>
+                        <div>
+                            <span class="font-body-md text-on-surface block">${escapeHtml(schedule.name || 'Untitled')}</span>
+                            <span class="text-xs text-on-surface-variant">${escapeHtml(recipient)}</span>
+                        </div>
                     </div>
                 </td>
-                <td class="px-6 py-4 text-on-surface-variant text-body-md">${frequency}</td>
-                <td class="px-6 py-4 text-on-surface-variant text-body-md">${nextRun}</td>
+                <td class="px-6 py-4 text-on-surface-variant text-xs font-code-sm">${escapeHtml(cron)}</td>
+                <td class="px-6 py-4 text-on-surface-variant text-body-md">${lastRun}</td>
                 <td class="px-6 py-4 text-right">
-                    <div class="flex justify-end gap-2">
-                        <button onclick="editSchedule('${schedule.id}')" class="p-1 hover:text-primary transition-colors">
-                            <span class="material-symbols-outlined text-[20px]">edit</span>
-                        </button>
-                        <button onclick="deleteSchedule('${schedule.id}')" class="p-1 hover:text-error transition-colors">
-                            <span class="material-symbols-outlined text-[20px]">delete</span>
-                        </button>
-                    </div>
+                    <button onclick="deleteSchedule('${escapeHtml(schedule.id)}')" class="p-1 hover:text-error transition-colors">
+                        <span class="material-symbols-outlined text-[20px]">delete</span>
+                    </button>
                 </td>
             </tr>
         `;
     }).join('');
 }
 
-// Setup event listeners
-function setupEventListeners() {
-    // Create schedule button
-    const createBtn = document.querySelector('button[class*="Create Schedule"]');
-    if (createBtn) {
-        createBtn.addEventListener('click', handleCreateSchedule);
+async function renderLogs() {
+    const container = document.getElementById('logs-container');
+    if (!container) return;
+
+    if (schedules.length === 0) {
+        container.innerHTML = '<p class="p-6 text-center text-on-surface-variant text-body-md opacity-50">No schedules yet.</p>';
+        return;
     }
-    
-    // Test sending button
-    const testBtn = document.querySelector('button[class*="Test Sending"]');
-    if (testBtn) {
-        testBtn.addEventListener('click', handleTestMessage);
+
+    const allLogs = await Promise.all(schedules.map(async (s) => {
+        try {
+            const res = await fetch(`${API_BASE}/api/schedules/${s.id}/logs?limit=5`, {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            });
+            const data = res.ok ? await res.json() : {};
+            return { schedule: s, logs: data.logs || [] };
+        } catch {
+            return { schedule: s, logs: [] };
+        }
+    }));
+
+    const withLogs = allLogs.filter(x => x.logs.length > 0);
+    if (withLogs.length === 0) {
+        container.innerHTML = '<p class="p-6 text-center text-on-surface-variant text-body-md opacity-50">No logs yet.</p>';
+        return;
+    }
+
+    container.innerHTML = withLogs.map(({ schedule, logs }) => {
+        const latest = logs[0];
+        const isSuccess = latest && !latest.error;
+        const dotColor = isSuccess ? 'bg-primary' : 'bg-error';
+        const latestTime = latest ? new Date(latest.timestamp || latest.time || Date.now()).toLocaleString() : '';
+        const logLines = logs.map(log => {
+            const status = log.error
+                ? `<span class="text-error font-bold">FAILED:</span> ${escapeHtml(log.error)}`
+                : `<span class="text-primary font-bold">SUCCESS:</span> ${escapeHtml(log.message || 'Sent')}`;
+            const t = new Date(log.timestamp || log.time || Date.now()).toLocaleString();
+            return `<p>${status} <span class="text-on-surface-variant">(${t})</span></p>`;
+        }).join('');
+
+        return `
+        <details class="group">
+          <summary class="list-none cursor-pointer p-4 hover:bg-surface-container transition-colors flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-2 h-2 rounded-full ${dotColor}"></div>
+              <div>
+                <p class="font-label-md text-on-surface">${escapeHtml(schedule.name || 'Untitled')}</p>
+                <p class="text-xs text-on-surface-variant">${latestTime}</p>
+              </div>
+            </div>
+            <span class="material-symbols-outlined group-open:rotate-180 transition-transform">expand_more</span>
+          </summary>
+          <div class="px-4 pb-4 pt-1 bg-surface-container-low/50">
+            <div class="bg-white p-3 rounded border border-outline-variant/30 text-xs font-code-sm space-y-1">${logLines}</div>
+          </div>
+        </details>`;
+    }).join('<div class="border-t border-outline-variant"></div>');
+}
+
+function setupEventListeners() {
+    document.getElementById('create-schedule-btn').addEventListener('click', handleCreateSchedule);
+    document.getElementById('test-send-btn').addEventListener('click', handleTestMessage);
+    document.getElementById('logout-btn').addEventListener('click', () => {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('authEmail');
+        window.location.href = '/';
+    });
+}
+
+function setupRecipientCombobox() {
+    const input = document.getElementById('recipient-input');
+    const dropdown = document.getElementById('recipient-dropdown');
+    const spinner = document.getElementById('recipient-spinner');
+
+    input.addEventListener('focus', async () => {
+        if (allGroups.length > 0) {
+            showDropdown(allGroups.slice(0, 10));
+            return;
+        }
+        spinner.classList.remove('hidden');
+        try {
+            const res = await fetch(`${API_BASE}/api/whatsapp/groups`, {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                allGroups = data.groups || [];
+            }
+        } catch (e) {
+            console.error('Failed to fetch groups', e);
+        } finally {
+            spinner.classList.add('hidden');
+        }
+        showDropdown(allGroups.slice(0, 10));
+    });
+
+    input.addEventListener('input', () => {
+        const q = input.value.toLowerCase();
+        const filtered = allGroups.filter(g => g.name.toLowerCase().includes(q)).slice(0, 10);
+        showDropdown(filtered);
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!document.getElementById('recipient-combobox').contains(e.target)) {
+            dropdown.classList.add('hidden');
+        }
+    });
+
+    function showDropdown(groups) {
+        if (groups.length === 0) {
+            dropdown.innerHTML = '<p class="px-4 py-3 text-body-md text-on-surface-variant">No groups found</p>';
+        } else {
+            dropdown.innerHTML = groups.map(g =>
+                `<div class="px-4 py-2 hover:bg-surface-container cursor-pointer text-body-md text-on-surface" data-id="${escapeHtml(g.id)}" data-name="${escapeHtml(g.name)}">${escapeHtml(g.name)}</div>`
+            ).join('');
+            dropdown.querySelectorAll('[data-id]').forEach(el => {
+                el.addEventListener('click', () => {
+                    input.value = el.dataset.name;
+                    document.getElementById('recipient-value').value = el.dataset.id;
+                    dropdown.classList.add('hidden');
+                });
+            });
+        }
+        dropdown.classList.remove('hidden');
     }
 }
 
-// Handle schedule creation
 async function handleCreateSchedule() {
-    const recipient = document.querySelector('input[placeholder*="Search contacts"]').value;
-    const frequency = document.querySelector('select').value;
-    const date = document.querySelector('input[type="date"]').value;
-    const time = document.querySelector('input[type="time"]').value;
-    const message = document.querySelector('textarea').value;
-    
-    if (!recipient || !message) {
-        alert('Please fill in recipient and message fields');
+    const recipientId = document.getElementById('recipient-value').value;
+    const recipientName = document.getElementById('recipient-input').value.trim();
+    const frequency = document.getElementById('frequency-select').value;
+    const date = document.getElementById('schedule-date').value;
+    const time = document.getElementById('schedule-time').value;
+    const message = document.getElementById('schedule-message').value.trim();
+
+    if (!recipientId || !message) {
+        alert('Please select a recipient from the dropdown and enter a message');
         return;
     }
-    
-    const scheduleData = {
-        recipient,
-        frequency: frequency.toLowerCase(),
-        datetime: `${date} ${time}`,
-        message
-    };
-    
+
+    const [h, m] = time ? time.split(':') : ['9', '0'];
+    let cronExpression;
+    if (frequency === 'Daily') {
+        cronExpression = `${m} ${h} * * *`;
+    } else if (frequency === 'Weekly') {
+        cronExpression = `${m} ${h} * * 1`;
+    } else if (frequency === 'Monthly') {
+        cronExpression = `${m} ${h} 1 * *`;
+    } else if (date) {
+        const d = new Date(`${date}T${time || '09:00'}`);
+        cronExpression = `${d.getMinutes()} ${d.getHours()} ${d.getDate()} ${d.getMonth() + 1} *`;
+    } else {
+        cronExpression = `${m} ${h} * * *`;
+    }
+
     try {
         const response = await fetch(`${API_BASE}/api/schedules`, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(scheduleData)
+            headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: recipientName, recipients: [recipientId], message, cronExpression })
         });
-        
+
         if (response.ok) {
-            alert('Schedule created successfully!');
+            document.getElementById('recipient-input').value = '';
+            document.getElementById('recipient-value').value = '';
+            document.getElementById('schedule-message').value = '';
             await loadSchedules();
-            // Clear form
-            document.querySelector('input[placeholder*="Search contacts"]').value = '';
-            document.querySelector('textarea').value = '';
         } else {
-            const error = await response.json();
-            alert(`Error: ${error.error || 'Failed to create schedule'}`);
+            const err = await response.json();
+            alert(`Error: ${err.error || 'Failed to create schedule'}`);
         }
     } catch (error) {
         console.error('Error creating schedule:', error);
@@ -587,31 +605,27 @@ async function handleCreateSchedule() {
     }
 }
 
-// Handle test message
 async function handleTestMessage() {
-    const recipient = document.querySelector('input[placeholder*="Search contacts"]').value;
-    const message = document.querySelector('textarea').value;
-    
-    if (!recipient || !message) {
-        alert('Please fill in recipient and message fields');
+    const to = document.getElementById('recipient-value').value;
+    const message = document.getElementById('schedule-message').value.trim();
+
+    if (!to || !message) {
+        alert('Please select a recipient from the dropdown and enter a message');
         return;
     }
-    
+
     try {
-        const response = await fetch(`${API_BASE}/api/whatsapp/send`, {
+        const response = await fetch(`${API_BASE}/api/message`, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ recipient, message })
+            headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to, message })
         });
-        
+
         if (response.ok) {
             alert('Test message sent successfully!');
         } else {
-            const error = await response.json();
-            alert(`Error: ${error.error || 'Failed to send message'}`);
+            const err = await response.json();
+            alert(`Error: ${err.error || 'Failed to send message'}`);
         }
     } catch (error) {
         console.error('Error sending test message:', error);
@@ -619,20 +633,16 @@ async function handleTestMessage() {
     }
 }
 
-// Delete schedule
 async function deleteSchedule(scheduleId) {
-    if (!confirm('Are you sure you want to delete this schedule?')) {
-        return;
-    }
-    
+    if (!confirm('Are you sure you want to delete this schedule?')) return;
+
     try {
         const response = await fetch(`${API_BASE}/api/schedules/${scheduleId}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${authToken}` }
         });
-        
+
         if (response.ok) {
-            alert('Schedule deleted successfully!');
             await loadSchedules();
         } else {
             alert('Failed to delete schedule');
@@ -643,23 +653,9 @@ async function deleteSchedule(scheduleId) {
     }
 }
 
-// Edit schedule (simplified - just redirect to form)
-function editSchedule(scheduleId) {
-    const schedule = schedules.find(s => s.id === scheduleId);
-    if (schedule) {
-        // Populate form with schedule data
-        document.querySelector('input[placeholder*="Search contacts"]').value = schedule.recipient;
-        document.querySelector('textarea').value = schedule.message;
-        alert('Schedule loaded into form. Modify and click "Create Schedule" to update.');
-        
-        // TODO: Implement proper edit with PUT request
-    }
-}
-
-// Utility function to escape HTML
 function escapeHtml(text) {
     const div = document.createElement('div');
-    div.textContent = text;
+    div.textContent = String(text || '');
     return div.innerHTML;
 }
 </script>
