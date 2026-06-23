@@ -248,9 +248,12 @@
 <label class="font-label-md text-on-surface-variant">Message Content</label>
 <textarea id="schedule-message" class="w-full px-4 py-3 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all resize-none" placeholder="Type your message here..." rows="3"></textarea>
 </div>
-<div class="pt-2">
+<div class="pt-2 space-y-2">
 <button id="create-schedule-btn" class="w-full bg-primary text-on-primary py-3 rounded-xl font-label-md flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-md">
 <span class="material-symbols-outlined">add_task</span> Create Schedule
+</button>
+<button id="cancel-edit-btn" onclick="cancelEdit()" class="hidden w-full text-on-surface-variant border border-outline-variant py-2 rounded-xl font-label-md hover:bg-surface-container transition-all">
+Cancel Edit
 </button>
 </div>
 </div>
@@ -314,6 +317,18 @@ const API_BASE = window.location.origin;
 let authToken = null;
 let schedules = [];
 let allGroups = [];
+let editingScheduleId = null;
+
+function cronToFrequency(cron) {
+    if (!cron) return 'Once';
+    const p = cron.trim().split(/\s+/);
+    if (p.length !== 5) return 'Once';
+    const [, , dom, month, dow] = p;
+    if (dom !== '*' && month !== '*') return 'Once';
+    if (dow !== '*') return 'Weekly';
+    if (dom === '1') return 'Monthly';
+    return 'Daily';
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -399,30 +414,36 @@ function renderSchedules() {
     if (emptyState) emptyState.classList.add('hidden');
 
     tbody.innerHTML = schedules.map(schedule => {
-        const recipient = (schedule.recipients && schedule.recipients[0]) || '—';
-        const cron = schedule.cronExpression || '—';
+        const frequency = cronToFrequency(schedule.cronExpression);
         const lastRun = schedule.lastRun ? new Date(schedule.lastRun).toLocaleString() : 'Never';
+        const msg = escapeHtml(schedule.message || '');
+        const sid = escapeHtml(schedule.id);
 
         return `
             <tr class="hover:bg-surface-container-low/50 transition-colors">
                 <td class="px-6 py-4">
                     <div class="flex items-center gap-2">
-                        <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                        <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
                             <span class="material-symbols-outlined text-sm">group</span>
                         </div>
-                        <div>
-                            <span class="font-body-md text-on-surface block">${escapeHtml(schedule.name || 'Untitled')}</span>
-                            <span class="text-xs text-on-surface-variant">${escapeHtml(recipient)}</span>
-                        </div>
+                        <span class="font-body-md text-on-surface">${escapeHtml(schedule.name || 'Untitled')}</span>
                     </div>
                 </td>
-                <td class="px-6 py-4 text-on-surface-variant text-xs font-code-sm">${escapeHtml(cron)}</td>
+                <td class="px-6 py-4 text-on-surface-variant text-body-md">${frequency}</td>
                 <td class="px-6 py-4 text-on-surface-variant text-body-md">${lastRun}</td>
                 <td class="px-6 py-4 text-right">
-                    <button onclick="deleteSchedule('${escapeHtml(schedule.id)}')" class="p-1 hover:text-error transition-colors">
-                        <span class="material-symbols-outlined text-[20px]">delete</span>
-                    </button>
+                    <div class="flex justify-end gap-1">
+                        <button onclick="loadScheduleIntoForm('${sid}')" class="p-1 hover:text-primary transition-colors" title="Edit">
+                            <span class="material-symbols-outlined text-[20px]">edit</span>
+                        </button>
+                        <button onclick="deleteSchedule('${sid}')" class="p-1 hover:text-error transition-colors" title="Delete">
+                            <span class="material-symbols-outlined text-[20px]">delete</span>
+                        </button>
+                    </div>
                 </td>
+            </tr>
+            <tr class="border-b border-outline-variant">
+                <td colspan="4" class="px-6 pb-3 text-xs text-on-surface-variant truncate max-w-0">${msg}</td>
             </tr>
         `;
     }).join('');
@@ -555,6 +576,62 @@ function setupRecipientCombobox() {
     }
 }
 
+function loadScheduleIntoForm(scheduleId) {
+    const schedule = schedules.find(s => s.id === scheduleId);
+    if (!schedule) return;
+
+    editingScheduleId = scheduleId;
+
+    // Recipient — show stored id as display text; user can re-pick from dropdown if needed
+    const recipientId = (schedule.recipients && schedule.recipients[0]) || '';
+    document.getElementById('recipient-value').value = recipientId;
+    // Try to find a friendly name from already-loaded groups
+    const group = allGroups.find(g => g.id === recipientId);
+    document.getElementById('recipient-input').value = group ? group.name : recipientId;
+
+    // Frequency
+    const freq = cronToFrequency(schedule.cronExpression);
+    document.getElementById('frequency-select').value = freq;
+
+    // Date & time from cron (best-effort)
+    const parts = (schedule.cronExpression || '').trim().split(/\s+/);
+    if (parts.length === 5) {
+        const [min, hour, dom, month] = parts;
+        if (hour !== '*' && min !== '*') {
+            document.getElementById('schedule-time').value =
+                `${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+        }
+        if (dom !== '*' && month !== '*') {
+            const year = new Date().getFullYear();
+            document.getElementById('schedule-date').value =
+                `${year}-${String(month).padStart(2, '0')}-${String(dom).padStart(2, '0')}`;
+        }
+    }
+
+    document.getElementById('schedule-message').value = schedule.message || '';
+
+    // Update button label and show cancel link
+    document.getElementById('create-schedule-btn').innerHTML =
+        '<span class="material-symbols-outlined">save</span> Update Schedule';
+    document.getElementById('cancel-edit-btn').classList.remove('hidden');
+
+    // Scroll form into view
+    document.getElementById('create-schedule-btn').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function cancelEdit() {
+    editingScheduleId = null;
+    document.getElementById('recipient-input').value = '';
+    document.getElementById('recipient-value').value = '';
+    document.getElementById('frequency-select').value = 'Once';
+    document.getElementById('schedule-date').value = '';
+    document.getElementById('schedule-time').value = '';
+    document.getElementById('schedule-message').value = '';
+    document.getElementById('create-schedule-btn').innerHTML =
+        '<span class="material-symbols-outlined">add_task</span> Create Schedule';
+    document.getElementById('cancel-edit-btn').classList.add('hidden');
+}
+
 async function handleCreateSchedule() {
     const recipientId = document.getElementById('recipient-value').value;
     const recipientName = document.getElementById('recipient-input').value.trim();
@@ -583,25 +660,28 @@ async function handleCreateSchedule() {
         cronExpression = `${m} ${h} * * *`;
     }
 
+    const payload = { name: recipientName, recipients: [recipientId], message, cronExpression };
+    const isEdit = !!editingScheduleId;
+    const url = isEdit ? `${API_BASE}/api/schedules/${editingScheduleId}` : `${API_BASE}/api/schedules`;
+    const method = isEdit ? 'PUT' : 'POST';
+
     try {
-        const response = await fetch(`${API_BASE}/api/schedules`, {
-            method: 'POST',
+        const response = await fetch(url, {
+            method,
             headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: recipientName, recipients: [recipientId], message, cronExpression })
+            body: JSON.stringify(payload)
         });
 
         if (response.ok) {
-            document.getElementById('recipient-input').value = '';
-            document.getElementById('recipient-value').value = '';
-            document.getElementById('schedule-message').value = '';
+            cancelEdit();
             await loadSchedules();
         } else {
             const err = await response.json();
-            alert(`Error: ${err.error || 'Failed to create schedule'}`);
+            alert(`Error: ${err.error || 'Failed to save schedule'}`);
         }
     } catch (error) {
-        console.error('Error creating schedule:', error);
-        alert('Failed to create schedule');
+        console.error('Error saving schedule:', error);
+        alert('Failed to save schedule');
     }
 }
 
