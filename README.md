@@ -1,6 +1,6 @@
 # Mudbot
 
-A self-hosted WhatsApp message automation platform. Connect your WhatsApp account via QR code, then schedule automated messages or send them on demand via a REST API.
+A self-hosted WhatsApp message automation platform that uses Mudslide behind the scenes. Connect your WhatsApp account via QR code, then schedule automated messages or send them on demand via a REST API.
 
 All user data is stored encrypted in the repository — the only secret you manage is `SERVER_SECRET` in `.env`.
 

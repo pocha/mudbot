@@ -105,8 +105,8 @@
                 }
 
                 // Store token in localStorage
-                localStorage.setItem('mudbot_token', token);
-                localStorage.setItem('mudbot_email', data.user.email);
+                localStorage.setItem('authToken', token);
+                localStorage.setItem('authEmail', data.user.email);
 
                 if (data.user.whatsappConnected) {
                     // Already connected, redirect to dashboard

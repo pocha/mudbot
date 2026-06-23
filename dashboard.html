@@ -440,7 +440,7 @@ function updateConnectionUI() {
     const step1 = document.getElementById('step-1');
     const step2 = document.getElementById('step-2');
     
-    if (connectionStatus.connected) {
+    if (connectionStatus.loggedIn) {
         // Update step 1 to show connected
         if (step1) {
             step1.classList.add('border-primary');

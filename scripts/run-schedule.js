@@ -88,11 +88,14 @@ async function main() {
   for (const recipient of schedule.recipients) {
     await appendLog(scheduleDir, `INFO: Sending to ${recipient}`);
     try {
-      const args = ['-c', credentialsPath, 'send', recipient];
+      let args;
       if (schedule.media) {
-        args.push('--media', schedule.media, '--caption', schedule.message);
+        const ext = schedule.media.split('.').pop().toLowerCase();
+        const cmd = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext) ? 'send-image' : 'send-file';
+        args = ['-c', credentialsPath, cmd, recipient, schedule.media];
+        if (schedule.message) args.push('--caption', schedule.message);
       } else {
-        args.push(schedule.message);
+        args = ['-c', credentialsPath, 'send', recipient, schedule.message];
       }
       await runMudslide(args);
       await appendLog(scheduleDir, `SUCCESS: Sent to ${recipient}`);
