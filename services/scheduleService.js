@@ -136,7 +136,8 @@ async function appendLog(userDir, scheduleId, logEntry) {
 
 async function addCronJob(userDir, scheduleId, cronExpression, encryptedPayload) {
   const scriptPath = path.join(__dirname, '..', 'scripts', 'run-schedule.js');
-  const cronCommand = `${cronExpression} node ${scriptPath} ${userDir} ${scheduleId} ${encryptedPayload}`;
+  const nodePath = process.execPath; // full path to the node binary running this server
+  const cronCommand = `${cronExpression} ${nodePath} ${scriptPath} ${userDir} ${scheduleId} ${encryptedPayload}`;
   const cronLabel = `# mudbot-${userDir}-${scheduleId}`;
 
   return new Promise((resolve, reject) => {
@@ -147,11 +148,13 @@ async function addCronJob(userDir, scheduleId, cronExpression, encryptedPayload)
 
     getCrontab.on('close', () => {
       const lines = current.split('\n')
-        .filter(l => !l.includes(`mudbot-${userDir}-${scheduleId}`));
-      lines.push(cronLabel, cronCommand, '');
+        .filter(l => !l.includes(`mudbot-${userDir}-${scheduleId}`) &&
+                    !l.includes(`run-schedule.js ${userDir} ${scheduleId} `))
+        .filter(l => l.trim() !== ''); // strip blank lines
+      lines.push(cronLabel, cronCommand);
 
       const setCrontab = spawn('crontab', ['-']);
-      setCrontab.stdin.write(lines.join('\n'));
+      setCrontab.stdin.write(lines.join('\n') + '\n');
       setCrontab.stdin.end();
       setCrontab.on('close', code => {
         if (code === 0) resolve({ success: true });
@@ -170,10 +173,12 @@ async function removeCronJob(userDir, scheduleId) {
 
     getCrontab.on('close', () => {
       const lines = current.split('\n')
-        .filter(l => !l.includes(`mudbot-${userDir}-${scheduleId}`));
+        .filter(l => !l.includes(`mudbot-${userDir}-${scheduleId}`) &&
+                    !l.includes(`run-schedule.js ${userDir} ${scheduleId} `))
+        .filter(l => l.trim() !== '');
 
       const setCrontab = spawn('crontab', ['-']);
-      setCrontab.stdin.write(lines.join('\n'));
+      setCrontab.stdin.write(lines.join('\n') + '\n');
       setCrontab.stdin.end();
       setCrontab.on('close', () => resolve({ success: true }));
     });

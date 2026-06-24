@@ -577,9 +577,7 @@ function loadScheduleIntoForm(scheduleId) {
     // Recipient — show stored id as display text; user can re-pick from dropdown if needed
     const recipientId = (schedule.recipients && schedule.recipients[0]) || '';
     document.getElementById('recipient-value').value = recipientId;
-    // Try to find a friendly name from already-loaded groups
-    const group = allGroups.find(g => g.id === recipientId);
-    document.getElementById('recipient-input').value = group ? group.name : recipientId;
+    document.getElementById('recipient-input').value = schedule.name || recipientId;
 
     // Frequency
     const freq = cronToFrequency(schedule.cronExpression);

@@ -1,9 +1,12 @@
 #!/usr/bin/env node
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const { spawn } = require('child_process');
 const fs = require('fs').promises;
 const path = require('path');
 const crypto = require('crypto');
 const { encryptData, decryptData } = require('../services/userService');
+
+const MUDSLIDE_PATH = process.env.MUDSLIDE_PATH || 'mudslide';
 
 const USERS_DIR = path.join(__dirname, '..', 'users');
 
@@ -57,7 +60,7 @@ async function cleanupTemp(userDir) {
 
 function runMudslide(args) {
   return new Promise((resolve, reject) => {
-    const proc = spawn('mudslide', args);
+    const proc = spawn(MUDSLIDE_PATH, args);
     let out = '';
     proc.stdout.on('data', d => { out += d.toString(); });
     proc.stderr.on('data', d => { out += d.toString(); });

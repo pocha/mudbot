@@ -4,7 +4,7 @@ const fs = require('fs').promises;
 const crypto = require('crypto');
 
 const CONFIG = {
-  MUDSLIDE_PATH: 'mudslide',
+  MUDSLIDE_PATH: process.env.MUDSLIDE_PATH || 'mudslide',
   USERS_DIR: path.join(__dirname, '..', 'users')
 };
 
@@ -116,9 +116,16 @@ async function getQRCode(userDir) {
     const onData = (data) => {
       output += data.toString();
       if (idleTimer) clearTimeout(idleTimer);
-      idleTimer = setTimeout(() => {
-        resolve({ success: true, qr: output.trim() });
-      }, 2000);
+      // Only start the idle timer once we have content beyond mudslide's
+      // initialization messages — the QR code arrives after those.
+      const meaningful = output.split('\n')
+        .filter(l => !l.trim().startsWith('Created mudslide cache folder'))
+        .join('\n').trim();
+      if (meaningful) {
+        idleTimer = setTimeout(() => {
+          resolve({ success: true, qr: output.trim() });
+        }, 2000);
+      }
     };
 
     proc.stdout.on('data', onData);
@@ -139,22 +146,23 @@ async function getQRCode(userDir) {
 }
 
 async function checkLoginStatus(userDir, token) {
-  let plaintextExists = false;
-  try {
-    await fs.access(mudslideDir(userDir));
-    plaintextExists = true;
-  } catch {}
-
   const encExists = await isLoggedIn(userDir);
 
-  if (plaintextExists && token) {
-    // Post-QR-scan: encrypt and delete plaintext dir
+  // creds.json is only written by mudslide after a successful QR scan.
+  // The .mudslide dir itself is created at login-start (before scan), so
+  // we check for creds.json specifically to avoid false positives.
+  let plaintextReady = false;
+  try {
+    await fs.access(path.join(mudslideDir(userDir), 'creds.json'));
+    plaintextReady = true;
+  } catch {}
+
+  if (plaintextReady && token) {
     await encryptMudslide(userDir, token);
     return { loggedIn: true };
   }
 
-  if (plaintextExists) {
-    // No token available — session exists but can't encrypt yet
+  if (plaintextReady) {
     return { loggedIn: true };
   }
 
