@@ -2,7 +2,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const { spawn } = require('child_process');
 const crypto = require('crypto');
-const { encryptData, decryptData } = require('./userService');
+const { encryptData, decryptData, computeTokenHash } = require('./userService');
 
 const CONFIG = {
   USERS_DIR: path.join(__dirname, '..', 'users')
@@ -16,18 +16,34 @@ function scheduleDir(userDir, scheduleId) {
   return path.join(CONFIG.USERS_DIR, userDir, 'schedules', scheduleId);
 }
 
-async function writeSchedule(userDir, email, scheduleId, schedule) {
+async function writeSchedule(userDir, token, scheduleId, schedule) {
   const file = path.join(scheduleDir(userDir, scheduleId), 'schedule.json');
-  await fs.writeFile(file, encryptData(JSON.stringify(schedule), email));
+  await fs.writeFile(file, encryptData(JSON.stringify(schedule), token));
 }
 
-async function readSchedule(userDir, email, scheduleId) {
+async function readSchedule(userDir, token, scheduleId) {
   const file = path.join(scheduleDir(userDir, scheduleId), 'schedule.json');
   const raw = await fs.readFile(file, 'utf8');
-  return JSON.parse(decryptData(raw, email));
+  return JSON.parse(decryptData(raw, token));
 }
 
-async function createSchedule(userDir, email, scheduleData) {
+// Encrypts {token, recipients, message, media} using sha256(token) as key.
+// scheduleId stays outside this payload as a plaintext cron argv.
+function buildCronPayload(token, scheduleData) {
+  const key = Buffer.from(computeTokenHash(token), 'hex');
+  const iv = crypto.randomBytes(16);
+  const payload = JSON.stringify({
+    token,
+    recipients: scheduleData.recipients,
+    message: scheduleData.message,
+    media: scheduleData.media || null
+  });
+  const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+  const encrypted = Buffer.concat([cipher.update(payload, 'utf8'), cipher.final()]);
+  return Buffer.concat([iv, encrypted]).toString('base64url');
+}
+
+async function createSchedule(userDir, token, scheduleData) {
   const scheduleId = generateScheduleId();
   await fs.mkdir(scheduleDir(userDir, scheduleId), { recursive: true });
 
@@ -43,11 +59,15 @@ async function createSchedule(userDir, email, scheduleData) {
     lastRun: null
   };
 
-  await writeSchedule(userDir, email, scheduleId, schedule);
+  await writeSchedule(userDir, token, scheduleId, schedule);
+
+  const encryptedPayload = buildCronPayload(token, schedule);
+  await addCronJob(userDir, scheduleId, schedule.cronExpression, encryptedPayload);
+
   return schedule;
 }
 
-async function listSchedules(userDir, email) {
+async function listSchedules(userDir, token) {
   const dir = path.join(CONFIG.USERS_DIR, userDir, 'schedules');
   try {
     const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -55,7 +75,7 @@ async function listSchedules(userDir, email) {
     for (const entry of entries) {
       if (entry.isDirectory()) {
         try {
-          schedules.push(await readSchedule(userDir, email, entry.name));
+          schedules.push(await readSchedule(userDir, token, entry.name));
         } catch (err) {
           console.error(`Error reading schedule ${entry.name}:`, err.message);
         }
@@ -67,26 +87,32 @@ async function listSchedules(userDir, email) {
   }
 }
 
-async function getSchedule(userDir, email, scheduleId) {
+async function getSchedule(userDir, token, scheduleId) {
   try {
-    return await readSchedule(userDir, email, scheduleId);
+    return await readSchedule(userDir, token, scheduleId);
   } catch {
     return null;
   }
 }
 
-async function updateSchedule(userDir, email, scheduleId, updates) {
-  const schedule = await getSchedule(userDir, email, scheduleId);
+async function updateSchedule(userDir, token, scheduleId, updates) {
+  const schedule = await getSchedule(userDir, token, scheduleId);
   if (!schedule) throw new Error('Schedule not found');
 
   Object.assign(schedule, updates);
   schedule.updatedAt = new Date().toISOString();
 
-  await writeSchedule(userDir, email, scheduleId, schedule);
+  await writeSchedule(userDir, token, scheduleId, schedule);
+
+  // Rebuild cron entry with fresh encrypted payload
+  await removeCronJob(userDir, scheduleId);
+  const encryptedPayload = buildCronPayload(token, schedule);
+  await addCronJob(userDir, scheduleId, schedule.cronExpression, encryptedPayload);
+
   return schedule;
 }
 
-async function deleteSchedule(userDir, email, scheduleId) {
+async function deleteSchedule(userDir, token, scheduleId) {
   await removeCronJob(userDir, scheduleId);
   await fs.rm(scheduleDir(userDir, scheduleId), { recursive: true, force: true });
   return { success: true };
@@ -108,9 +134,9 @@ async function appendLog(userDir, scheduleId, logEntry) {
   await fs.appendFile(logsFile, `[${new Date().toISOString()}] ${logEntry}\n`);
 }
 
-async function addCronJob(userDir, scheduleId, cronExpression) {
+async function addCronJob(userDir, scheduleId, cronExpression, encryptedPayload) {
   const scriptPath = path.join(__dirname, '..', 'scripts', 'run-schedule.js');
-  const cronCommand = `${cronExpression} node ${scriptPath} ${userDir} ${scheduleId}`;
+  const cronCommand = `${cronExpression} node ${scriptPath} ${userDir} ${scheduleId} ${encryptedPayload}`;
   const cronLabel = `# mudbot-${userDir}-${scheduleId}`;
 
   return new Promise((resolve, reject) => {
@@ -154,6 +180,30 @@ async function removeCronJob(userDir, scheduleId) {
   });
 }
 
+// Checks all schedule files against crontab; re-adds any missing entries.
+// Called on GET /api/schedules to auto-restore cron after a server migration.
+async function syncCronJobs(userDir, token) {
+  const schedules = await listSchedules(userDir, token);
+  if (!schedules.length) return;
+
+  const currentCrontab = await new Promise(resolve => {
+    const proc = spawn('crontab', ['-l']);
+    let out = '';
+    proc.stdout.on('data', d => { out += d.toString(); });
+    proc.stderr.on('data', () => {});
+    proc.on('close', () => resolve(out));
+  });
+
+  for (const schedule of schedules) {
+    if (!schedule.enabled) continue;
+    const label = `# mudbot-${userDir}-${schedule.id}`;
+    if (!currentCrontab.includes(label)) {
+      const encryptedPayload = buildCronPayload(token, schedule);
+      await addCronJob(userDir, schedule.id, schedule.cronExpression, encryptedPayload);
+    }
+  }
+}
+
 module.exports = {
   createSchedule,
   listSchedules,
@@ -163,5 +213,6 @@ module.exports = {
   getScheduleLogs,
   appendLog,
   addCronJob,
-  removeCronJob
+  removeCronJob,
+  syncCronJobs
 };

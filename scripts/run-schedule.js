@@ -1,42 +1,58 @@
 #!/usr/bin/env node
-require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
-
 const { spawn } = require('child_process');
 const fs = require('fs').promises;
 const path = require('path');
-const { encryptData, decryptData, getUserDir } = require('../services/userService');
+const crypto = require('crypto');
+const { encryptData, decryptData } = require('../services/userService');
 
 const USERS_DIR = path.join(__dirname, '..', 'users');
-const TOKENS_FILE = path.join(__dirname, '..', 'tokens.json');
-const SERVER_SECRET = process.env.SERVER_SECRET;
 
-const [userDir, scheduleId] = process.argv.slice(2);
+const [userDir, scheduleId, encryptedPayload] = process.argv.slice(2);
 
-if (!userDir || !scheduleId) {
-  console.error('Usage: run-schedule.js <userDir> <scheduleId>');
+if (!userDir || !scheduleId || !encryptedPayload) {
+  console.error('Usage: run-schedule.js <userDir> <scheduleId> <encryptedPayload>');
   process.exit(1);
 }
 
-const crypto = require('crypto');
-
-function decryptWithSecret(ciphertext) {
-  const [ivHex, encHex] = ciphertext.split(':');
-  const key = crypto.scryptSync(SERVER_SECRET, 'tokensalt', 32);
-  const decipher = crypto.createDecipheriv('aes-256-cbc', key, Buffer.from(ivHex, 'hex'));
-  const decrypted = Buffer.concat([decipher.update(Buffer.from(encHex, 'hex')), decipher.final()]);
-  return decrypted.toString('utf8');
+function decryptPayload(payload, tokenHashHex) {
+  const data = Buffer.from(payload, 'base64url');
+  const iv = data.slice(0, 16);
+  const encrypted = data.slice(16);
+  const key = Buffer.from(tokenHashHex, 'hex');
+  const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+  const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+  return JSON.parse(decrypted.toString('utf8'));
 }
 
-async function findEmailForDir(userDir) {
-  const raw = await fs.readFile(TOKENS_FILE, 'utf8');
-  const tokens = JSON.parse(decryptWithSecret(raw.trim()));
-  for (const encryptedEmail of Object.values(tokens)) {
-    try {
-      const email = decryptWithSecret(encryptedEmail);
-      if (getUserDir(email) === userDir) return email;
-    } catch { /* skip */ }
-  }
-  return null;
+async function decryptMudslideToTemp(userDir, token) {
+  const encFile = path.join(USERS_DIR, userDir, '.mudslide.enc');
+  const tmp = path.join('/tmp', `mudbot-${userDir}`);
+
+  const data = await fs.readFile(encFile);
+  const iv = data.slice(0, 16);
+  const encrypted = data.slice(16);
+  const key = crypto.createHash('sha256').update(token).digest();
+  const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+  const tarBuffer = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+
+  await fs.mkdir(tmp, { recursive: true });
+
+  await new Promise((resolve, reject) => {
+    const proc = spawn('tar', ['-xzf', '-', '-C', tmp]);
+    proc.stdin.write(tarBuffer);
+    proc.stdin.end();
+    proc.stderr.on('data', () => {});
+    proc.on('close', code => {
+      if (code === 0) resolve();
+      else reject(new Error(`tar extract failed with code ${code}`));
+    });
+  });
+
+  return path.join(tmp, '.mudslide');
+}
+
+async function cleanupTemp(userDir) {
+  await fs.rm(path.join('/tmp', `mudbot-${userDir}`), { recursive: true, force: true });
 }
 
 function runMudslide(args) {
@@ -54,63 +70,63 @@ function runMudslide(args) {
   });
 }
 
-async function appendLog(scheduleDir, line) {
+async function appendLog(schDir, line) {
   await fs.appendFile(
-    path.join(scheduleDir, 'logs.txt'),
+    path.join(schDir, 'logs.txt'),
     `[${new Date().toISOString()}] ${line}\n`
   );
 }
 
 async function main() {
-  const scheduleDir = path.join(USERS_DIR, userDir, 'schedules', scheduleId);
-  const scheduleFile = path.join(scheduleDir, 'schedule.json');
-  const credentialsPath = path.join(USERS_DIR, userDir, '.mudslide');
+  const schDir = path.join(USERS_DIR, userDir, 'schedules', scheduleId);
 
-  const email = await findEmailForDir(userDir);
-  if (!email) {
-    console.error(`No user found for dir: ${userDir}`);
-    process.exit(1);
-  }
+  // Read token_hash from disk — used to decrypt the cron payload
+  const tokenHash = (await fs.readFile(path.join(USERS_DIR, userDir, 'token_hash'), 'utf8')).trim();
 
-  const raw = await fs.readFile(scheduleFile, 'utf8');
-  const schedule = JSON.parse(decryptData(raw, email));
+  // Decrypt payload to recover the session token and schedule data
+  const { token, recipients, message, media } = decryptPayload(encryptedPayload, tokenHash);
 
-  if (!schedule.enabled) {
-    await appendLog(scheduleDir, 'INFO: Schedule disabled, skipping');
-    return;
-  }
+  // Decrypt .mudslide.enc to a temp directory
+  const credPath = await decryptMudslideToTemp(userDir, token);
 
-  await appendLog(scheduleDir, `INFO: Starting execution for schedule ${scheduleId}`);
+  await appendLog(schDir, `INFO: Starting execution for schedule ${scheduleId}`);
 
   let success = 0;
   let failure = 0;
 
-  for (const recipient of schedule.recipients) {
-    await appendLog(scheduleDir, `INFO: Sending to ${recipient}`);
-    try {
-      let args;
-      if (schedule.media) {
-        const ext = schedule.media.split('.').pop().toLowerCase();
-        const cmd = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext) ? 'send-image' : 'send-file';
-        args = ['-c', credentialsPath, cmd, recipient, schedule.media];
-        if (schedule.message) args.push('--caption', schedule.message);
-      } else {
-        args = ['-c', credentialsPath, 'send', recipient, schedule.message];
+  try {
+    for (const recipient of recipients) {
+      await appendLog(schDir, `INFO: Sending to ${recipient}`);
+      try {
+        let args;
+        if (media) {
+          const ext = media.split('.').pop().toLowerCase();
+          const cmd = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext) ? 'send-image' : 'send-file';
+          args = ['-c', credPath, cmd, recipient, media];
+          if (message) args.push('--caption', message);
+        } else {
+          args = ['-c', credPath, 'send', recipient, message];
+        }
+        await runMudslide(args);
+        await appendLog(schDir, `SUCCESS: Sent to ${recipient}`);
+        success++;
+      } catch (err) {
+        await appendLog(schDir, `ERROR: Failed to send to ${recipient} - ${err.message}`);
+        failure++;
       }
-      await runMudslide(args);
-      await appendLog(scheduleDir, `SUCCESS: Sent to ${recipient}`);
-      success++;
-    } catch (err) {
-      await appendLog(scheduleDir, `ERROR: Failed to send to ${recipient} - ${err.message}`);
-      failure++;
     }
+  } finally {
+    await cleanupTemp(userDir);
   }
 
-  // Update lastRun (re-encrypt)
+  // Update lastRun in the encrypted schedule file
+  const scheduleFile = path.join(schDir, 'schedule.json');
+  const raw = await fs.readFile(scheduleFile, 'utf8');
+  const schedule = JSON.parse(decryptData(raw, token));
   schedule.lastRun = new Date().toISOString();
-  await fs.writeFile(scheduleFile, encryptData(JSON.stringify(schedule), email));
+  await fs.writeFile(scheduleFile, encryptData(JSON.stringify(schedule), token));
 
-  await appendLog(scheduleDir, `INFO: Done - Success: ${success}, Failed: ${failure}`);
+  await appendLog(schDir, `INFO: Done - Success: ${success}, Failed: ${failure}`);
 }
 
 main().catch(err => {

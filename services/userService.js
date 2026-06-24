@@ -3,143 +3,98 @@ const path = require('path');
 const crypto = require('crypto');
 
 const CONFIG = {
-  USERS_DIR: path.join(__dirname, '..', 'users'),
-  TOKENS_FILE: path.join(__dirname, '..', 'tokens.json')
+  USERS_DIR: path.join(__dirname, '..', 'users')
 };
 
-const SERVER_SECRET = process.env.SERVER_SECRET;
-
-// --- Crypto helpers ---
-
-// Encrypt/decrypt using SERVER_SECRET — for tokens.json values
-function encryptWithSecret(text) {
-  const key = crypto.scryptSync(SERVER_SECRET, 'tokensalt', 32);
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-  const encrypted = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()]);
-  return iv.toString('hex') + ':' + encrypted.toString('hex');
-}
-
-function decryptWithSecret(ciphertext) {
-  const [ivHex, encHex] = ciphertext.split(':');
-  const key = crypto.scryptSync(SERVER_SECRET, 'tokensalt', 32);
-  const decipher = crypto.createDecipheriv('aes-256-cbc', key, Buffer.from(ivHex, 'hex'));
-  const decrypted = Buffer.concat([decipher.update(Buffer.from(encHex, 'hex')), decipher.final()]);
-  return decrypted.toString('utf8');
-}
-
-// Encrypt/decrypt using hash(email + SERVER_SECRET) — for all user files
-function encryptData(text, email) {
-  const key = crypto.createHash('sha256').update(email + SERVER_SECRET).digest();
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-  const encrypted = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()]);
-  return iv.toString('hex') + ':' + encrypted.toString('hex');
-}
-
-function decryptData(ciphertext, email) {
-  const [ivHex, encHex] = ciphertext.split(':');
-  const key = crypto.createHash('sha256').update(email + SERVER_SECRET).digest();
-  const decipher = crypto.createDecipheriv('aes-256-cbc', key, Buffer.from(ivHex, 'hex'));
-  const decrypted = Buffer.concat([decipher.update(Buffer.from(encHex, 'hex')), decipher.final()]);
-  return decrypted.toString('utf8');
-}
-
-// Deterministic 10-char directory name from email
 function getUserDir(email) {
   return crypto.createHash('sha256').update(email).digest('hex').slice(0, 10);
 }
 
-// --- Token storage (entire file encrypted with SERVER_SECRET) ---
-
-async function loadTokens() {
-  try {
-    const raw = await fs.readFile(CONFIG.TOKENS_FILE, 'utf8');
-    const decrypted = decryptWithSecret(raw.trim());
-    return JSON.parse(decrypted);
-  } catch {
-    return {};
-  }
+function generateToken(email) {
+  const userDir = getUserDir(email);
+  const random = crypto.randomBytes(27).toString('hex'); // 54 hex chars
+  return userDir + random; // 64 hex chars = 32 bytes as Buffer
 }
 
-async function saveTokens(tokens) {
-  const encrypted = encryptWithSecret(JSON.stringify(tokens));
-  await fs.writeFile(CONFIG.TOKENS_FILE, encrypted);
+function computeTokenHash(token) {
+  return crypto.createHash('sha256').update(token).digest('hex');
 }
 
-function generateToken() {
-  return crypto.randomBytes(32).toString('hex');
+// Encryption key = Buffer.from(token, 'hex') = 32 bytes, valid AES-256 key
+function encryptData(text, token) {
+  const key = Buffer.from(token, 'hex');
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+  const encrypted = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()]);
+  return iv.toString('hex') + ':' + encrypted.toString('hex');
 }
 
-// --- User operations ---
+function decryptData(ciphertext, token) {
+  const [ivHex, encHex] = ciphertext.split(':');
+  const key = Buffer.from(token, 'hex');
+  const decipher = crypto.createDecipheriv('aes-256-cbc', key, Buffer.from(ivHex, 'hex'));
+  const decrypted = Buffer.concat([decipher.update(Buffer.from(encHex, 'hex')), decipher.final()]);
+  return decrypted.toString('utf8');
+}
 
 async function registerUser(email) {
-  const tokens = await loadTokens();
+  const token = generateToken(email);
+  const userDir = token.slice(0, 10);
+  const hash = computeTokenHash(token);
 
-  // Check if a token already maps to this user's dir (re-registration: issue new token, keep dir)
-  const userDir = getUserDir(email);
   const fullUserDir = path.join(CONFIG.USERS_DIR, userDir);
-
-  const token = generateToken();
-  tokens[token] = encryptWithSecret(email);
-  await saveTokens(tokens);
-
-  // Create dir structure if first time
   await fs.mkdir(path.join(fullUserDir, 'schedules'), { recursive: true });
+  await fs.writeFile(path.join(fullUserDir, 'token_hash'), hash);
 
   return { token, userDir };
 }
 
 async function verifyToken(token) {
-  const tokens = await loadTokens();
-  const encryptedEmail = tokens[token];
-  if (!encryptedEmail) return null;
-
+  if (!token || token.length !== 64) return null;
+  const userDir = token.slice(0, 10);
   try {
-    const email = decryptWithSecret(encryptedEmail);
-    const userDir = getUserDir(email);
-    return { email, token, userDir };
+    const storedHash = (await fs.readFile(
+      path.join(CONFIG.USERS_DIR, userDir, 'token_hash'), 'utf8'
+    )).trim();
+    if (computeTokenHash(token) !== storedHash) return null;
+    return { token, userDir };
   } catch {
     return null;
   }
 }
 
-async function generateApiKey(userDir, email) {
-  const apiKey = crypto.randomBytes(32).toString('hex');
+async function generateApiKey(userDir, token) {
+  const random = crypto.randomBytes(27).toString('hex');
+  const apiKey = userDir + random; // same 64-hex format as token
 
-  // Store encrypted api_key file in user dir
-  const encryptedKey = encryptData(apiKey, email);
-  await fs.writeFile(path.join(CONFIG.USERS_DIR, userDir, 'api_key'), encryptedKey);
-
-  // Add apiKey -> encryptedEmail entry to tokens.json
-  const tokens = await loadTokens();
-  tokens[apiKey] = encryptWithSecret(email);
-  await saveTokens(tokens);
+  await fs.writeFile(
+    path.join(CONFIG.USERS_DIR, userDir, 'api_key_hash'),
+    computeTokenHash(apiKey)
+  );
+  // Store session token encrypted with apiKey so verifyApiKey can recover it
+  await fs.writeFile(
+    path.join(CONFIG.USERS_DIR, userDir, 'api_key_token'),
+    encryptData(token, apiKey)
+  );
 
   return apiKey;
 }
 
 async function verifyApiKey(apiKey) {
-  const tokens = await loadTokens();
-  const encryptedEmail = tokens[apiKey];
-  if (!encryptedEmail) return null;
-
+  if (!apiKey || apiKey.length !== 64) return null;
+  const userDir = apiKey.slice(0, 10);
   try {
-    const email = decryptWithSecret(encryptedEmail);
-    const userDir = getUserDir(email);
+    const storedHash = (await fs.readFile(
+      path.join(CONFIG.USERS_DIR, userDir, 'api_key_hash'), 'utf8'
+    )).trim();
+    if (computeTokenHash(apiKey) !== storedHash) return null;
 
-    // Find the session token for this user
-    let userToken = null;
-    for (const [key, val] of Object.entries(tokens)) {
-      if (key.length === 64 && key !== apiKey) {
-        try {
-          const e = decryptWithSecret(val);
-          if (e === email) { userToken = key; break; }
-        } catch { /* skip */ }
-      }
-    }
+    const encTokenRaw = (await fs.readFile(
+      path.join(CONFIG.USERS_DIR, userDir, 'api_key_token'), 'utf8'
+    )).trim();
+    const sessionToken = decryptData(encTokenRaw, apiKey);
 
-    return { email, token: userToken, userDir, apiKey };
+    return { token: sessionToken, userDir };
   } catch {
     return null;
   }
@@ -152,5 +107,6 @@ module.exports = {
   verifyApiKey,
   encryptData,
   decryptData,
-  getUserDir
+  getUserDir,
+  computeTokenHash
 };

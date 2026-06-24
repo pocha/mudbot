@@ -87,18 +87,20 @@ async function extractTokenFromMaildev() {
 // --- setup / teardown ---
 
 before(async () => {
-  // Check if server is already running
-  try {
-    await fetch(`${BASE_URL}/api/health`);
-  } catch {
-    // Start it
-    serverProcess = spawn('node', [path.join(__dirname, '..', 'server.js')], {
-      env: { ...process.env },
-      stdio: 'pipe'
-    });
-    serverProcess.stderr.on('data', d => process.stderr.write(d));
-    await waitForServer(BASE_URL);
-  }
+  // Always start a fresh server with MailDev SMTP so registration emails are captured
+  serverProcess = spawn('node', [path.join(__dirname, '..', 'server.js')], {
+    env: {
+      ...process.env,
+      SMTP_HOST: 'localhost',
+      SMTP_PORT: '1025',
+      SMTP_SECURE: 'false',
+      SMTP_USER: '',
+      SMTP_PASS: ''
+    },
+    stdio: 'pipe'
+  });
+  serverProcess.stderr.on('data', d => process.stderr.write(d));
+  await waitForServer(BASE_URL);
 });
 
 after(async () => {
@@ -134,13 +136,24 @@ test('extract token from MailDev', async () => {
 test('verify token', async () => {
   const { status, body } = await get(`${BASE_URL}/api/verify/${token}`);
   assert.equal(status, 200);
-  assert.equal(body.user.email, TEST_EMAIL);
+  assert.equal(body.success, true);
+  assert.equal(typeof body.user.whatsappConnected, 'boolean');
 });
 
-test('user directory created', async () => {
+test('user directory and token_hash created', async () => {
   const userDir = getUserDir(TEST_EMAIL);
   const stat = await fs.stat(path.join(USERS_DIR, userDir));
   assert.ok(stat.isDirectory());
+
+  // token_hash file must exist (used for auth verification)
+  const hashContent = await fs.readFile(path.join(USERS_DIR, userDir, 'token_hash'), 'utf8');
+  assert.match(hashContent.trim(), /^[a-f0-9]{64}$/);
+
+  // token embeds userDir as first 10 chars
+  assert.equal(token.slice(0, 10), userDir);
+
+  // tokens.json must NOT exist
+  await assert.rejects(fs.access(path.join(__dirname, '..', 'tokens.json')));
 });
 
 test('generate API key', async () => {
@@ -150,12 +163,19 @@ test('generate API key', async () => {
   apiKey = body.apiKey;
 });
 
-test('api_key file exists and is encrypted', async () => {
+test('api_key_hash and api_key_token files exist', async () => {
   const userDir = getUserDir(TEST_EMAIL);
-  const content = await fs.readFile(path.join(USERS_DIR, userDir, 'api_key'), 'utf8');
-  // Should be iv:ciphertext format, not plaintext
-  assert.match(content, /^[a-f0-9]+:[a-f0-9]+$/);
-  assert.ok(!content.includes(apiKey));
+
+  // api_key_hash: sha256(apiKey) — 64 hex chars
+  const hashContent = await fs.readFile(path.join(USERS_DIR, userDir, 'api_key_hash'), 'utf8');
+  assert.match(hashContent.trim(), /^[a-f0-9]{64}$/);
+
+  // api_key_token: session token encrypted with apiKey — iv:ciphertext format
+  const tokenContent = await fs.readFile(path.join(USERS_DIR, userDir, 'api_key_token'), 'utf8');
+  assert.match(tokenContent.trim(), /^[a-f0-9]+:[a-f0-9]+$/);
+
+  // apiKey embeds same userDir as first 10 chars
+  assert.equal(apiKey.slice(0, 10), userDir);
 });
 
 test('authenticate with API key', async () => {
@@ -221,16 +241,22 @@ test('schedule removed from storage', async () => {
   assert.equal(body.schedules.length, 0);
 });
 
-test('re-registration returns new token, same user dir', async () => {
-  const { status, body: b1 } = await post(`${BASE_URL}/api/register`, { email: TEST_EMAIL });
+test('re-registration invalidates old token and issues new one for same userDir', async () => {
+  const { status } = await post(`${BASE_URL}/api/register`, { email: TEST_EMAIL });
   assert.equal(status, 200);
-  // Extract new token from MailDev
+
   const newToken = await extractTokenFromMaildev();
   assert.notEqual(newToken, token);
 
-  // Both tokens should resolve to same email and userDir
-  const { body: v1 } = await get(`${BASE_URL}/api/verify/${token}`);
-  const { body: v2 } = await get(`${BASE_URL}/api/verify/${newToken}`);
-  assert.equal(v1.user.email, v2.user.email);
-  assert.equal(getUserDir(v1.user.email), getUserDir(v2.user.email));
+  // New token maps to same userDir (first 10 chars of sha256(email))
+  assert.equal(newToken.slice(0, 10), getUserDir(TEST_EMAIL));
+
+  // Old token must now be invalid (token_hash was overwritten)
+  const { status: oldStatus } = await get(`${BASE_URL}/api/verify/${token}`);
+  assert.equal(oldStatus, 401);
+
+  // New token is valid
+  const { status: newStatus, body } = await get(`${BASE_URL}/api/verify/${newToken}`);
+  assert.equal(newStatus, 200);
+  assert.equal(body.success, true);
 });

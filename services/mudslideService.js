@@ -1,23 +1,88 @@
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs').promises;
+const crypto = require('crypto');
 
 const CONFIG = {
   MUDSLIDE_PATH: 'mudslide',
   USERS_DIR: path.join(__dirname, '..', 'users')
 };
 
-function credentialsPath(userDir) {
+function mudslideEncFile(userDir) {
+  return path.join(CONFIG.USERS_DIR, userDir, '.mudslide.enc');
+}
+
+function mudslideDir(userDir) {
   return path.join(CONFIG.USERS_DIR, userDir, '.mudslide');
+}
+
+function tempDir(userDir) {
+  return path.join('/tmp', `mudbot-${userDir}`);
 }
 
 async function isLoggedIn(userDir) {
   try {
-    const files = await fs.readdir(credentialsPath(userDir));
-    return files.length > 0;
+    await fs.access(mudslideEncFile(userDir));
+    return true;
   } catch {
     return false;
   }
+}
+
+// Tar .mudslide dir, encrypt with sha256(token), write .mudslide.enc, delete .mudslide dir.
+async function encryptMudslide(userDir, token) {
+  const key = crypto.createHash('sha256').update(token).digest();
+
+  const tarBuffer = await new Promise((resolve, reject) => {
+    const proc = spawn('tar', ['-czf', '-', '.mudslide'], {
+      cwd: path.join(CONFIG.USERS_DIR, userDir)
+    });
+    const chunks = [];
+    proc.stdout.on('data', d => chunks.push(d));
+    proc.stderr.on('data', () => {});
+    proc.on('close', code => {
+      if (code === 0) resolve(Buffer.concat(chunks));
+      else reject(new Error(`tar failed with code ${code}`));
+    });
+  });
+
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+  const encrypted = Buffer.concat([cipher.update(tarBuffer), cipher.final()]);
+  await fs.writeFile(mudslideEncFile(userDir), Buffer.concat([iv, encrypted]));
+
+  await fs.rm(mudslideDir(userDir), { recursive: true, force: true });
+}
+
+// Decrypt .mudslide.enc → /tmp/mudbot-<userDir>/.mudslide, return that path.
+async function decryptMudslideToTemp(userDir, token) {
+  const data = await fs.readFile(mudslideEncFile(userDir));
+  const iv = data.slice(0, 16);
+  const encrypted = data.slice(16);
+
+  const key = crypto.createHash('sha256').update(token).digest();
+  const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+  const tarBuffer = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+
+  const tmp = tempDir(userDir);
+  await fs.mkdir(tmp, { recursive: true });
+
+  await new Promise((resolve, reject) => {
+    const proc = spawn('tar', ['-xzf', '-', '-C', tmp]);
+    proc.stdin.write(tarBuffer);
+    proc.stdin.end();
+    proc.stderr.on('data', () => {});
+    proc.on('close', code => {
+      if (code === 0) resolve();
+      else reject(new Error(`tar extract failed with code ${code}`));
+    });
+  });
+
+  return path.join(tmp, '.mudslide');
+}
+
+async function cleanupTemp(userDir) {
+  await fs.rm(tempDir(userDir), { recursive: true, force: true });
 }
 
 function runMudslide(args, timeoutMs) {
@@ -44,13 +109,12 @@ function runMudslide(args, timeoutMs) {
 
 async function getQRCode(userDir) {
   return new Promise((resolve, reject) => {
-    const proc = spawn(CONFIG.MUDSLIDE_PATH, ['-c', credentialsPath(userDir), 'login']);
+    const proc = spawn(CONFIG.MUDSLIDE_PATH, ['-c', mudslideDir(userDir), 'login']);
     let output = '';
     let idleTimer = null;
 
     const onData = (data) => {
       output += data.toString();
-      // Reset idle timer — resolve 2s after output stops (QR fully printed)
       if (idleTimer) clearTimeout(idleTimer);
       idleTimer = setTimeout(() => {
         resolve({ success: true, qr: output.trim() });
@@ -60,14 +124,12 @@ async function getQRCode(userDir) {
     proc.stdout.on('data', onData);
     proc.stderr.on('data', onData);
 
-    // If process exits cleanly before idle (e.g. already logged in)
-    proc.on('close', (code) => {
+    proc.on('close', () => {
       if (idleTimer) clearTimeout(idleTimer);
       if (output.trim()) resolve({ success: true, qr: output.trim() });
       else reject(new Error('No output from mudslide login'));
     });
 
-    // Hard timeout — kill only if no output at all
     setTimeout(() => {
       if (idleTimer) clearTimeout(idleTimer);
       if (output.trim()) resolve({ success: true, qr: output.trim() });
@@ -76,56 +138,103 @@ async function getQRCode(userDir) {
   });
 }
 
-async function checkLoginStatus(userDir) {
-  if (!(await isLoggedIn(userDir))) return { loggedIn: false };
-  // Credentials exist — consider connected without a live check,
-  // since `me` requires an active WA connection and can fail transiently.
-  return { loggedIn: true };
-}
-
-async function sendMessage(userDir, to, message) {
-  const output = await runMudslide(['-c', credentialsPath(userDir), 'send', to, message], 30000);
-  return { success: true, message: 'Message sent successfully', output };
-}
-
-async function sendMedia(userDir, to, mediaPath, caption = '') {
-  const ext = mediaPath.split('.').pop().toLowerCase();
-  const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
-  const cmd = isImage ? 'send-image' : 'send-file';
-  const args = ['-c', credentialsPath(userDir), cmd, to, mediaPath];
-  if (caption) args.push('--caption', caption);
-  const output = await runMudslide(args, 60000);
-  return { success: true, message: 'Media sent successfully', output };
-}
-
-async function getGroups(userDir) {
-  const output = await runMudslide(['-c', credentialsPath(userDir), 'groups'], 15000);
-
-  // mudslide may output a JSON array or one JSON object per line
+async function checkLoginStatus(userDir, token) {
+  let plaintextExists = false;
   try {
-    const parsed = JSON.parse(output);
-    if (Array.isArray(parsed)) {
-      return parsed.map(g => ({ name: g.subject || g.name || g.id, id: g.id })).filter(g => g.id);
-    }
+    await fs.access(mudslideDir(userDir));
+    plaintextExists = true;
   } catch {}
 
-  return output.split('\n').filter(Boolean).map(line => {
-    try {
-      const g = JSON.parse(line);
-      if (g && g.id) return { name: g.subject || g.name || g.id, id: g.id };
-    } catch {}
-    const match = line.match(/^(.*?)\s*\(([^)]+@g\.us)\)\s*$/);
-    if (match) return { name: match[1].trim(), id: match[2].trim() };
-    if (line.includes('@g.us')) return { name: line.trim(), id: line.trim() };
-    return null;
-  }).filter(Boolean);
+  const encExists = await isLoggedIn(userDir);
+
+  if (plaintextExists && token) {
+    // Post-QR-scan: encrypt and delete plaintext dir
+    await encryptMudslide(userDir, token);
+    return { loggedIn: true };
+  }
+
+  if (plaintextExists) {
+    // No token available — session exists but can't encrypt yet
+    return { loggedIn: true };
+  }
+
+  return { loggedIn: encExists };
 }
 
-async function logout(userDir) {
-  await runMudslide(['-c', credentialsPath(userDir), 'logout'], 10000);
-  // Remove local session files
-  await fs.rm(credentialsPath(userDir), { recursive: true, force: true });
+async function sendMessage(userDir, token, to, message) {
+  const credPath = await decryptMudslideToTemp(userDir, token);
+  try {
+    const output = await runMudslide(['-c', credPath, 'send', to, message], 30000);
+    return { success: true, message: 'Message sent successfully', output };
+  } finally {
+    await cleanupTemp(userDir);
+  }
+}
+
+async function sendMedia(userDir, token, to, mediaPath, caption = '') {
+  const credPath = await decryptMudslideToTemp(userDir, token);
+  try {
+    const ext = mediaPath.split('.').pop().toLowerCase();
+    const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
+    const cmd = isImage ? 'send-image' : 'send-file';
+    const args = ['-c', credPath, cmd, to, mediaPath];
+    if (caption) args.push('--caption', caption);
+    const output = await runMudslide(args, 60000);
+    return { success: true, message: 'Media sent successfully', output };
+  } finally {
+    await cleanupTemp(userDir);
+  }
+}
+
+async function getGroups(userDir, token) {
+  const credPath = await decryptMudslideToTemp(userDir, token);
+  try {
+    const output = await runMudslide(['-c', credPath, 'groups'], 15000);
+
+    try {
+      const parsed = JSON.parse(output);
+      if (Array.isArray(parsed)) {
+        return parsed.map(g => ({ name: g.subject || g.name || g.id, id: g.id })).filter(g => g.id);
+      }
+    } catch {}
+
+    return output.split('\n').filter(Boolean).map(line => {
+      try {
+        const g = JSON.parse(line);
+        if (g && g.id) return { name: g.subject || g.name || g.id, id: g.id };
+      } catch {}
+      const match = line.match(/^(.*?)\s*\(([^)]+@g\.us)\)\s*$/);
+      if (match) return { name: match[1].trim(), id: match[2].trim() };
+      if (line.includes('@g.us')) return { name: line.trim(), id: line.trim() };
+      return null;
+    }).filter(Boolean);
+  } finally {
+    await cleanupTemp(userDir);
+  }
+}
+
+async function logout(userDir, token) {
+  if (token) {
+    try {
+      const credPath = await decryptMudslideToTemp(userDir, token);
+      await runMudslide(['-c', credPath, 'logout'], 10000).catch(() => {});
+      await cleanupTemp(userDir);
+    } catch {}
+  }
+  await fs.rm(mudslideDir(userDir), { recursive: true, force: true });
+  await fs.rm(mudslideEncFile(userDir), { force: true });
   return { success: true };
 }
 
-module.exports = { isLoggedIn, getQRCode, checkLoginStatus, sendMessage, sendMedia, getGroups, logout };
+module.exports = {
+  isLoggedIn,
+  getQRCode,
+  checkLoginStatus,
+  sendMessage,
+  sendMedia,
+  getGroups,
+  logout,
+  encryptMudslide,
+  decryptMudslideToTemp,
+  cleanupTemp
+};
