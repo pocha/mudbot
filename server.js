@@ -1,7 +1,16 @@
 require('dotenv').config();
-
-const fastify = require('fastify')({ logger: true });
+const fs = require('fs');
 const path = require('path');
+
+const httpsOptions = {
+  https: {
+    key: fs.readFileSync('/etc/letsencrypt/live/watobot.xyz/privkey.pem'),
+    cert: fs.readFileSync('/etc/letsencrypt/live/watobot.xyz/fullchain.pem')
+  },
+  logger: true
+};
+
+const fastify = require('fastify')(httpsOptions);
 
 fastify.register(require('@fastify/cors'), { origin: true });
 
@@ -14,7 +23,8 @@ fastify.register(require('./routes/api'));
 
 const start = async () => {
   try {
-    await fastify.listen({ port: process.env.PORT || 3000, host: '0.0.0.0' });
+    // This will now successfully bind directly to 443
+    await fastify.listen({ port: process.env.PORT || 443, host: '0.0.0.0' });
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);
