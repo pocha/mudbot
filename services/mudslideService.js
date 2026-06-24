@@ -8,6 +8,9 @@ const CONFIG = {
   USERS_DIR: path.join(__dirname, '..', 'users')
 };
 
+// Holds the active mudslide login process so confirmLogin() can send a keypress.
+let loginProc = null;
+
 function mudslideEncFile(userDir) {
   return path.join(CONFIG.USERS_DIR, userDir, '.mudslide.enc');
 }
@@ -108,21 +111,42 @@ function runMudslide(args, timeoutMs) {
 }
 
 async function getQRCode(userDir) {
+  // Kill any previously hung login process before starting a new one.
+  if (loginProc && !loginProc.killed) {
+    loginProc.kill();
+    loginProc = null;
+  }
+
   return new Promise((resolve, reject) => {
     const proc = spawn(CONFIG.MUDSLIDE_PATH, ['-c', mudslideDir(userDir), 'login']);
+    loginProc = proc;
     let output = '';
     let idleTimer = null;
+    let resolved = false;
+    let keypressSent = false;
 
     const onData = (data) => {
       output += data.toString();
+
+      // After the user scans the QR, mudslide enters loginSecondPass() and prints
+      // "press any key to exit" while blocking on stdin. Since our stdin is a pipe
+      // (not a TTY) it would hang forever — send the keypress automatically so
+      // mudslide can terminate cleanly once the user clicks Continue in the UI.
+      if (output.includes('press any key') && !keypressSent) {
+        keypressSent = true;
+        proc.stdin.write('\n');
+        return;
+      }
+
       if (idleTimer) clearTimeout(idleTimer);
       // Only start the idle timer once we have content beyond mudslide's
       // initialization messages — the QR code arrives after those.
       const meaningful = output.split('\n')
         .filter(l => !l.trim().startsWith('Created mudslide cache folder'))
         .join('\n').trim();
-      if (meaningful) {
+      if (meaningful && !resolved) {
         idleTimer = setTimeout(() => {
+          resolved = true;
           resolve({ success: true, qr: output.trim() });
         }, 2000);
       }
@@ -132,17 +156,29 @@ async function getQRCode(userDir) {
     proc.stderr.on('data', onData);
 
     proc.on('close', () => {
+      loginProc = null;
       if (idleTimer) clearTimeout(idleTimer);
-      if (output.trim()) resolve({ success: true, qr: output.trim() });
-      else reject(new Error('No output from mudslide login'));
+      if (!resolved) {
+        if (output.trim()) resolve({ success: true, qr: output.trim() });
+        else reject(new Error('No output from mudslide login'));
+      }
     });
 
     setTimeout(() => {
       if (idleTimer) clearTimeout(idleTimer);
-      if (output.trim()) resolve({ success: true, qr: output.trim() });
-      else { proc.kill(); reject(new Error('QR code timeout')); }
+      if (!resolved) {
+        if (output.trim()) resolve({ success: true, qr: output.trim() });
+        else { proc.kill(); reject(new Error('QR code timeout')); }
+      }
     }, 30000);
   });
+}
+
+// Called when the user clicks "Continue" after seeing Google Chrome in Linked Devices.
+// The keypress was already sent automatically; this just verifies creds.json exists
+// and triggers encryption of .mudslide → .mudslide.enc.
+async function confirmLogin(userDir, token) {
+  return await checkLoginStatus(userDir, token);
 }
 
 async function checkLoginStatus(userDir, token) {
@@ -221,27 +257,34 @@ async function getGroups(userDir, token) {
   }
 }
 
+// Attempts a graceful mudslide logout (signals WhatsApp to disconnect the device).
+// Called fire-and-forget from the route — file cleanup happens in cleanupAfterLogout().
 async function logout(userDir, token) {
-  if (token) {
-    try {
-      const credPath = await decryptMudslideToTemp(userDir, token);
-      await runMudslide(['-c', credPath, 'logout'], 10000).catch(() => {});
-      await cleanupTemp(userDir);
-    } catch {}
-  }
+  if (!token) return;
+  try {
+    const credPath = await decryptMudslideToTemp(userDir, token);
+    await runMudslide(['-c', credPath, 'logout'], 30000);
+  } catch {}
+  await cleanupTemp(userDir).catch(() => {});
+}
+
+// Deletes the encrypted session files after the user has confirmed the device
+// is removed from WhatsApp Linked Devices.
+async function cleanupAfterLogout(userDir) {
   await fs.rm(mudslideDir(userDir), { recursive: true, force: true });
   await fs.rm(mudslideEncFile(userDir), { force: true });
-  return { success: true };
 }
 
 module.exports = {
   isLoggedIn,
   getQRCode,
+  confirmLogin,
   checkLoginStatus,
   sendMessage,
   sendMedia,
   getGroups,
   logout,
+  cleanupAfterLogout,
   encryptMudslide,
   decryptMudslideToTemp,
   cleanupTemp

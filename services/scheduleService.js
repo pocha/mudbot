@@ -77,7 +77,10 @@ async function listSchedules(userDir, token) {
         try {
           schedules.push(await readSchedule(userDir, token, entry.name));
         } catch (err) {
-          console.error(`Error reading schedule ${entry.name}:`, err.message);
+          // Decryption failure means the schedule belongs to a previous token.
+          // Delete it so stale data doesn't accumulate.
+          console.error(`Deleting unreadable schedule ${entry.name}:`, err.message);
+          await fs.rm(scheduleDir(userDir, entry.name), { recursive: true, force: true });
         }
       }
     }
@@ -164,6 +167,27 @@ async function addCronJob(userDir, scheduleId, cronExpression, encryptedPayload)
   });
 }
 
+async function removeAllCronJobs(userDir) {
+  return new Promise((resolve) => {
+    const getCrontab = spawn('crontab', ['-l']);
+    let current = '';
+    getCrontab.stdout.on('data', d => { current += d.toString(); });
+    getCrontab.stderr.on('data', () => {});
+
+    getCrontab.on('close', () => {
+      const lines = current.split('\n')
+        .filter(l => !l.includes(`mudbot-${userDir}-`) &&
+                    !l.includes(`run-schedule.js ${userDir} `))
+        .filter(l => l.trim() !== '');
+
+      const setCrontab = spawn('crontab', ['-']);
+      setCrontab.stdin.write(lines.join('\n') + '\n');
+      setCrontab.stdin.end();
+      setCrontab.on('close', () => resolve({ success: true }));
+    });
+  });
+}
+
 async function removeCronJob(userDir, scheduleId) {
   return new Promise((resolve) => {
     const getCrontab = spawn('crontab', ['-l']);
@@ -219,5 +243,6 @@ module.exports = {
   appendLog,
   addCronJob,
   removeCronJob,
+  removeAllCronJobs,
   syncCronJobs
 };

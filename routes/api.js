@@ -108,13 +108,38 @@ async function routes(fastify, options) {
     }
   });
 
+  fastify.post('/api/whatsapp/login/confirm', { preHandler: authenticateUser }, async (request, reply) => {
+    try {
+      const status = await mudslideService.confirmLogin(request.user.userDir, request.user.token);
+      return { success: true, loggedIn: status.loggedIn };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Login confirmation failed' });
+    }
+  });
+
+  // Attempts graceful mudslide logout (tells WhatsApp to disconnect the device).
+  // Awaits completion (up to 30 s) so the frontend can switch to the "please verify" phase.
+  // Always returns success — if mudslide fails the user can remove the device manually.
   fastify.post('/api/whatsapp/logout', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       await mudslideService.logout(request.user.userDir, request.user.token);
-      return { success: true, message: 'Logged out successfully' };
     } catch (error) {
       fastify.log.error(error);
-      return reply.code(500).send({ error: 'Logout failed' });
+    }
+    return { success: true };
+  });
+
+  // Called after user confirms the device is gone from WhatsApp Linked Devices.
+  // Deletes local session files and removes all cron jobs.
+  fastify.post('/api/whatsapp/logout/confirm', { preHandler: authenticateUser }, async (request, reply) => {
+    try {
+      await scheduleService.removeAllCronJobs(request.user.userDir);
+      await mudslideService.cleanupAfterLogout(request.user.userDir);
+      return { success: true };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Logout confirmation failed' });
     }
   });
 

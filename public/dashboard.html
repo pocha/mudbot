@@ -170,8 +170,8 @@
       <p>2. On your phone go to WhatsApp → <strong>Linked Devices</strong> and remove the entry labelled <strong>"Google Chrome"</strong>.</p>
     </div>
     <div>
-      <button disabled class="flex items-center gap-2 text-error border border-error/50 px-4 py-2 rounded-xl font-label-md opacity-40 cursor-not-allowed">
-        <span class="material-symbols-outlined text-[18px]">link_off</span> Disconnect (coming soon)
+      <button id="disconnect-btn" class="flex items-center gap-2 text-error border border-error/50 px-4 py-2 rounded-xl font-label-md hover:bg-error/10 transition-colors">
+        <span class="material-symbols-outlined text-[18px]">link_off</span> Disconnect
       </button>
     </div>
   </div>
@@ -503,10 +503,14 @@ async function renderLogs() {
 function setupEventListeners() {
     document.getElementById('create-schedule-btn').addEventListener('click', handleCreateSchedule);
     document.getElementById('test-send-btn').addEventListener('click', handleTestMessage);
+    document.getElementById('cancel-edit-btn')?.addEventListener('click', cancelEdit);
+
+    document.getElementById('disconnect-btn')?.addEventListener('click', () => {
+        showLogoutModal({ isFullLogout: false });
+    });
+
     document.getElementById('logout-btn').addEventListener('click', () => {
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('authEmail');
-        window.location.href = '/';
+        showLogoutModal({ isFullLogout: true });
     });
 }
 
@@ -728,5 +732,101 @@ function escapeHtml(text) {
     div.textContent = String(text || '');
     return div.innerHTML;
 }
+
+// ── Logout / Disconnect modal (two-phase) ───────────────────────────────────
+
+function showLogoutModal({ isFullLogout }) {
+    const modal      = document.getElementById('logoutModal');
+    const title      = document.getElementById('logoutModalTitle');
+    const body       = document.getElementById('logoutModalBody');
+    const confirmBtn = document.getElementById('logoutModalConfirm');
+    const cancelBtn  = document.getElementById('logoutModalCancel');
+
+    title.textContent = isFullLogout ? 'Log out of WatoBot' : 'Disconnect WhatsApp';
+    confirmBtn.dataset.isFullLogout = isFullLogout ? '1' : '0';
+
+    // Phase 1 — asking WhatsApp to disconnect
+    body.innerHTML = `
+        <div class="flex items-center gap-3 text-on-surface-variant">
+            <div class="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
+            <p class="text-body-md">Asking WhatsApp to remove this device… please wait.</p>
+        </div>
+        <p id="logoutModalError" class="hidden mt-3 text-sm text-error">Something went wrong. Please try again.</p>
+    `;
+    confirmBtn.textContent = 'Continue — device is removed';
+    confirmBtn.disabled = true;
+    cancelBtn.disabled = false;
+    modal.classList.remove('hidden');
+
+    // Await mudslide logout — when done (or timed out after 30 s) switch to phase 2
+    fetch(`${API_BASE}/api/whatsapp/logout`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${authToken}` }
+    })
+    .catch(() => {})
+    .finally(() => {
+        // Phase 2 — mudslide done, ask user to verify manually
+        body.innerHTML = `
+            <p class="text-on-surface-variant text-body-md mb-3">
+                We've asked WhatsApp to remove this device. Please verify on your phone:
+            </p>
+            <ol class="space-y-2 text-body-md text-on-surface-variant list-decimal list-inside">
+                <li>Open WhatsApp → tap <strong>Linked Devices</strong></li>
+                <li>If <strong>"Google Chrome"</strong> is still listed, tap it and choose <strong>Log out</strong></li>
+                <li>Once it's gone, click <strong>Continue</strong> below</li>
+            </ol>
+            <p id="logoutModalError" class="hidden mt-3 text-sm text-error">Something went wrong. Please try again.</p>
+        `;
+        confirmBtn.disabled = false;
+    });
+}
+
+async function handleLogoutConfirm() {
+    const confirmBtn = document.getElementById('logoutModalConfirm');
+    const errMsg     = document.getElementById('logoutModalError');
+    const isFullLogout = confirmBtn.dataset.isFullLogout === '1';
+
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Cleaning up…';
+    errMsg?.classList.add('hidden');
+
+    try {
+        const res = await fetch(`${API_BASE}/api/whatsapp/logout/confirm`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        if (!res.ok) throw new Error('confirm failed');
+
+        if (isFullLogout) {
+            localStorage.removeItem('authToken');
+            window.location.href = '/';
+        } else {
+            window.location.href = `/verify.html?token=${authToken}`;
+        }
+    } catch {
+        errMsg?.classList.remove('hidden');
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Continue — device is removed';
+    }
+}
+
+// Modal buttons are rendered after this script tag, so use event delegation.
+document.addEventListener('click', (e) => {
+    if (e.target.id === 'logoutModalConfirm') handleLogoutConfirm();
+    if (e.target.id === 'logoutModalCancel') document.getElementById('logoutModal').classList.add('hidden');
+});
 </script>
+
+<!-- Logout / Disconnect modal -->
+<div id="logoutModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+        <h2 id="logoutModalTitle" class="font-headline-md text-headline-md text-on-surface"></h2>
+        <div id="logoutModalBody"></div>
+        <div class="flex gap-3 justify-end pt-2">
+            <button id="logoutModalCancel" class="px-4 py-2 rounded-xl border border-outline-variant text-on-surface-variant font-label-md hover:bg-surface-container transition">Cancel</button>
+            <button id="logoutModalConfirm" class="px-4 py-2 rounded-xl bg-error text-white font-label-md hover:bg-error/90 transition disabled:opacity-50 disabled:cursor-not-allowed"></button>
+        </div>
+    </div>
+</div>
+
 </body></html>
