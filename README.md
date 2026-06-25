@@ -1,8 +1,8 @@
-# Watobot
+# Whatsapp Bot on cloud that sends message on your behalf
 
 A self-hosted WhatsApp message automation platform built on [Mudslide](https://github.com/robvanderleek/mudslide). Connect your WhatsApp account via QR code, then schedule automated messages or trigger them on demand via a REST API.
 
-All user data is encrypted in the repository using your personal auth token as the key. There is no shared server secret — even the server owner cannot read your data.
+All user data is encrypted in the repository using your personal auth token as the key. There is no shared server secret — even the server owner cannot read your data. Check watobot-dot-xyz for live implementation.
 
 ---
 
