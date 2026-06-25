@@ -5,23 +5,13 @@ const crypto = require('crypto');
 
 const CONFIG = {
   MUDSLIDE_PATH: process.env.MUDSLIDE_PATH || 'mudslide',
+  PROXYCHAINS_PATH: process.env.PROXYCHAINS_PATH || '',
   USERS_DIR: path.join(__dirname, '..', 'users')
 };
 
 // Holds the active mudslide login process so confirmLogin() can send a keypress.
 let loginProc = null;
 
-// Cached result of proxychains4 availability check (null = not yet checked).
-let proxyChainsAvailable = null;
-
-async function hasProxyChains() {
-  if (proxyChainsAvailable !== null) return proxyChainsAvailable;
-  proxyChainsAvailable = await new Promise(r => {
-    const p = spawn('which', ['proxychains4']);
-    p.on('close', code => r(code === 0));
-  });
-  return proxyChainsAvailable;
-}
 
 // Builds a per-user proxychains4 config at /tmp/watobot-proxy-<userDir>.conf.
 // Returns the config path, or null if DataImpulse is not configured.
@@ -125,8 +115,8 @@ async function cleanupTemp(userDir) {
 
 async function runMudslide(args, timeoutMs, userDir) {
   const confPath = userDir ? await writeProxyConfig(userDir) : null;
-  const useProxy = confPath && await hasProxyChains();
-  const bin  = useProxy ? 'proxychains4' : CONFIG.MUDSLIDE_PATH;
+  const useProxy = confPath && CONFIG.PROXYCHAINS_PATH;
+  const bin  = useProxy ? CONFIG.PROXYCHAINS_PATH : CONFIG.MUDSLIDE_PATH;
   const argv = useProxy ? ['-f', confPath, CONFIG.MUDSLIDE_PATH, ...args] : args;
 
   return new Promise((resolve, reject) => {
@@ -157,8 +147,8 @@ async function getQRCode(userDir) {
   }
 
   const confPath = await writeProxyConfig(userDir);
-  const useProxy = confPath && await hasProxyChains();
-  const bin  = useProxy ? 'proxychains4' : CONFIG.MUDSLIDE_PATH;
+  const useProxy = confPath && CONFIG.PROXYCHAINS_PATH;
+  const bin  = useProxy ? CONFIG.PROXYCHAINS_PATH : CONFIG.MUDSLIDE_PATH;
   const argv = useProxy
     ? ['-f', confPath, CONFIG.MUDSLIDE_PATH, '-c', mudslideDir(userDir), 'login']
     : ['-c', mudslideDir(userDir), 'login'];

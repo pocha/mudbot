@@ -125,6 +125,7 @@ else
       || info "Could not install proxychains4 — proxy support will be disabled until installed"
   fi
 fi
+PROXYCHAINS_BIN=$(which proxychains4 2>/dev/null || echo "")
 
 # --- Create .env if missing ---
 if [ ! -f "$SCRIPT_DIR/.env" ]; then
@@ -133,11 +134,13 @@ if [ ! -f "$SCRIPT_DIR/.env" ]; then
     cp "$SCRIPT_DIR/.env.example" "$SCRIPT_DIR/.env"
     MUDSLIDE_BIN=$(which mudslide)
     sed -i.bak "s|MUDSLIDE_PATH=.*|MUDSLIDE_PATH=$MUDSLIDE_BIN|" "$SCRIPT_DIR/.env" && rm -f "$SCRIPT_DIR/.env.bak"
+    sed -i.bak "s|PROXYCHAINS_PATH=.*|PROXYCHAINS_PATH=$PROXYCHAINS_BIN|" "$SCRIPT_DIR/.env" && rm -f "$SCRIPT_DIR/.env.bak"
     info ".env created. Edit it to configure SMTP settings."
   else
     MUDSLIDE_BIN=$(which mudslide)
     cat > "$SCRIPT_DIR/.env" <<EOF
 MUDSLIDE_PATH=$MUDSLIDE_BIN
+PROXYCHAINS_PATH=$PROXYCHAINS_BIN
 
 SMTP_HOST=
 SMTP_PORT=587
