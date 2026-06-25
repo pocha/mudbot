@@ -51,6 +51,30 @@ function decryptData(ciphertext, token) {
   return decrypted.toString('utf8');
 }
 
+async function createOrUpdateProxyJson(userDir, clientIp) {
+  const proxyFile = path.join(CONFIG.USERS_DIR, userDir, 'proxy.json');
+
+  let existing = {};
+  try { existing = JSON.parse(await fs.readFile(proxyFile, 'utf8')); } catch {}
+
+  if (!existing.port) {
+    existing.port = await allocateProxyPort();
+  }
+
+  if (clientIp) {
+    try {
+      const geo = await fetch(`http://ip-api.com/json/${clientIp}?fields=countryCode`);
+      const { countryCode } = await geo.json();
+      if (countryCode) existing.country = countryCode.toLowerCase();
+    } catch {}
+  }
+
+  if (!existing.country) existing.country = 'in';
+
+  await fs.writeFile(proxyFile, JSON.stringify(existing));
+  return existing;
+}
+
 async function registerUser(email) {
   const token = generateToken(email);
   const userDir = token.slice(0, 10);
@@ -123,5 +147,6 @@ module.exports = {
   decryptData,
   getUserDir,
   computeTokenHash,
-  allocateProxyPort
+  allocateProxyPort,
+  createOrUpdateProxyJson
 };
