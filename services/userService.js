@@ -147,7 +147,7 @@ async function generateApiKey(userDir, token) {
   );
   // Store session token encrypted with apiKey so verifyApiKey can recover it
   await fs.writeFile(
-    path.join(CONFIG.USERS_DIR, userDir, 'api_key_token'),
+    path.join(CONFIG.USERS_DIR, userDir, 'token_enc_with_api_key'),
     encryptData(token, apiKey)
   );
 
@@ -164,7 +164,7 @@ async function verifyApiKey(apiKey) {
     if (computeTokenHash(apiKey) !== storedHash) return null;
 
     const encTokenRaw = (await fs.readFile(
-      path.join(CONFIG.USERS_DIR, userDir, 'api_key_token'), 'utf8'
+      path.join(CONFIG.USERS_DIR, userDir, 'token_enc_with_api_key'), 'utf8'
     )).trim();
     const sessionToken = decryptData(encTokenRaw, apiKey);
 
