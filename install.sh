@@ -127,18 +127,19 @@ else
 fi
 PROXYCHAINS_BIN=$(which proxychains4 2>/dev/null || echo "")
 
-# --- Create .env if missing ---
-if [ ! -f "$SCRIPT_DIR/.env" ]; then
-  info "Creating .env from .env.example..."
-  if [ -f "$SCRIPT_DIR/.env.example" ]; then
-    cp "$SCRIPT_DIR/.env.example" "$SCRIPT_DIR/.env"
-    MUDSLIDE_BIN=$(which mudslide)
-    sed -i.bak "s|MUDSLIDE_PATH=.*|MUDSLIDE_PATH=$MUDSLIDE_BIN|" "$SCRIPT_DIR/.env" && rm -f "$SCRIPT_DIR/.env.bak"
-    sed -i.bak "s|PROXYCHAINS_PATH=.*|PROXYCHAINS_PATH=$PROXYCHAINS_BIN|" "$SCRIPT_DIR/.env" && rm -f "$SCRIPT_DIR/.env.bak"
-    info ".env created. Edit it to configure SMTP settings."
-  else
-    MUDSLIDE_BIN=$(which mudslide)
-    cat > "$SCRIPT_DIR/.env" <<EOF
+# --- Create .env (back up existing one if present) ---
+if [ -f "$SCRIPT_DIR/.env" ]; then
+  mv "$SCRIPT_DIR/.env" "$SCRIPT_DIR/.env.bkup"
+  info "Existing .env backed up to .env.bkup"
+fi
+
+MUDSLIDE_BIN=$(which mudslide)
+if [ -f "$SCRIPT_DIR/.env.example" ]; then
+  cp "$SCRIPT_DIR/.env.example" "$SCRIPT_DIR/.env"
+  sed -i.bak "s|MUDSLIDE_PATH=.*|MUDSLIDE_PATH=$MUDSLIDE_BIN|" "$SCRIPT_DIR/.env" && rm -f "$SCRIPT_DIR/.env.bak"
+  sed -i.bak "s|PROXYCHAINS_PATH=.*|PROXYCHAINS_PATH=$PROXYCHAINS_BIN|" "$SCRIPT_DIR/.env" && rm -f "$SCRIPT_DIR/.env.bak"
+else
+  cat > "$SCRIPT_DIR/.env" <<EOF
 MUDSLIDE_PATH=$MUDSLIDE_BIN
 PROXYCHAINS_PATH=$PROXYCHAINS_BIN
 
@@ -160,10 +161,10 @@ DATAIMPULSE_PASSWORD=
 DATAIMPULSE_GATEWAY=gw.dataimpulse.com
 DATAIMPULSE_PORT=10000
 EOF
-    info ".env created. Edit SMTP and BASE_URL settings before use."
-  fi
-else
-  success ".env already exists"
+fi
+success ".env created."
+if [ -f "$SCRIPT_DIR/.env.bkup" ]; then
+  echo -e "${YELLOW}[IMPORTANT] Copy your settings (SMTP, BASE_URL, DATAIMPULSE, etc.) from .env.bkup into .env before starting the server.${NC}"
 fi
 
 echo ""
