@@ -1,23 +1,91 @@
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs').promises;
+const crypto = require('crypto');
 
 const CONFIG = {
-  MUDSLIDE_PATH: 'mudslide',
+  MUDSLIDE_PATH: process.env.MUDSLIDE_PATH || 'mudslide',
   USERS_DIR: path.join(__dirname, '..', 'users')
 };
 
-function credentialsPath(userDir) {
+// Holds the active mudslide login process so confirmLogin() can send a keypress.
+let loginProc = null;
+
+function mudslideEncFile(userDir) {
+  return path.join(CONFIG.USERS_DIR, userDir, '.mudslide.enc');
+}
+
+function mudslideDir(userDir) {
   return path.join(CONFIG.USERS_DIR, userDir, '.mudslide');
+}
+
+function tempDir(userDir) {
+  return path.join('/tmp', `mudbot-${userDir}`);
 }
 
 async function isLoggedIn(userDir) {
   try {
-    const files = await fs.readdir(credentialsPath(userDir));
-    return files.length > 0;
+    await fs.access(mudslideEncFile(userDir));
+    return true;
   } catch {
     return false;
   }
+}
+
+// Tar .mudslide dir, encrypt with sha256(token), write .mudslide.enc, delete .mudslide dir.
+async function encryptMudslide(userDir, token) {
+  const key = crypto.createHash('sha256').update(token).digest();
+
+  const tarBuffer = await new Promise((resolve, reject) => {
+    const proc = spawn('tar', ['-czf', '-', '.mudslide'], {
+      cwd: path.join(CONFIG.USERS_DIR, userDir)
+    });
+    const chunks = [];
+    proc.stdout.on('data', d => chunks.push(d));
+    proc.stderr.on('data', () => {});
+    proc.on('close', code => {
+      if (code === 0) resolve(Buffer.concat(chunks));
+      else reject(new Error(`tar failed with code ${code}`));
+    });
+  });
+
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+  const encrypted = Buffer.concat([cipher.update(tarBuffer), cipher.final()]);
+  await fs.writeFile(mudslideEncFile(userDir), Buffer.concat([iv, encrypted]));
+
+  await fs.rm(mudslideDir(userDir), { recursive: true, force: true });
+}
+
+// Decrypt .mudslide.enc → /tmp/mudbot-<userDir>/.mudslide, return that path.
+async function decryptMudslideToTemp(userDir, token) {
+  const data = await fs.readFile(mudslideEncFile(userDir));
+  const iv = data.slice(0, 16);
+  const encrypted = data.slice(16);
+
+  const key = crypto.createHash('sha256').update(token).digest();
+  const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+  const tarBuffer = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+
+  const tmp = tempDir(userDir);
+  await fs.mkdir(tmp, { recursive: true });
+
+  await new Promise((resolve, reject) => {
+    const proc = spawn('tar', ['-xzf', '-', '-C', tmp]);
+    proc.stdin.write(tarBuffer);
+    proc.stdin.end();
+    proc.stderr.on('data', () => {});
+    proc.on('close', code => {
+      if (code === 0) resolve();
+      else reject(new Error(`tar extract failed with code ${code}`));
+    });
+  });
+
+  return path.join(tmp, '.mudslide');
+}
+
+async function cleanupTemp(userDir) {
+  await fs.rm(tempDir(userDir), { recursive: true, force: true });
 }
 
 function runMudslide(args, timeoutMs) {
@@ -43,89 +111,181 @@ function runMudslide(args, timeoutMs) {
 }
 
 async function getQRCode(userDir) {
+  // Kill any previously hung login process before starting a new one.
+  if (loginProc && !loginProc.killed) {
+    loginProc.kill();
+    loginProc = null;
+  }
+
   return new Promise((resolve, reject) => {
-    const proc = spawn(CONFIG.MUDSLIDE_PATH, ['-c', credentialsPath(userDir), 'login']);
+    const proc = spawn(CONFIG.MUDSLIDE_PATH, ['-c', mudslideDir(userDir), 'login']);
+    loginProc = proc;
     let output = '';
     let idleTimer = null;
+    let resolved = false;
+    let keypressSent = false;
 
     const onData = (data) => {
       output += data.toString();
-      // Reset idle timer — resolve 2s after output stops (QR fully printed)
+
+      // After the user scans the QR, mudslide enters loginSecondPass() and prints
+      // "press any key to exit" while blocking on stdin. Since our stdin is a pipe
+      // (not a TTY) it would hang forever — send the keypress automatically so
+      // mudslide can terminate cleanly once the user clicks Continue in the UI.
+      if (output.includes('press any key') && !keypressSent) {
+        keypressSent = true;
+        proc.stdin.write('\n');
+        return;
+      }
+
       if (idleTimer) clearTimeout(idleTimer);
-      idleTimer = setTimeout(() => {
-        resolve({ success: true, qr: output.trim() });
-      }, 2000);
+      // Only start the idle timer once we have content beyond mudslide's
+      // initialization messages — the QR code arrives after those.
+      const meaningful = output.split('\n')
+        .filter(l => !l.trim().startsWith('Created mudslide cache folder'))
+        .join('\n').trim();
+      if (meaningful && !resolved) {
+        idleTimer = setTimeout(() => {
+          resolved = true;
+          resolve({ success: true, qr: output.trim() });
+        }, 2000);
+      }
     };
 
     proc.stdout.on('data', onData);
     proc.stderr.on('data', onData);
 
-    // If process exits cleanly before idle (e.g. already logged in)
-    proc.on('close', (code) => {
+    proc.on('close', () => {
+      loginProc = null;
       if (idleTimer) clearTimeout(idleTimer);
-      if (output.trim()) resolve({ success: true, qr: output.trim() });
-      else reject(new Error('No output from mudslide login'));
+      if (!resolved) {
+        if (output.trim()) resolve({ success: true, qr: output.trim() });
+        else reject(new Error('No output from mudslide login'));
+      }
     });
 
-    // Hard timeout — kill only if no output at all
     setTimeout(() => {
       if (idleTimer) clearTimeout(idleTimer);
-      if (output.trim()) resolve({ success: true, qr: output.trim() });
-      else { proc.kill(); reject(new Error('QR code timeout')); }
+      if (!resolved) {
+        if (output.trim()) resolve({ success: true, qr: output.trim() });
+        else { proc.kill(); reject(new Error('QR code timeout')); }
+      }
     }, 30000);
   });
 }
 
-async function checkLoginStatus(userDir) {
-  if (!(await isLoggedIn(userDir))) return { loggedIn: false };
-  // Credentials exist — consider connected without a live check,
-  // since `me` requires an active WA connection and can fail transiently.
-  return { loggedIn: true };
+// Called when the user clicks "Continue" after seeing Google Chrome in Linked Devices.
+// The keypress was already sent automatically; this just verifies creds.json exists
+// and triggers encryption of .mudslide → .mudslide.enc.
+async function confirmLogin(userDir, token) {
+  return await checkLoginStatus(userDir, token);
 }
 
-async function sendMessage(userDir, to, message) {
-  const output = await runMudslide(['-c', credentialsPath(userDir), 'send', to, message], 30000);
-  return { success: true, message: 'Message sent successfully', output };
-}
+async function checkLoginStatus(userDir, token) {
+  const encExists = await isLoggedIn(userDir);
 
-async function sendMedia(userDir, to, mediaPath, caption = '') {
-  const ext = mediaPath.split('.').pop().toLowerCase();
-  const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
-  const cmd = isImage ? 'send-image' : 'send-file';
-  const args = ['-c', credentialsPath(userDir), cmd, to, mediaPath];
-  if (caption) args.push('--caption', caption);
-  const output = await runMudslide(args, 60000);
-  return { success: true, message: 'Media sent successfully', output };
-}
-
-async function getGroups(userDir) {
-  const output = await runMudslide(['-c', credentialsPath(userDir), 'groups'], 15000);
-
-  // mudslide may output a JSON array or one JSON object per line
+  // creds.json is only written by mudslide after a successful QR scan.
+  // The .mudslide dir itself is created at login-start (before scan), so
+  // we check for creds.json specifically to avoid false positives.
+  let plaintextReady = false;
   try {
-    const parsed = JSON.parse(output);
-    if (Array.isArray(parsed)) {
-      return parsed.map(g => ({ name: g.subject || g.name || g.id, id: g.id })).filter(g => g.id);
-    }
+    await fs.access(path.join(mudslideDir(userDir), 'creds.json'));
+    plaintextReady = true;
   } catch {}
 
-  return output.split('\n').filter(Boolean).map(line => {
+  if (plaintextReady && token) {
+    await encryptMudslide(userDir, token);
+    return { loggedIn: true };
+  }
+
+  if (plaintextReady) {
+    return { loggedIn: true };
+  }
+
+  return { loggedIn: encExists };
+}
+
+async function sendMessage(userDir, token, to, message) {
+  const credPath = await decryptMudslideToTemp(userDir, token);
+  try {
+    const output = await runMudslide(['-c', credPath, 'send', to, message], 30000);
+    return { success: true, message: 'Message sent successfully', output };
+  } finally {
+    await cleanupTemp(userDir);
+  }
+}
+
+async function sendMedia(userDir, token, to, mediaPath, caption = '') {
+  const credPath = await decryptMudslideToTemp(userDir, token);
+  try {
+    const ext = mediaPath.split('.').pop().toLowerCase();
+    const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
+    const cmd = isImage ? 'send-image' : 'send-file';
+    const args = ['-c', credPath, cmd, to, mediaPath];
+    if (caption) args.push('--caption', caption);
+    const output = await runMudslide(args, 60000);
+    return { success: true, message: 'Media sent successfully', output };
+  } finally {
+    await cleanupTemp(userDir);
+  }
+}
+
+async function getGroups(userDir, token) {
+  const credPath = await decryptMudslideToTemp(userDir, token);
+  try {
+    const output = await runMudslide(['-c', credPath, 'groups'], 15000);
+
     try {
-      const g = JSON.parse(line);
-      if (g && g.id) return { name: g.subject || g.name || g.id, id: g.id };
+      const parsed = JSON.parse(output);
+      if (Array.isArray(parsed)) {
+        return parsed.map(g => ({ name: g.subject || g.name || g.id, id: g.id })).filter(g => g.id);
+      }
     } catch {}
-    const match = line.match(/^(.*?)\s*\(([^)]+@g\.us)\)\s*$/);
-    if (match) return { name: match[1].trim(), id: match[2].trim() };
-    if (line.includes('@g.us')) return { name: line.trim(), id: line.trim() };
-    return null;
-  }).filter(Boolean);
+
+    return output.split('\n').filter(Boolean).map(line => {
+      try {
+        const g = JSON.parse(line);
+        if (g && g.id) return { name: g.subject || g.name || g.id, id: g.id };
+      } catch {}
+      const match = line.match(/^(.*?)\s*\(([^)]+@g\.us)\)\s*$/);
+      if (match) return { name: match[1].trim(), id: match[2].trim() };
+      if (line.includes('@g.us')) return { name: line.trim(), id: line.trim() };
+      return null;
+    }).filter(Boolean);
+  } finally {
+    await cleanupTemp(userDir);
+  }
 }
 
-async function logout(userDir) {
-  await runMudslide(['-c', credentialsPath(userDir), 'logout'], 10000);
-  // Remove local session files
-  await fs.rm(credentialsPath(userDir), { recursive: true, force: true });
-  return { success: true };
+// Attempts a graceful mudslide logout (signals WhatsApp to disconnect the device).
+// Called fire-and-forget from the route — file cleanup happens in cleanupAfterLogout().
+async function logout(userDir, token) {
+  if (!token) return;
+  try {
+    const credPath = await decryptMudslideToTemp(userDir, token);
+    await runMudslide(['-c', credPath, 'logout'], 30000);
+  } catch {}
+  await cleanupTemp(userDir).catch(() => {});
 }
 
-module.exports = { isLoggedIn, getQRCode, checkLoginStatus, sendMessage, sendMedia, getGroups, logout };
+// Deletes the encrypted session files after the user has confirmed the device
+// is removed from WhatsApp Linked Devices.
+async function cleanupAfterLogout(userDir) {
+  await fs.rm(mudslideDir(userDir), { recursive: true, force: true });
+  await fs.rm(mudslideEncFile(userDir), { force: true });
+}
+
+module.exports = {
+  isLoggedIn,
+  getQRCode,
+  confirmLogin,
+  checkLoginStatus,
+  sendMessage,
+  sendMedia,
+  getGroups,
+  logout,
+  cleanupAfterLogout,
+  encryptMudslide,
+  decryptMudslideToTemp,
+  cleanupTemp
+};

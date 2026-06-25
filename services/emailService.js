@@ -8,6 +8,7 @@ const CONFIG = {
   SMTP_USER: process.env.SMTP_USER || '',
   SMTP_PASS: process.env.SMTP_PASS || '',
   EMAIL_FROM: process.env.EMAIL_FROM || 'noreply@mudbot.local',
+  REPLY_TO: process.env.REPLY_TO || '',
   BASE_URL: process.env.BASE_URL || 'http://localhost:3000'
 };
 
@@ -34,6 +35,7 @@ async function sendRegistrationEmail(email, token) {
   
   const mailOptions = {
     from: `Watobot <${CONFIG.EMAIL_FROM}>`,
+    replyTo: CONFIG.REPLY_TO || undefined,
     to: email,
     subject: 'Watobot - Your Login Link',
     html: `

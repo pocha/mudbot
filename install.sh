@@ -112,23 +112,27 @@ if [ ! -f "$SCRIPT_DIR/.env" ]; then
   info "Creating .env from .env.example..."
   if [ -f "$SCRIPT_DIR/.env.example" ]; then
     cp "$SCRIPT_DIR/.env.example" "$SCRIPT_DIR/.env"
-    # Generate a random SERVER_SECRET
-    SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
-    sed -i.bak "s/SERVER_SECRET=.*/SERVER_SECRET=$SECRET/" "$SCRIPT_DIR/.env" && rm -f "$SCRIPT_DIR/.env.bak"
+    MUDSLIDE_BIN=$(which mudslide)
+    sed -i.bak "s|MUDSLIDE_PATH=.*|MUDSLIDE_PATH=$MUDSLIDE_BIN|" "$SCRIPT_DIR/.env" && rm -f "$SCRIPT_DIR/.env.bak"
     info ".env created. Edit it to configure SMTP settings."
   else
+    MUDSLIDE_BIN=$(which mudslide)
     cat > "$SCRIPT_DIR/.env" <<EOF
-PORT=3000
-SERVER_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
-SMTP_HOST=localhost
-SMTP_PORT=1025
+MUDSLIDE_PATH=$MUDSLIDE_BIN
+
+SMTP_HOST=
+SMTP_PORT=587
 SMTP_SECURE=false
 SMTP_USER=
 SMTP_PASS=
-EMAIL_FROM=noreply@mudbot.local
-BASE_URL=http://localhost:3000
+EMAIL_FROM=
+REPLY_TO=
+
+BASE_URL=http://localhost
+PORT=80
+NODE_ENV=production
 EOF
-    info ".env created with generated SERVER_SECRET. Edit SMTP settings before use."
+    info ".env created. Edit SMTP and BASE_URL settings before use."
   fi
 else
   success ".env already exists"

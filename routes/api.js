@@ -51,11 +51,10 @@ async function routes(fastify, options) {
       const user = await userService.verifyToken(request.params.token);
       if (!user) return reply.code(401).send({ error: 'Invalid or expired token' });
 
-      const whatsappStatus = await mudslideService.checkLoginStatus(user.userDir);
+      const whatsappStatus = await mudslideService.checkLoginStatus(user.userDir, user.token);
       return {
         success: true,
         user: {
-          email: user.email,
           whatsappConnected: whatsappStatus.loggedIn
         }
       };
@@ -73,7 +72,7 @@ async function routes(fastify, options) {
       const user = await userService.verifyToken(token);
       if (!user) return reply.code(401).send({ error: 'Invalid token' });
 
-      const apiKey = await userService.generateApiKey(user.userDir, user.email);
+      const apiKey = await userService.generateApiKey(user.userDir, user.token);
       return { success: true, apiKey };
     } catch (error) {
       fastify.log.error(error);
@@ -83,7 +82,7 @@ async function routes(fastify, options) {
 
   fastify.get('/api/whatsapp/status', { preHandler: authenticateUser }, async (request, reply) => {
     try {
-      return await mudslideService.checkLoginStatus(request.user.userDir);
+      return await mudslideService.checkLoginStatus(request.user.userDir, request.user.token);
     } catch (error) {
       fastify.log.error(error);
       return reply.code(500).send({ error: 'Failed to check status' });
@@ -101,7 +100,7 @@ async function routes(fastify, options) {
 
   fastify.get('/api/whatsapp/groups', { preHandler: authenticateUser }, async (request, reply) => {
     try {
-      const groups = await mudslideService.getGroups(request.user.userDir);
+      const groups = await mudslideService.getGroups(request.user.userDir, request.user.token);
       return { groups };
     } catch (error) {
       fastify.log.error(error);
@@ -109,19 +108,45 @@ async function routes(fastify, options) {
     }
   });
 
-  fastify.post('/api/whatsapp/logout', { preHandler: authenticateUser }, async (request, reply) => {
+  fastify.post('/api/whatsapp/login/confirm', { preHandler: authenticateUser }, async (request, reply) => {
     try {
-      await mudslideService.logout(request.user.userDir);
-      return { success: true, message: 'Logged out successfully' };
+      const status = await mudslideService.confirmLogin(request.user.userDir, request.user.token);
+      return { success: true, loggedIn: status.loggedIn };
     } catch (error) {
       fastify.log.error(error);
-      return reply.code(500).send({ error: 'Logout failed' });
+      return reply.code(500).send({ error: 'Login confirmation failed' });
+    }
+  });
+
+  // Attempts graceful mudslide logout (tells WhatsApp to disconnect the device).
+  // Awaits completion (up to 30 s) so the frontend can switch to the "please verify" phase.
+  // Always returns success — if mudslide fails the user can remove the device manually.
+  fastify.post('/api/whatsapp/logout', { preHandler: authenticateUser }, async (request, reply) => {
+    try {
+      await mudslideService.logout(request.user.userDir, request.user.token);
+    } catch (error) {
+      fastify.log.error(error);
+    }
+    return { success: true };
+  });
+
+  // Called after user confirms the device is gone from WhatsApp Linked Devices.
+  // Deletes local session files and removes all cron jobs.
+  fastify.post('/api/whatsapp/logout/confirm', { preHandler: authenticateUser }, async (request, reply) => {
+    try {
+      await scheduleService.removeAllCronJobs(request.user.userDir);
+      await mudslideService.cleanupAfterLogout(request.user.userDir);
+      return { success: true };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Logout confirmation failed' });
     }
   });
 
   fastify.get('/api/schedules', { preHandler: authenticateUser }, async (request, reply) => {
     try {
-      const schedules = await scheduleService.listSchedules(request.user.userDir, request.user.email);
+      await scheduleService.syncCronJobs(request.user.userDir, request.user.token);
+      const schedules = await scheduleService.listSchedules(request.user.userDir, request.user.token);
       return { schedules };
     } catch (error) {
       fastify.log.error(error);
@@ -132,7 +157,7 @@ async function routes(fastify, options) {
   fastify.post('/api/schedules', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       const schedule = await scheduleService.createSchedule(
-        request.user.userDir, request.user.email, request.body
+        request.user.userDir, request.user.token, request.body
       );
       return { success: true, schedule };
     } catch (error) {
@@ -144,7 +169,7 @@ async function routes(fastify, options) {
   fastify.get('/api/schedules/:id', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       const schedule = await scheduleService.getSchedule(
-        request.user.userDir, request.user.email, request.params.id
+        request.user.userDir, request.user.token, request.params.id
       );
       if (!schedule) return reply.code(404).send({ error: 'Schedule not found' });
       return { schedule };
@@ -157,7 +182,7 @@ async function routes(fastify, options) {
   fastify.put('/api/schedules/:id', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       const schedule = await scheduleService.updateSchedule(
-        request.user.userDir, request.user.email, request.params.id, request.body
+        request.user.userDir, request.user.token, request.params.id, request.body
       );
       return { success: true, schedule };
     } catch (error) {
@@ -169,7 +194,7 @@ async function routes(fastify, options) {
   fastify.delete('/api/schedules/:id', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       await scheduleService.deleteSchedule(
-        request.user.userDir, request.user.email, request.params.id
+        request.user.userDir, request.user.token, request.params.id
       );
       return { success: true, message: 'Schedule deleted' };
     } catch (error) {
@@ -196,8 +221,8 @@ async function routes(fastify, options) {
         return reply.code(400).send({ error: 'to and message are required' });
       }
       const result = media
-        ? await mudslideService.sendMedia(request.user.userDir, to, media, message)
-        : await mudslideService.sendMessage(request.user.userDir, to, message);
+        ? await mudslideService.sendMedia(request.user.userDir, request.user.token, to, media, message)
+        : await mudslideService.sendMessage(request.user.userDir, request.user.token, to, message);
       return { success: true, result };
     } catch (error) {
       fastify.log.error(error);

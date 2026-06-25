@@ -118,7 +118,7 @@
 			<div class="hidden md:flex items-center gap-8">
 				<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors" href="#features">Features</a>
 				<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors" href="#pricing">Pricing</a>
-				<button class="font-label-md text-label-md bg-primary-container text-on-primary-container px-6 py-2 rounded-xl font-bold hover:opacity-90 active:scale-95 transition-all" onclick="toggleModal()">Login</button>
+				<button id="navLoginBtn" class="font-label-md text-label-md bg-primary-container text-on-primary-container px-6 py-2 rounded-xl font-bold hover:opacity-90 active:scale-95 transition-all" onclick="toggleModal()">Login</button>
 			</div>
 			<button class="md:hidden text-primary">
 				<span class="material-symbols-outlined">menu</span>
@@ -126,7 +126,7 @@
 		</nav>
 		<main>
 			<!-- Hero Section -->
-			<section class="min-h-[80vh] flex flex-col md:flex-row items-center px-gutter md:px-24 py-12 gap-12 overflow-hidden">
+			<section class="flex flex-col md:flex-row items-center px-gutter md:px-24 py-10 gap-10 overflow-hidden">
 				<div class="w-full md:w-1/2 flex justify-center items-center">
 					<div class="relative w-full max-w-lg aspect-[1.49]">
 						<img alt="Watobot Transformer Hero with WhatsApp details" class="w-full h-full object-contain" src="./logo.png"/>
@@ -145,7 +145,7 @@ Send whatsapp message programatically from
 					</p>
 					<span class="font-label-md text-label-md text-secondary bg-secondary-container/30 px-3 py-1 rounded-full uppercase tracking-widest">Auth data encrypted, no messages stored</span>
 					<div class="flex flex-wrap gap-4 mt-4">
-						<button class="font-label-md text-label-md bg-primary-container text-on-primary-container px-8 py-4 rounded-xl font-bold text-lg hover:opacity-90 active:scale-95 transition-all whatsapp-shadow" onclick="toggleModal()">
+						<button id="tryNowBtn" class="font-label-md text-label-md bg-primary-container text-on-primary-container px-8 py-4 rounded-xl font-bold text-lg hover:opacity-90 active:scale-95 transition-all whatsapp-shadow" onclick="toggleModal()">
                         Try Now
                     </button>
 						<div class="flex items-center gap-2 px-4 py-4 text-on-surface-variant font-label-md text-label-md">
@@ -157,103 +157,185 @@ Send whatsapp message programatically from
 				</div>
 			</section>
 			<!-- Feature Bento Grid -->
-			<section class="px-gutter md:px-24 py-24 bg-surface-container-low" id="features">
-				<div class="text-center mb-16">
+			<section class="px-gutter md:px-24 py-12 bg-surface-container-low" id="features">
+				<div class="text-center mb-10">
 					<h2 class="font-headline-lg text-headline-lg text-on-surface">Features at a glance</h2>
-					<p class="text-on-surface-variant font-body-md">Simple but robust whatsapp messaging</p>
+					<p class="text-on-surface-variant font-body-md">Simple but robust WhatsApp messaging</p>
 				</div>
 				<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-					<!-- Card 1 -->
-					<div class="bg-surface p-8 rounded-xl border border-outline-variant whatsapp-shadow hover:border-primary transition-colors flex flex-col gap-4 group">
-						<div class="w-12 h-12 bg-primary-container flex items-center justify-center rounded-lg text-on-primary-container">
-							<span class="material-symbols-outlined">api</span>
+					<!-- Card 1: API -->
+					<div class="bg-surface p-6 rounded-xl border border-outline-variant whatsapp-shadow hover:border-primary transition-colors flex flex-col gap-3 group">
+						<div class="flex items-center gap-3">
+							<div class="w-10 h-10 bg-primary-container flex items-center justify-center rounded-lg text-on-primary-container flex-shrink-0">
+								<span class="material-symbols-outlined text-[20px]">api</span>
+							</div>
+							<h3 class="font-headline-md text-headline-md">Remote API Access</h3>
 						</div>
-						<h3 class="font-headline-md text-headline-md">Remote API Access</h3>
-						<p class="text-on-surface-variant font-body-md">Seamlessly integrate with our RESTful API. Deploy message triggers from any backend environment with sub-second latency.</p>
-						<div class="mt-auto pt-4 flex items-center text-primary font-bold gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        Read Docs 
-							<span class="material-symbols-outlined text-sm">arrow_forward</span>
-						</div>
+						<p class="text-on-surface-variant font-body-md">Trigger messages from any backend via our RESTful API. Generate an API key from the dashboard and integrate in minutes.</p>
 					</div>
-					<!-- Card 2 -->
-					<div class="bg-surface p-8 rounded-xl border border-outline-variant whatsapp-shadow hover:border-primary transition-colors flex flex-col gap-4 group">
-						<div class="w-12 h-12 bg-secondary-container flex items-center justify-center rounded-lg text-on-secondary-container">
-							<span class="material-symbols-outlined">schedule</span>
+					<!-- Card 2: Scheduling -->
+					<div class="bg-surface p-6 rounded-xl border border-outline-variant whatsapp-shadow hover:border-primary transition-colors flex flex-col gap-3 group">
+						<div class="flex items-center gap-3">
+							<div class="w-10 h-10 bg-secondary-container flex items-center justify-center rounded-lg text-on-secondary-container flex-shrink-0">
+								<span class="material-symbols-outlined text-[20px]">event_repeat</span>
+							</div>
+							<h3 class="font-headline-md text-headline-md">Scheduled Recurring Messages</h3>
 						</div>
-						<h3 class="font-headline-md text-headline-md">Scheduled Cadence</h3>
-						<p class="text-on-surface-variant font-body-md">Set complex message cycles and automated follow-ups. Ensure your communication hits the inbox exactly when it matters most.</p>
-						<div class="mt-auto pt-4 flex items-center text-secondary font-bold gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        View Scheduler 
-							<span class="material-symbols-outlined text-sm">arrow_forward</span>
-						</div>
+						<p class="text-on-surface-variant font-body-md">Set up daily, weekly, or monthly messages that go out automatically. Pick your timezone — Watobot handles the rest.</p>
 					</div>
-					<!-- Card 3 -->
-					<div class="bg-surface p-8 rounded-xl border border-outline-variant whatsapp-shadow hover:border-primary transition-colors flex flex-col gap-4 group">
-						<div class="w-12 h-12 bg-tertiary-container flex items-center justify-center rounded-lg text-on-tertiary-container">
-							<span class="material-symbols-outlined">bolt</span>
+					<!-- Card 3: Logs -->
+					<div class="bg-surface p-6 rounded-xl border border-outline-variant whatsapp-shadow hover:border-primary transition-colors flex flex-col gap-3 group">
+						<div class="flex items-center gap-3">
+							<div class="w-10 h-10 bg-tertiary-container flex items-center justify-center rounded-lg text-on-tertiary-container flex-shrink-0">
+								<span class="material-symbols-outlined text-[20px]">manage_search</span>
+							</div>
+							<h3 class="font-headline-md text-headline-md">Delivery Logs</h3>
 						</div>
-						<h3 class="font-headline-md text-headline-md">Message logs for debugging</h3>
-						<p class="text-on-surface-variant font-body-md">Every attempt to deliver is logged. In case of failure, you can scan logs to debug the issue.</p>
-						<div class="mt-auto pt-4 flex items-center text-tertiary font-bold gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        Learn More 
-							<span class="material-symbols-outlined text-sm">arrow_forward</span>
+						<p class="text-on-surface-variant font-body-md">The dashboard includes a Logs section for each schedule. See exactly which runs succeeded and which failed — with the full error message so you can fix it fast.</p>
+					</div>
+				</div>
+			</section>
+
+			<!-- Complete Privacy Section -->
+			<section class="px-gutter md:px-24 py-12 bg-surface">
+				<div class="max-w-4xl mx-auto">
+					<div class="flex flex-col md:flex-row gap-10 items-center">
+						<div class="flex-1 flex flex-col gap-4">
+							<div class="flex items-center gap-2">
+								<span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings:'FILL' 1;">shield</span>
+								<h2 class="font-headline-lg text-headline-lg text-on-surface">Complete Privacy</h2>
+							</div>
+							<p class="text-on-surface-variant font-body-md">We ask for your email only to send you a one-time login link. <strong class="text-on-surface">Your email is never stored on our servers.</strong></p>
+							<p class="text-on-surface-variant font-body-md">Every piece of data — your WhatsApp session, your schedules, your recipients — is encrypted using your personal auth token. That token lives only in your browser. <strong class="text-on-surface">Even we cannot read your data.</strong></p>
+							<p class="text-on-surface-variant font-body-md">We are so confident in this model that all user data files are stored in our open-source repository. Anyone can audit the encryption. Nothing is hidden.</p>
+							<a href="https://github.com/pocha/mudbot" target="_blank" rel="noopener" class="inline-flex items-center gap-2 text-primary font-bold font-body-md hover:underline">
+								<span class="material-symbols-outlined text-[18px]">open_in_new</span> View source on GitHub — github.com/pocha/mudbot
+							</a>
+						</div>
+						<div class="flex-shrink-0 flex flex-col gap-4 w-full md:w-64">
+							<div class="bg-surface-container rounded-xl p-4 flex items-start gap-3 border border-outline-variant">
+								<span class="material-symbols-outlined text-primary flex-shrink-0" style="font-variation-settings:'FILL' 1;">no_accounts</span>
+								<div>
+									<p class="font-label-md font-bold text-on-surface">Email not stored</p>
+									<p class="text-on-surface-variant font-body-md text-sm">Used only to deliver your login link.</p>
+								</div>
+							</div>
+							<div class="bg-surface-container rounded-xl p-4 flex items-start gap-3 border border-outline-variant">
+								<span class="material-symbols-outlined text-primary flex-shrink-0" style="font-variation-settings:'FILL' 1;">lock</span>
+								<div>
+									<p class="font-label-md font-bold text-on-surface">End-to-end encrypted</p>
+									<p class="text-on-surface-variant font-body-md text-sm">AES-256. Your token is the only key.</p>
+								</div>
+							</div>
+							<div class="bg-surface-container rounded-xl p-4 flex items-start gap-3 border border-outline-variant">
+								<span class="material-symbols-outlined text-primary flex-shrink-0" style="font-variation-settings:'FILL' 1;">visibility_off</span>
+								<div>
+									<p class="font-label-md font-bold text-on-surface">Zero knowledge</p>
+									<p class="text-on-surface-variant font-body-md text-sm">Server owners cannot decrypt your data.</p>
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>
 			</section>
-			
+
 			<!-- Pricing Section -->
-			<section class="px-gutter md:px-24 py-24 bg-surface" id="pricing">
-				<div class="max-w-4xl mx-auto bg-surface border-4 border-primary-container rounded-xl p-8 md:p-12 whatsapp-shadow relative overflow-hidden">
-					<!-- Accent Background Decoration -->
-					<div class="absolute top-0 right-0 w-64 h-64 bg-primary-container/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
-					<div class="flex flex-col md:flex-row justify-between items-center gap-12 relative z-10">
-						<div class="flex flex-col gap-4 text-center md:text-left">
-							<div class="flex items-center gap-2 justify-center md:justify-start">
-								<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">star</span>
-								<span class="font-label-md text-label-md text-primary font-bold uppercase tracking-widest">Transparent Pricing</span>
-							</div>
-							<h2 class="font-headline-lg text-4xl font-black text-on-surface">10c
-								<span class="text-on-surface-variant text-xl font-normal">/ message capped at </span>$5/month
-							</h2>
-							<ul class="space-y-3 font-body-md text-on-surface-variant">
-								<li class="flex items-center gap-2">
-									<span class="material-symbols-outlined text-primary text-lg">check</span> No upfront setup fees
-								</li>
-								<li class="flex items-center gap-2">
-									<span class="material-symbols-outlined text-primary text-lg">check</span> Pay-as-you-grow model
-								</li>
-								<li class="flex items-center gap-2">
-									<span class="material-symbols-outlined text-primary text-lg">check</span> No monthly platform subscriptions
-								</li>
+			<section class="px-gutter md:px-24 py-12 bg-surface-container-low" id="pricing">
+				<div class="max-w-4xl mx-auto">
+					<div class="text-center mb-10">
+						<div class="flex items-center gap-2 justify-center mb-2">
+							<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">star</span>
+							<span class="font-label-md text-label-md text-primary font-bold uppercase tracking-widest">Transparent Pricing</span>
+						</div>
+						<h2 class="font-headline-lg text-4xl font-black text-on-surface">1c <span class="text-on-surface-variant text-xl font-normal">/ message</span></h2>
+					</div>
+					<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+						<!-- Early access card -->
+						<div class="bg-primary-container/30 border-2 border-primary rounded-xl p-6 flex flex-col gap-4 relative overflow-hidden">
+							<span class="absolute top-3 right-3 bg-primary text-on-primary text-xs font-bold px-2 py-1 rounded-full uppercase tracking-wide">Limited Offer</span>
+							<h3 class="font-headline-md text-headline-md text-on-surface">Currently Free</h3>
+							<p class="text-on-surface-variant font-body-md">Sign up before <strong class="text-on-surface">July 15, 2026</strong> and get <strong class="text-on-surface">lifetime free access</strong> — no limits, no credit card.</p>
+							<ul class="space-y-2 font-body-md text-on-surface-variant">
+								<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">check</span> Unlimited messages, forever free</li>
+								<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">check</span> All features included</li>
+								<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">check</span> No credit card required</li>
+							</ul>
+							<button class="mt-auto bg-primary text-on-primary font-bold py-3 rounded-xl hover:brightness-110 transition-all" onclick="toggleModal()">Get Lifetime Free Access</button>
+						</div>
+						<!-- After July card -->
+						<div class="bg-surface border border-outline-variant rounded-xl p-6 flex flex-col gap-4">
+							<h3 class="font-headline-md text-headline-md text-on-surface">After July 15, 2026</h3>
+							<p class="text-on-surface-variant font-body-md">New accounts will start with a generous free tier, then pay only for what they use.</p>
+							<ul class="space-y-2 font-body-md text-on-surface-variant">
+								<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">check</span> 30 free messages on signup</li>
+								<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">check</span> 5 free messages every day after that</li>
+								<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">check</span> 1c per message beyond the daily free quota</li>
+								<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">check</span> No monthly subscription</li>
 							</ul>
 						</div>
-						<div class="bg-surface-container p-8 rounded-xl flex flex-col items-center gap-6 border border-outline-variant w-full md:w-auto">
-							<div class="text-center">
-								<h4 class="font-headline-md text-headline-md text-primary">Free Trial</h4>
-								<p class="font-body-md text-on-surface-variant">1 Week Duration</p>
-							</div>
-							<div class="text-4xl font-bold text-on-surface">30 
-								<span class="text-lg font-medium text-on-surface-variant">Messages</span>
-							</div>
-							<button class="w-full font-label-md text-label-md bg-on-surface text-surface px-8 py-3 rounded-xl font-bold hover:opacity-90 transition-all" onclick="toggleModal()">
-                            Start Trial
-                        </button>
+					</div>
+					<!-- Warning box -->
+					<div class="mt-6 border border-amber-200 bg-amber-50 rounded-xl p-5 flex gap-3">
+						<span class="material-symbols-outlined text-amber-500 flex-shrink-0 mt-0.5">warning</span>
+						<div>
+							<p class="font-label-md font-bold text-on-surface mb-1">Use automation responsibly</p>
+							<p class="text-on-surface-variant font-body-md text-sm">Sending messages too frequently (more than 1/min to the same person), blasting the same message to more than 5 contacts at once, or exceeding ~100 messages per hour may trigger WhatsApp's spam detection and get your account temporarily blocked. We don't enforce limits — please use good judgement.</p>
 						</div>
 					</div>
-                    <div class="max-w-4xl mx-auto bg-surface border-4 border-primary-container rounded-xl p-8 md:p-12 whatsapp-shadow relative overflow-hidden" style="margin-top: 2em; border-color: red">
-                        <h3 class="font-headline-md text-headline-md" style="text-align:center; margin-bottom: 1em">Important Warning</h3>
-                            <p class="text-on-surface-variant font-body-md">Please note, sending messages to</p>
-                                <ul class="space-y-2 mt-2 mb-2 font-body-md text-on-surface-variant list-disc list-inside">
-                                    <li>same person/group too often (more than 1 message per minute)</li>
-                                    <li>same message to more than 5 users/groups at a time</li>
-                                    <li>more than 100 messages in an hour</li>
-                                </ul>
-                            <p>may trigger spam warning for Whatsapp & your account may get temporarily blocked by Whatsapp. We do not enforce any limits but use automation judiciously.</p>
-                        </h3>
-                    </div>
 				</div>
-                
+			</section>
+
+			<!-- FAQ Section -->
+			<section class="px-gutter md:px-24 py-12 bg-surface">
+				<div class="max-w-3xl mx-auto">
+					<div class="text-center mb-10">
+						<h2 class="font-headline-lg text-headline-lg text-on-surface">Frequently Asked Questions</h2>
+					</div>
+					<div class="flex flex-col divide-y divide-outline-variant border border-outline-variant rounded-xl overflow-hidden">
+						<details class="group bg-surface">
+							<summary class="flex items-center justify-between px-6 py-4 cursor-pointer font-label-md font-bold text-on-surface hover:bg-surface-container transition-colors list-none">
+								Does Watobot give me a new WhatsApp number?
+								<span class="material-symbols-outlined text-on-surface-variant group-open:rotate-180 transition-transform flex-shrink-0">expand_more</span>
+							</summary>
+							<p class="px-6 pb-5 text-on-surface-variant font-body-md">No. Watobot uses your existing WhatsApp account to send messages. You scan a QR code to link your account — exactly like WhatsApp Web. Messages appear as coming from your own number.</p>
+						</details>
+						<details class="group bg-surface">
+							<summary class="flex items-center justify-between px-6 py-4 cursor-pointer font-label-md font-bold text-on-surface hover:bg-surface-container transition-colors list-none">
+								Can Watobot read my WhatsApp messages?
+								<span class="material-symbols-outlined text-on-surface-variant group-open:rotate-180 transition-transform flex-shrink-0">expand_more</span>
+							</summary>
+							<p class="px-6 pb-5 text-on-surface-variant font-body-md">No. Watobot currently only sends messages on your behalf. It does not read, store, or process any incoming messages from your WhatsApp account.</p>
+						</details>
+						<details class="group bg-surface">
+							<summary class="flex items-center justify-between px-6 py-4 cursor-pointer font-label-md font-bold text-on-surface hover:bg-surface-container transition-colors list-none">
+								Is my WhatsApp account safe?
+								<span class="material-symbols-outlined text-on-surface-variant group-open:rotate-180 transition-transform flex-shrink-0">expand_more</span>
+							</summary>
+							<p class="px-6 pb-5 text-on-surface-variant font-body-md">Your WhatsApp session (the credentials created after QR scan) is encrypted with AES-256 using your personal auth token before being stored. Nobody — including the server owner — can use your session without your token, which only you hold in your browser.</p>
+						</details>
+						<details class="group bg-surface">
+							<summary class="flex items-center justify-between px-6 py-4 cursor-pointer font-label-md font-bold text-on-surface hover:bg-surface-container transition-colors list-none">
+								What happens if I lose my login link?
+								<span class="material-symbols-outlined text-on-surface-variant group-open:rotate-180 transition-transform flex-shrink-0">expand_more</span>
+							</summary>
+							<p class="px-6 pb-5 text-on-surface-variant font-body-md">You can request a new login link with the same email. This generates a new auth token — your previous token is invalidated. Because your data was encrypted with the old token, you will need to re-link your WhatsApp account. Your old schedules will be cleared.</p>
+						</details>
+						<details class="group bg-surface">
+							<summary class="flex items-center justify-between px-6 py-4 cursor-pointer font-label-md font-bold text-on-surface hover:bg-surface-container transition-colors list-none">
+								Can I send to WhatsApp groups?
+								<span class="material-symbols-outlined text-on-surface-variant group-open:rotate-180 transition-transform flex-shrink-0">expand_more</span>
+							</summary>
+							<p class="px-6 pb-5 text-on-surface-variant font-body-md">Yes. When setting up a schedule or sending a message, the recipient picker loads all your WhatsApp groups alongside individual contacts. Select any group and messages will be delivered to it.</p>
+						</details>
+						<details class="group bg-surface">
+							<summary class="flex items-center justify-between px-6 py-4 cursor-pointer font-label-md font-bold text-on-surface hover:bg-surface-container transition-colors list-none">
+								Do I need to keep my browser open for scheduled messages to send?
+								<span class="material-symbols-outlined text-on-surface-variant group-open:rotate-180 transition-transform flex-shrink-0">expand_more</span>
+							</summary>
+							<p class="px-6 pb-5 text-on-surface-variant font-body-md">No. Schedules run as server-side cron jobs. Once you set one up, it fires on the server at the right time — your browser and phone do not need to be open.</p>
+						</details>
+					</div>
+				</div>
 			</section>
 		</main>
 		<!-- Footer -->
@@ -274,23 +356,40 @@ Send whatsapp message programatically from
 			<div class="modal-overlay absolute inset-0" onclick="toggleModal()"></div>
 			<div class="bg-surface-container-lowest w-full max-w-md rounded-xl p-8 whatsapp-shadow relative z-10 border border-outline-variant">
 				<div class="flex justify-between items-center mb-6">
-					<h3 class="font-headline-md text-headline-md text-on-surface">Get Started</h3>
+					<h3 class="font-headline-md text-headline-md text-on-surface" id="modalTitle">Before you continue</h3>
 					<button class="text-on-surface-variant hover:text-error transition-colors" onclick="toggleModal()">
 						<span class="material-symbols-outlined">close</span>
 					</button>
 				</div>
-				<p class="text-on-surface-variant font-body-md mb-6">Enter your email to receive a secure login link. You can use this same link to sign in from any browser in the future.</p>
-				<form class="flex flex-col gap-4" onsubmit="handleRegistration(event)">
-					<div class="flex flex-col gap-1">
-						<label class="font-label-md text-label-md text-on-surface-variant">Email Address</label>
-						<input id="emailInput" class="bg-surface-container-low border-b-2 border-transparent focus:border-primary focus:ring-0 rounded-lg p-3 transition-all outline-none" placeholder="name@company.com" type="email" required/>
+
+				<!-- Step 1: Warning -->
+				<div id="modal-warning">
+					<div class="flex gap-3 bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+						<span class="material-symbols-outlined text-amber-500 flex-shrink-0">warning</span>
+						<p class="text-on-surface font-body-md text-sm">If you have already received a login link to your email, please use that link to sign in — <strong>requesting a new link will invalidate your existing session and any linked WhatsApp account.</strong></p>
 					</div>
-					<div id="message" class="min-h-[20px]"></div>
-					<button id="submitBtn" type="submit" class="bg-primary-container text-on-primary-container font-bold py-4 rounded-xl hover:opacity-90 active:scale-95 transition-all">Send Login Link</button>
-					<p class="text-center font-body-md text-on-surface-variant mt-2">By continuing, you agree to our 
-						<a class="text-primary font-bold" href="#">Terms of Service</a>.
-					</p>
-				</form>
+					<p class="text-on-surface-variant font-body-md mb-6">Only click <em>Send New Link</em> if you are signing up for the first time or have lost access to your previous link.</p>
+					<div class="flex gap-3">
+						<button class="flex-1 border border-outline-variant text-on-surface-variant font-bold py-3 rounded-xl hover:bg-surface-container transition-all" onclick="toggleModal()">Cancel</button>
+						<button class="flex-1 bg-primary-container text-on-primary-container font-bold py-3 rounded-xl hover:opacity-90 active:scale-95 transition-all" onclick="showRegistrationForm()">Send New Link</button>
+					</div>
+				</div>
+
+				<!-- Step 2: Registration form (hidden until user confirms) -->
+				<div id="modal-form" class="hidden">
+					<p class="text-on-surface-variant font-body-md mb-6">Enter your email to receive a secure login link.</p>
+					<form class="flex flex-col gap-4" onsubmit="handleRegistration(event)">
+						<div class="flex flex-col gap-1">
+							<label class="font-label-md text-label-md text-on-surface-variant">Email Address</label>
+							<input id="emailInput" class="bg-surface-container-low border-b-2 border-transparent focus:border-primary focus:ring-0 rounded-lg p-3 transition-all outline-none" placeholder="name@company.com" type="email" required/>
+						</div>
+						<div id="message" class="min-h-[20px]"></div>
+						<button id="submitBtn" type="submit" class="bg-primary-container text-on-primary-container font-bold py-4 rounded-xl hover:opacity-90 active:scale-95 transition-all">Send Login Link</button>
+						<p class="text-center font-body-md text-on-surface-variant mt-2">By continuing, you agree to our
+							<a class="text-primary font-bold" href="#">Terms of Service</a>.
+						</p>
+					</form>
+				</div>
 			</div>
 		</div>
 		<script>
@@ -301,10 +400,37 @@ Send whatsapp message programatically from
             modal.classList.toggle('hidden');
             if (!modal.classList.contains('hidden')) {
                 document.body.style.overflow = 'hidden';
+                // Always start at the warning step when opening
+                document.getElementById('modal-warning').classList.remove('hidden');
+                document.getElementById('modal-form').classList.add('hidden');
+                document.getElementById('modalTitle').textContent = 'Before you continue';
             } else {
                 document.body.style.overflow = 'auto';
             }
         }
+
+        function showRegistrationForm() {
+            document.getElementById('modal-warning').classList.add('hidden');
+            document.getElementById('modal-form').classList.remove('hidden');
+            document.getElementById('modalTitle').textContent = 'Get Started';
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const token = localStorage.getItem('authToken');
+            if (!token) return;
+
+            const navBtn = document.getElementById('navLoginBtn');
+            const tryBtn = document.getElementById('tryNowBtn');
+
+            if (navBtn) {
+                navBtn.textContent = 'Dashboard';
+                navBtn.onclick = () => { window.location.href = '/dashboard.html'; };
+            }
+            if (tryBtn) {
+                tryBtn.textContent = 'Go To Dashboard';
+                tryBtn.onclick = () => { window.location.href = '/dashboard.html'; };
+            }
+        });
 
         async function handleRegistration(event) {
             event.preventDefault();
