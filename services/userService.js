@@ -10,10 +10,11 @@ const COUNTER_FILE = path.join(CONFIG.USERS_DIR, '.proxy_port_counter');
 let nextPort = null;
 
 async function allocateProxyPort() {
+  const startPort = parseInt(process.env.DATAIMPULSE_PORT) || 10000;
   if (nextPort === null) {
     try { nextPort = parseInt(await fs.readFile(COUNTER_FILE, 'utf8')); }
-    catch { nextPort = 10000; }
-    if (!nextPort || nextPort < 10000 || nextPort > 20000) nextPort = 10000;
+    catch { nextPort = startPort; }
+    if (!nextPort || nextPort < 10000 || nextPort > 20000) nextPort = startPort;
   }
   const port = nextPort >= 20000 ? (nextPort = 10000) : nextPort++;
   await fs.writeFile(COUNTER_FILE, String(nextPort));
@@ -73,7 +74,7 @@ async function proxyConfPath(userDir, token, forceRegenerate = false) {
     const login = `${process.env.DATAIMPULSE_USERNAME}__cr.${proxy.country || 'in'}`;
     const conf = [
       'strict_chain', 'proxy_dns', '[ProxyList]',
-      `socks5 ${process.env.DATAIMPULSE_GATEWAY || '74.81.81.81'} ${proxy.port || 10000} ${login} ${process.env.DATAIMPULSE_PASSWORD}`
+      `socks5 ${process.env.DATAIMPULSE_GATEWAY || '74.81.81.81'} ${proxy.port || parseInt(process.env.DATAIMPULSE_PORT) || 10000} ${login} ${process.env.DATAIMPULSE_PASSWORD}`
     ].join('\n');
     await fs.writeFile(confPath, conf, 'utf8');
     return confPath;
