@@ -12,6 +12,46 @@ function generateScheduleId() {
   return crypto.randomBytes(8).toString('hex');
 }
 
+// Converts a user's local time + timezone to a UTC cron expression.
+// Uses Intl to find the UTC offset at a fixed reference point (avoids DST ambiguity
+// at schedule-creation time; DST-affected timezones will drift by 1h after a DST change).
+function buildCronExpression(timezone, localTime, frequency, localDate) {
+  const [localHour, localMinute] = (localTime || '09:00').split(':').map(Number);
+
+  // Get UTC offset for this timezone: format noon-UTC as local time, diff from 720 min.
+  const ref = new Date(Date.UTC(2000, 0, 1, 12, 0, 0));
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).formatToParts(ref);
+  const tzHour = parseInt(parts.find(p => p.type === 'hour').value);
+  const tzMin  = parseInt(parts.find(p => p.type === 'minute').value);
+  const offsetMinutes = tzHour * 60 + tzMin - 720;
+
+  // "Once" with a specific date — build ISO string with explicit offset so JS
+  // converts the exact date+time correctly (handles day rollover).
+  if (frequency === 'Once' && localDate) {
+    const sign = offsetMinutes >= 0 ? '+' : '-';
+    const abs  = Math.abs(offsetMinutes);
+    const offH = String(Math.floor(abs / 60)).padStart(2, '0');
+    const offM = String(abs % 60).padStart(2, '0');
+    const iso  = `${localDate}T${String(localHour).padStart(2,'0')}:${String(localMinute).padStart(2,'0')}:00${sign}${offH}:${offM}`;
+    const d    = new Date(iso);
+    return `${d.getUTCMinutes()} ${d.getUTCHours()} ${d.getUTCDate()} ${d.getUTCMonth() + 1} *`;
+  }
+
+  // Recurring — offset hour/minute into UTC, wrap around midnight if needed.
+  let utcMins = ((localHour * 60 + localMinute - offsetMinutes) % 1440 + 1440) % 1440;
+  const utcH  = Math.floor(utcMins / 60);
+  const utcM  = utcMins % 60;
+
+  if (frequency === 'Weekly')  return `${utcM} ${utcH} * * 1`;
+  if (frequency === 'Monthly') return `${utcM} ${utcH} 1 * *`;
+  return `${utcM} ${utcH} * * *`; // Daily (default)
+}
+
 function scheduleDir(userDir, scheduleId) {
   return path.join(CONFIG.USERS_DIR, userDir, 'schedules', scheduleId);
 }
@@ -47,13 +87,24 @@ async function createSchedule(userDir, token, scheduleData) {
   const scheduleId = generateScheduleId();
   await fs.mkdir(scheduleDir(userDir, scheduleId), { recursive: true });
 
+  const tz   = scheduleData.timezone || 'UTC';
+  const lt   = scheduleData.localTime || '09:00';
+  const freq = scheduleData.frequency || 'Daily';
+  const ld   = scheduleData.localDate || null;
+
   const schedule = {
     id: scheduleId,
     name: scheduleData.name,
     recipients: scheduleData.recipients,
     message: scheduleData.message,
     media: scheduleData.media || null,
-    cronExpression: scheduleData.cronExpression,
+    timezone: tz,
+    localTime: lt,
+    localDate: ld,
+    frequency: freq,
+    cronExpression: (scheduleData.timezone && scheduleData.localTime)
+      ? buildCronExpression(tz, lt, freq, ld)
+      : (scheduleData.cronExpression || `0 9 * * *`),
     enabled: scheduleData.enabled !== false,
     createdAt: new Date().toISOString(),
     lastRun: null
@@ -104,6 +155,16 @@ async function updateSchedule(userDir, token, scheduleId, updates) {
 
   Object.assign(schedule, updates);
   schedule.updatedAt = new Date().toISOString();
+
+  // Recompute UTC cron expression from stored local time + timezone (if present).
+  if (schedule.timezone && schedule.localTime) {
+    schedule.cronExpression = buildCronExpression(
+      schedule.timezone,
+      schedule.localTime,
+      schedule.frequency || 'Daily',
+      schedule.localDate || null
+    );
+  }
 
   await writeSchedule(userDir, token, scheduleId, schedule);
 

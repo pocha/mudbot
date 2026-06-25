@@ -13,8 +13,10 @@ const MAILDEV_URL = 'http://localhost:1080';
 const TEST_EMAIL = `test-${crypto.randomBytes(4).toString('hex')}@example.com`;
 const USERS_DIR = path.join(__dirname, '..', 'users');
 const { getUserDir } = require('../services/userService');
+const MailDev = require('maildev');
 
 let serverProcess = null;
+let maildevServer = null;
 let token = null;
 let apiKey = null;
 let scheduleId = null;
@@ -87,7 +89,11 @@ async function extractTokenFromMaildev() {
 // --- setup / teardown ---
 
 before(async () => {
-  // Always start a fresh server with MailDev SMTP so registration emails are captured
+  // Start MailDev to capture registration emails
+  maildevServer = new MailDev({ smtp: 1025, web: 1080, silent: true });
+  await new Promise((resolve, reject) => maildevServer.listen(err => err ? reject(err) : resolve()));
+
+  // Start app server pointing at MailDev SMTP
   serverProcess = spawn('node', [path.join(__dirname, '..', 'server.js')], {
     env: {
       ...process.env,
@@ -109,9 +115,8 @@ after(async () => {
     await fs.rm(path.join(USERS_DIR, getUserDir(TEST_EMAIL)), { recursive: true, force: true });
   } catch { /* ignore */ }
 
-  if (serverProcess) {
-    serverProcess.kill();
-  }
+  if (serverProcess) serverProcess.kill();
+  if (maildevServer) await new Promise(resolve => maildevServer.close(resolve));
 });
 
 // --- tests ---
@@ -189,10 +194,18 @@ test('create schedule', async () => {
     name: 'Test Schedule',
     recipients: ['+1234567890'],
     message: 'Hello from test',
-    cronExpression: '0 10 * * *'
+    timezone: 'Asia/Kolkata',
+    localTime: '10:00',
+    localDate: null,
+    frequency: 'Daily'
   }, authHeader(token));
   assert.equal(status, 200);
   assert.ok(body.schedule.id);
+  assert.equal(body.schedule.timezone, 'Asia/Kolkata');
+  assert.equal(body.schedule.localTime, '10:00');
+  assert.equal(body.schedule.frequency, 'Daily');
+  // 10:00 IST (UTC+5:30) = 04:30 UTC → cron: "30 4 * * *"
+  assert.equal(body.schedule.cronExpression, '30 4 * * *');
   scheduleId = body.schedule.id;
 });
 
