@@ -107,18 +107,41 @@ fi
 # Verify
 mudslide --version 2>/dev/null && success "mudslide $(mudslide --version) ready" || info "mudslide installed (version check not available)"
 
-# --- Create .env if missing ---
-if [ ! -f "$SCRIPT_DIR/.env" ]; then
-  info "Creating .env from .env.example..."
-  if [ -f "$SCRIPT_DIR/.env.example" ]; then
-    cp "$SCRIPT_DIR/.env.example" "$SCRIPT_DIR/.env"
-    MUDSLIDE_BIN=$(which mudslide)
-    sed -i.bak "s|MUDSLIDE_PATH=.*|MUDSLIDE_PATH=$MUDSLIDE_BIN|" "$SCRIPT_DIR/.env" && rm -f "$SCRIPT_DIR/.env.bak"
-    info ".env created. Edit it to configure SMTP settings."
+# --- Install proxychains4 (needed for residential proxy support) ---
+if command -v proxychains4 &>/dev/null; then
+  success "proxychains4 already installed"
+else
+  info "Installing proxychains4 (required for residential proxy support)..."
+  if [ "$OS_NAME" = "macos" ]; then
+    if command -v brew &>/dev/null; then
+      brew install proxychains-ng && success "proxychains4 installed" \
+        || info "proxychains4 install failed — proxy support will be disabled until installed"
+    else
+      info "Homebrew not found — skipping proxychains4 (optional, install manually with 'brew install proxychains-ng')"
+    fi
   else
-    MUDSLIDE_BIN=$(which mudslide)
-    cat > "$SCRIPT_DIR/.env" <<EOF
+    sudo apt-get install -y proxychains4 2>/dev/null \
+      || sudo yum install -y proxychains-ng 2>/dev/null \
+      || info "Could not install proxychains4 — proxy support will be disabled until installed"
+  fi
+fi
+PROXYCHAINS_BIN=$(which proxychains4 2>/dev/null || echo "")
+
+# --- Create .env (back up existing one if present) ---
+if [ -f "$SCRIPT_DIR/.env" ]; then
+  mv "$SCRIPT_DIR/.env" "$SCRIPT_DIR/.env.bkup"
+  info "Existing .env backed up to .env.bkup"
+fi
+
+MUDSLIDE_BIN=$(which mudslide)
+if [ -f "$SCRIPT_DIR/.env.example" ]; then
+  cp "$SCRIPT_DIR/.env.example" "$SCRIPT_DIR/.env"
+  sed -i.bak "s|MUDSLIDE_PATH=.*|MUDSLIDE_PATH=$MUDSLIDE_BIN|" "$SCRIPT_DIR/.env" && rm -f "$SCRIPT_DIR/.env.bak"
+  sed -i.bak "s|PROXYCHAINS_PATH=.*|PROXYCHAINS_PATH=$PROXYCHAINS_BIN|" "$SCRIPT_DIR/.env" && rm -f "$SCRIPT_DIR/.env.bak"
+else
+  cat > "$SCRIPT_DIR/.env" <<EOF
 MUDSLIDE_PATH=$MUDSLIDE_BIN
+PROXYCHAINS_PATH=$PROXYCHAINS_BIN
 
 SMTP_HOST=
 SMTP_PORT=587
@@ -131,11 +154,17 @@ REPLY_TO=
 BASE_URL=http://localhost
 PORT=80
 NODE_ENV=production
+
+# Residential proxy (optional — leave blank to disable)
+DATAIMPULSE_USERNAME=
+DATAIMPULSE_PASSWORD=
+DATAIMPULSE_GATEWAY=74.81.81.81
+DATAIMPULSE_PORT=10000
 EOF
-    info ".env created. Edit SMTP and BASE_URL settings before use."
-  fi
-else
-  success ".env already exists"
+fi
+success ".env created."
+if [ -f "$SCRIPT_DIR/.env.bkup" ]; then
+  echo -e "${YELLOW}[IMPORTANT] Copy your settings (SMTP, BASE_URL, DATAIMPULSE, etc.) from .env.bkup into .env before starting the server.${NC}"
 fi
 
 echo ""

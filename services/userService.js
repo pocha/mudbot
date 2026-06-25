@@ -6,6 +6,20 @@ const CONFIG = {
   USERS_DIR: path.join(__dirname, '..', 'users')
 };
 
+const COUNTER_FILE = path.join(CONFIG.USERS_DIR, '.proxy_port_counter');
+let nextPort = null;
+
+async function allocateProxyPort() {
+  if (nextPort === null) {
+    try { nextPort = parseInt(await fs.readFile(COUNTER_FILE, 'utf8')); }
+    catch { nextPort = 10000; }
+    if (!nextPort || nextPort < 10000 || nextPort > 20000) nextPort = 10000;
+  }
+  const port = nextPort >= 20000 ? (nextPort = 10000) : nextPort++;
+  await fs.writeFile(COUNTER_FILE, String(nextPort));
+  return port;
+}
+
 function getUserDir(email) {
   return crypto.createHash('sha256').update(email).digest('hex').slice(0, 10);
 }
@@ -18,6 +32,15 @@ function generateToken(email) {
 
 function computeTokenHash(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+async function writeUserFile(filePath, content, token) {
+  await fs.writeFile(filePath, encryptData(content, token));
+}
+
+async function readUserFile(filePath, token) {
+  const raw = await fs.readFile(filePath, 'utf8');
+  return decryptData(raw, token);
 }
 
 // Encryption key = Buffer.from(token, 'hex') = 32 bytes, valid AES-256 key
@@ -35,6 +58,57 @@ function decryptData(ciphertext, token) {
   const decipher = crypto.createDecipheriv('aes-256-cbc', key, Buffer.from(ivHex, 'hex'));
   const decrypted = Buffer.concat([decipher.update(Buffer.from(encHex, 'hex')), decipher.final()]);
   return decrypted.toString('utf8');
+}
+
+async function proxyConfPath(userDir, token, forceRegenerate = false) {
+  if (!process.env.PROXYCHAINS_PATH || !process.env.DATAIMPULSE_USERNAME) return null;
+  const confPath = `/tmp/watobot-proxy-${userDir}.conf`;
+  if (!forceRegenerate) {
+    try { await fs.access(confPath); return confPath; } catch {}
+  }
+  try {
+    const proxy = JSON.parse(await readUserFile(
+      path.join(CONFIG.USERS_DIR, userDir, 'proxy.json'), token
+    ));
+    const login = `${process.env.DATAIMPULSE_USERNAME}__cr.${proxy.country || 'in'}`;
+    const conf = [
+      'strict_chain', 'proxy_dns', '[ProxyList]',
+      `socks5 ${process.env.DATAIMPULSE_GATEWAY || '74.81.81.81'} ${proxy.port || 10000} ${login} ${process.env.DATAIMPULSE_PASSWORD}`
+    ].join('\n');
+    await fs.writeFile(confPath, conf, 'utf8');
+    return confPath;
+  } catch { return null; }
+}
+
+async function createOrUpdateProxyJson(userDir, clientIp, token) {
+  const proxyFile = path.join(CONFIG.USERS_DIR, userDir, 'proxy.json');
+
+  let existing = {};
+  try { existing = JSON.parse(await readUserFile(proxyFile, token)); } catch {}
+
+  if (!existing.port) {
+    existing.port = await allocateProxyPort();
+  }
+
+  if (clientIp) {
+    try {
+      const geo = await fetch(`http://ip-api.com/json/${clientIp}?fields=countryCode`);
+      const { countryCode } = await geo.json();
+      if (countryCode) existing.country = countryCode.toLowerCase();
+    } catch {}
+  }
+
+  if (!existing.country) existing.country = 'in';
+
+  const newContent = JSON.stringify(existing);
+  try {
+    const current = await readUserFile(proxyFile, token);
+    if (current === newContent) return existing;
+  } catch {}
+
+  await writeUserFile(proxyFile, newContent, token);
+  await proxyConfPath(userDir, token, true).catch(() => {});
+  return existing;
 }
 
 async function registerUser(email) {
@@ -73,7 +147,7 @@ async function generateApiKey(userDir, token) {
   );
   // Store session token encrypted with apiKey so verifyApiKey can recover it
   await fs.writeFile(
-    path.join(CONFIG.USERS_DIR, userDir, 'api_key_token'),
+    path.join(CONFIG.USERS_DIR, userDir, 'token_enc_with_api_key'),
     encryptData(token, apiKey)
   );
 
@@ -90,7 +164,7 @@ async function verifyApiKey(apiKey) {
     if (computeTokenHash(apiKey) !== storedHash) return null;
 
     const encTokenRaw = (await fs.readFile(
-      path.join(CONFIG.USERS_DIR, userDir, 'api_key_token'), 'utf8'
+      path.join(CONFIG.USERS_DIR, userDir, 'token_enc_with_api_key'), 'utf8'
     )).trim();
     const sessionToken = decryptData(encTokenRaw, apiKey);
 
@@ -107,6 +181,11 @@ module.exports = {
   verifyApiKey,
   encryptData,
   decryptData,
+  writeUserFile,
+  readUserFile,
   getUserDir,
-  computeTokenHash
+  computeTokenHash,
+  allocateProxyPort,
+  createOrUpdateProxyJson,
+  proxyConfPath
 };

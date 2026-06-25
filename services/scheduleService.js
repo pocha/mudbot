@@ -2,7 +2,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const { spawn } = require('child_process');
 const crypto = require('crypto');
-const { encryptData, decryptData, computeTokenHash } = require('./userService');
+const { writeUserFile, readUserFile, computeTokenHash } = require('./userService');
 
 const CONFIG = {
   USERS_DIR: path.join(__dirname, '..', 'users')
@@ -58,13 +58,12 @@ function scheduleDir(userDir, scheduleId) {
 
 async function writeSchedule(userDir, token, scheduleId, schedule) {
   const file = path.join(scheduleDir(userDir, scheduleId), 'schedule.json');
-  await fs.writeFile(file, encryptData(JSON.stringify(schedule), token));
+  await writeUserFile(file, JSON.stringify(schedule), token);
 }
 
 async function readSchedule(userDir, token, scheduleId) {
   const file = path.join(scheduleDir(userDir, scheduleId), 'schedule.json');
-  const raw = await fs.readFile(file, 'utf8');
-  return JSON.parse(decryptData(raw, token));
+  return JSON.parse(await readUserFile(file, token));
 }
 
 // Encrypts {token, recipients, message, media} using sha256(token) as key.

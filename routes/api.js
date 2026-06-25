@@ -37,8 +37,9 @@ async function routes(fastify, options) {
       if (!email || !email.includes('@')) {
         return reply.code(400).send({ error: 'Valid email is required' });
       }
-      const { token } = await userService.registerUser(email);
+      const { token, userDir } = await userService.registerUser(email);
       await emailService.sendRegistrationEmail(email, token);
+      userService.createOrUpdateProxyJson(userDir, request.ip, token).catch(() => {});
       return { success: true, message: 'Registration email sent. Please check your inbox.' };
     } catch (error) {
       fastify.log.error(error);
@@ -80,6 +81,15 @@ async function routes(fastify, options) {
     }
   });
 
+  fastify.post('/api/user/location', { preHandler: authenticateUser }, async (request, reply) => {
+    try {
+      const proxy = await userService.createOrUpdateProxyJson(request.user.userDir, request.ip, request.user.token);
+      return { country: proxy.country };
+    } catch {
+      return { country: null };
+    }
+  });
+
   fastify.get('/api/whatsapp/status', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       return await mudslideService.checkLoginStatus(request.user.userDir, request.user.token);
@@ -91,7 +101,7 @@ async function routes(fastify, options) {
 
   fastify.get('/api/whatsapp/qr', { preHandler: authenticateUser }, async (request, reply) => {
     try {
-      return await mudslideService.getQRCode(request.user.userDir);
+      return await mudslideService.getQRCode(request.user.userDir, request.user.token);
     } catch (error) {
       fastify.log.error(error);
       return reply.code(500).send({ error: 'Failed to get QR code' });

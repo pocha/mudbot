@@ -2,14 +2,18 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs').promises;
 const crypto = require('crypto');
+const { readUserFile, proxyConfPath } = require('./userService');
 
 const CONFIG = {
   MUDSLIDE_PATH: process.env.MUDSLIDE_PATH || 'mudslide',
+  PROXYCHAINS_PATH: process.env.PROXYCHAINS_PATH || '',
   USERS_DIR: path.join(__dirname, '..', 'users')
 };
 
 // Holds the active mudslide login process so confirmLogin() can send a keypress.
 let loginProc = null;
+
+
 
 function mudslideEncFile(userDir) {
   return path.join(CONFIG.USERS_DIR, userDir, '.mudslide.enc');
@@ -54,7 +58,7 @@ async function encryptMudslide(userDir, token) {
   const encrypted = Buffer.concat([cipher.update(tarBuffer), cipher.final()]);
   await fs.writeFile(mudslideEncFile(userDir), Buffer.concat([iv, encrypted]));
 
-  await fs.rm(mudslideDir(userDir), { recursive: true, force: true });
+  // await fs.rm(mudslideDir(userDir), { recursive: true, force: true });
 }
 
 // Decrypt .mudslide.enc → /tmp/mudbot-<userDir>/.mudslide, return that path.
@@ -88,9 +92,16 @@ async function cleanupTemp(userDir) {
   await fs.rm(tempDir(userDir), { recursive: true, force: true });
 }
 
-function runMudslide(args, timeoutMs) {
+const stripProxy = s => s.split('\n').filter(l => !l.trim().startsWith('[proxychains]')).join('\n').trim();
+
+async function runMudslide(args, timeoutMs, userDir, token) {
+  const confPath = (userDir && token) ? await proxyConfPath(userDir, token) : null;
+  const useProxy = confPath && CONFIG.PROXYCHAINS_PATH;
+  const bin  = useProxy ? CONFIG.PROXYCHAINS_PATH : CONFIG.MUDSLIDE_PATH;
+  const argv = useProxy ? ['-f', confPath, CONFIG.MUDSLIDE_PATH, ...args] : args;
+
   return new Promise((resolve, reject) => {
-    const proc = spawn(CONFIG.MUDSLIDE_PATH, args);
+    const proc = spawn(bin, argv);
     let stdout = '';
     let stderr = '';
 
@@ -104,21 +115,27 @@ function runMudslide(args, timeoutMs) {
 
     proc.on('close', code => {
       clearTimeout(timer);
-      if (code === 0) resolve(stdout.trim());
-      else reject(new Error(stderr.trim() || `mudslide exited with code ${code}`));
+      if (code === 0) resolve(stripProxy(stdout));
+      else reject(new Error(stripProxy(stderr) || `mudslide exited with code ${code}`));
     });
   });
 }
 
-async function getQRCode(userDir) {
-  // Kill any previously hung login process before starting a new one.
+async function getQRCode(userDir, token) {
   if (loginProc && !loginProc.killed) {
     loginProc.kill();
     loginProc = null;
   }
 
+  const confPath = token ? await proxyConfPath(userDir, token) : null;
+  const useProxy = confPath && CONFIG.PROXYCHAINS_PATH;
+  const bin  = useProxy ? CONFIG.PROXYCHAINS_PATH : CONFIG.MUDSLIDE_PATH;
+  const argv = useProxy
+    ? ['-f', confPath, CONFIG.MUDSLIDE_PATH, '-c', mudslideDir(userDir), 'login']
+    : ['-c', mudslideDir(userDir), 'login'];
+
   return new Promise((resolve, reject) => {
-    const proc = spawn(CONFIG.MUDSLIDE_PATH, ['-c', mudslideDir(userDir), 'login']);
+    const proc = spawn(bin, argv);
     loginProc = proc;
     let output = '';
     let idleTimer = null;
@@ -143,14 +160,16 @@ async function getQRCode(userDir) {
       // initialization messages — the QR code arrives after those.
       const meaningful = output.split('\n')
         .filter(l => !l.trim().startsWith('Created mudslide cache folder'))
+        .filter(l => !l.trim().startsWith('[proxychains]'))
         .join('\n').trim();
       if (meaningful && !resolved) {
         idleTimer = setTimeout(() => {
           resolved = true;
-          resolve({ success: true, qr: output.trim() });
+          resolve({ success: true, qr: stripProxy(output) });
         }, 2000);
       }
     };
+
 
     proc.stdout.on('data', onData);
     proc.stderr.on('data', onData);
@@ -159,7 +178,7 @@ async function getQRCode(userDir) {
       loginProc = null;
       if (idleTimer) clearTimeout(idleTimer);
       if (!resolved) {
-        if (output.trim()) resolve({ success: true, qr: output.trim() });
+        if (output.trim()) resolve({ success: true, qr: stripProxy(output) });
         else reject(new Error('No output from mudslide login'));
       }
     });
@@ -167,7 +186,7 @@ async function getQRCode(userDir) {
     setTimeout(() => {
       if (idleTimer) clearTimeout(idleTimer);
       if (!resolved) {
-        if (output.trim()) resolve({ success: true, qr: output.trim() });
+        if (output.trim()) resolve({ success: true, qr: stripProxy(output) });
         else { proc.kill(); reject(new Error('QR code timeout')); }
       }
     }, 30000);
@@ -208,7 +227,7 @@ async function checkLoginStatus(userDir, token) {
 async function sendMessage(userDir, token, to, message) {
   const credPath = await decryptMudslideToTemp(userDir, token);
   try {
-    const output = await runMudslide(['-c', credPath, 'send', to, message], 30000);
+    const output = await runMudslide(['-c', credPath, 'send', to, message], 60000, userDir, token);
     return { success: true, message: 'Message sent successfully', output };
   } finally {
     await cleanupTemp(userDir);
@@ -223,7 +242,7 @@ async function sendMedia(userDir, token, to, mediaPath, caption = '') {
     const cmd = isImage ? 'send-image' : 'send-file';
     const args = ['-c', credPath, cmd, to, mediaPath];
     if (caption) args.push('--caption', caption);
-    const output = await runMudslide(args, 60000);
+    const output = await runMudslide(args, 60000, userDir, token);
     return { success: true, message: 'Media sent successfully', output };
   } finally {
     await cleanupTemp(userDir);
@@ -233,7 +252,7 @@ async function sendMedia(userDir, token, to, mediaPath, caption = '') {
 async function getGroups(userDir, token) {
   const credPath = await decryptMudslideToTemp(userDir, token);
   try {
-    const output = await runMudslide(['-c', credPath, 'groups'], 15000);
+    const output = await runMudslide(['-c', credPath, 'groups'], 60000, userDir, token);
 
     try {
       const parsed = JSON.parse(output);
@@ -263,7 +282,7 @@ async function logout(userDir, token) {
   if (!token) return;
   try {
     const credPath = await decryptMudslideToTemp(userDir, token);
-    await runMudslide(['-c', credPath, 'logout'], 30000);
+    await runMudslide(['-c', credPath, 'logout'], 60000, userDir, token);
   } catch {}
   await cleanupTemp(userDir).catch(() => {});
 }
