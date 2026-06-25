@@ -73,7 +73,7 @@ async function proxyConfPath(userDir, token, forceRegenerate = false) {
     const login = `${process.env.DATAIMPULSE_USERNAME}__cr.${proxy.country || 'in'}`;
     const conf = [
       'strict_chain', 'proxy_dns', '[ProxyList]',
-      `socks5 ${process.env.DATAIMPULSE_GATEWAY || 'gw.dataimpulse.com'} ${proxy.port || 10000} ${login} ${process.env.DATAIMPULSE_PASSWORD}`
+      `socks5 ${process.env.DATAIMPULSE_GATEWAY || '74.81.81.81'} ${proxy.port || 10000} ${login} ${process.env.DATAIMPULSE_PASSWORD}`
     ].join('\n');
     await fs.writeFile(confPath, conf, 'utf8');
     return confPath;

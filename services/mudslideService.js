@@ -58,7 +58,7 @@ async function encryptMudslide(userDir, token) {
   const encrypted = Buffer.concat([cipher.update(tarBuffer), cipher.final()]);
   await fs.writeFile(mudslideEncFile(userDir), Buffer.concat([iv, encrypted]));
 
-  await fs.rm(mudslideDir(userDir), { recursive: true, force: true });
+  // await fs.rm(mudslideDir(userDir), { recursive: true, force: true });
 }
 
 // Decrypt .mudslide.enc → /tmp/mudbot-<userDir>/.mudslide, return that path.
@@ -92,6 +92,8 @@ async function cleanupTemp(userDir) {
   await fs.rm(tempDir(userDir), { recursive: true, force: true });
 }
 
+const stripProxy = s => s.split('\n').filter(l => !l.trim().startsWith('[proxychains]')).join('\n').trim();
+
 async function runMudslide(args, timeoutMs, userDir, token) {
   const confPath = (userDir && token) ? await proxyConfPath(userDir, token) : null;
   const useProxy = confPath && CONFIG.PROXYCHAINS_PATH;
@@ -113,8 +115,8 @@ async function runMudslide(args, timeoutMs, userDir, token) {
 
     proc.on('close', code => {
       clearTimeout(timer);
-      if (code === 0) resolve(stdout.trim());
-      else reject(new Error(stderr.trim() || `mudslide exited with code ${code}`));
+      if (code === 0) resolve(stripProxy(stdout));
+      else reject(new Error(stripProxy(stderr) || `mudslide exited with code ${code}`));
     });
   });
 }
@@ -158,14 +160,16 @@ async function getQRCode(userDir, token) {
       // initialization messages — the QR code arrives after those.
       const meaningful = output.split('\n')
         .filter(l => !l.trim().startsWith('Created mudslide cache folder'))
+        .filter(l => !l.trim().startsWith('[proxychains]'))
         .join('\n').trim();
       if (meaningful && !resolved) {
         idleTimer = setTimeout(() => {
           resolved = true;
-          resolve({ success: true, qr: output.trim() });
+          resolve({ success: true, qr: stripProxy(output) });
         }, 2000);
       }
     };
+
 
     proc.stdout.on('data', onData);
     proc.stderr.on('data', onData);
@@ -174,7 +178,7 @@ async function getQRCode(userDir, token) {
       loginProc = null;
       if (idleTimer) clearTimeout(idleTimer);
       if (!resolved) {
-        if (output.trim()) resolve({ success: true, qr: output.trim() });
+        if (output.trim()) resolve({ success: true, qr: stripProxy(output) });
         else reject(new Error('No output from mudslide login'));
       }
     });
@@ -182,7 +186,7 @@ async function getQRCode(userDir, token) {
     setTimeout(() => {
       if (idleTimer) clearTimeout(idleTimer);
       if (!resolved) {
-        if (output.trim()) resolve({ success: true, qr: output.trim() });
+        if (output.trim()) resolve({ success: true, qr: stripProxy(output) });
         else { proc.kill(); reject(new Error('QR code timeout')); }
       }
     }, 30000);
@@ -223,7 +227,7 @@ async function checkLoginStatus(userDir, token) {
 async function sendMessage(userDir, token, to, message) {
   const credPath = await decryptMudslideToTemp(userDir, token);
   try {
-    const output = await runMudslide(['-c', credPath, 'send', to, message], 30000, userDir, token);
+    const output = await runMudslide(['-c', credPath, 'send', to, message], 60000, userDir, token);
     return { success: true, message: 'Message sent successfully', output };
   } finally {
     await cleanupTemp(userDir);
@@ -248,7 +252,7 @@ async function sendMedia(userDir, token, to, mediaPath, caption = '') {
 async function getGroups(userDir, token) {
   const credPath = await decryptMudslideToTemp(userDir, token);
   try {
-    const output = await runMudslide(['-c', credPath, 'groups'], 15000, userDir, token);
+    const output = await runMudslide(['-c', credPath, 'groups'], 60000, userDir, token);
 
     try {
       const parsed = JSON.parse(output);
@@ -278,7 +282,7 @@ async function logout(userDir, token) {
   if (!token) return;
   try {
     const credPath = await decryptMudslideToTemp(userDir, token);
-    await runMudslide(['-c', credPath, 'logout'], 30000, userDir, token);
+    await runMudslide(['-c', credPath, 'logout'], 60000, userDir, token);
   } catch {}
   await cleanupTemp(userDir).catch(() => {});
 }

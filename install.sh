@@ -158,7 +158,7 @@ NODE_ENV=production
 # Residential proxy (optional — leave blank to disable)
 DATAIMPULSE_USERNAME=
 DATAIMPULSE_PASSWORD=
-DATAIMPULSE_GATEWAY=gw.dataimpulse.com
+DATAIMPULSE_GATEWAY=74.81.81.81
 DATAIMPULSE_PORT=10000
 EOF
 fi
