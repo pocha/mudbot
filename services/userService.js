@@ -34,6 +34,15 @@ function computeTokenHash(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
+async function writeUserFile(filePath, content, token) {
+  await fs.writeFile(filePath, encryptData(content, token));
+}
+
+async function readUserFile(filePath, token) {
+  const raw = await fs.readFile(filePath, 'utf8');
+  return decryptData(raw, token);
+}
+
 // Encryption key = Buffer.from(token, 'hex') = 32 bytes, valid AES-256 key
 function encryptData(text, token) {
   const key = Buffer.from(token, 'hex');
@@ -51,11 +60,11 @@ function decryptData(ciphertext, token) {
   return decrypted.toString('utf8');
 }
 
-async function createOrUpdateProxyJson(userDir, clientIp) {
+async function createOrUpdateProxyJson(userDir, clientIp, token) {
   const proxyFile = path.join(CONFIG.USERS_DIR, userDir, 'proxy.json');
 
   let existing = {};
-  try { existing = JSON.parse(await fs.readFile(proxyFile, 'utf8')); } catch {}
+  try { existing = JSON.parse(await readUserFile(proxyFile, token)); } catch {}
 
   if (!existing.port) {
     existing.port = await allocateProxyPort();
@@ -73,24 +82,11 @@ async function createOrUpdateProxyJson(userDir, clientIp) {
 
   const newContent = JSON.stringify(existing);
   try {
-    const current = await fs.readFile(proxyFile, 'utf8');
+    const current = await readUserFile(proxyFile, token);
     if (current === newContent) return existing;
   } catch {}
 
-  await fs.writeFile(proxyFile, newContent);
-
-  // Write proxychains4 config alongside proxy.json so mudslideService can use it directly.
-  if (process.env.DATAIMPULSE_USERNAME) {
-    const login = `${process.env.DATAIMPULSE_USERNAME}__cr.${existing.country}`;
-    const conf = [
-      'strict_chain',
-      'proxy_dns',
-      '[ProxyList]',
-      `socks5 ${process.env.DATAIMPULSE_GATEWAY || 'gw.dataimpulse.com'} ${existing.port} ${login} ${process.env.DATAIMPULSE_PASSWORD}`
-    ].join('\n');
-    await fs.writeFile(path.join(CONFIG.USERS_DIR, userDir, 'proxychains.conf'), conf, 'utf8');
-  }
-
+  await writeUserFile(proxyFile, newContent, token);
   return existing;
 }
 
@@ -164,6 +160,8 @@ module.exports = {
   verifyApiKey,
   encryptData,
   decryptData,
+  writeUserFile,
+  readUserFile,
   getUserDir,
   computeTokenHash,
   allocateProxyPort,

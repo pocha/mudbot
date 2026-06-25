@@ -2,6 +2,7 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs').promises;
 const crypto = require('crypto');
+const { readUserFile } = require('./userService');
 
 const CONFIG = {
   MUDSLIDE_PATH: process.env.MUDSLIDE_PATH || 'mudslide',
@@ -13,10 +14,23 @@ const CONFIG = {
 let loginProc = null;
 
 
-// Returns the path to the user's proxychains4 config if it exists, otherwise null.
-async function proxyConfPath(userDir) {
-  const confPath = path.join(CONFIG.USERS_DIR, userDir, 'proxychains.conf');
-  try { await fs.access(confPath); return confPath; } catch { return null; }
+// Decrypts the user's proxy.json and writes a proxychains4 config to /tmp.
+// Returns the config path, or null if proxy is not configured.
+async function proxyConfPath(userDir, token) {
+  if (!CONFIG.PROXYCHAINS_PATH || !process.env.DATAIMPULSE_USERNAME) return null;
+  try {
+    const proxy = JSON.parse(await readUserFile(
+      path.join(CONFIG.USERS_DIR, userDir, 'proxy.json'), token
+    ));
+    const login = `${process.env.DATAIMPULSE_USERNAME}__cr.${proxy.country || 'in'}`;
+    const conf = [
+      'strict_chain', 'proxy_dns', '[ProxyList]',
+      `socks5 ${process.env.DATAIMPULSE_GATEWAY || 'gw.dataimpulse.com'} ${proxy.port || 10000} ${login} ${process.env.DATAIMPULSE_PASSWORD}`
+    ].join('\n');
+    const confPath = `/tmp/watobot-proxy-${userDir}.conf`;
+    await fs.writeFile(confPath, conf, 'utf8');
+    return confPath;
+  } catch { return null; }
 }
 
 function mudslideEncFile(userDir) {
@@ -96,8 +110,8 @@ async function cleanupTemp(userDir) {
   await fs.rm(tempDir(userDir), { recursive: true, force: true });
 }
 
-async function runMudslide(args, timeoutMs, userDir) {
-  const confPath = userDir ? await proxyConfPath(userDir) : null;
+async function runMudslide(args, timeoutMs, userDir, token) {
+  const confPath = (userDir && token) ? await proxyConfPath(userDir, token) : null;
   const useProxy = confPath && CONFIG.PROXYCHAINS_PATH;
   const bin  = useProxy ? CONFIG.PROXYCHAINS_PATH : CONFIG.MUDSLIDE_PATH;
   const argv = useProxy ? ['-f', confPath, CONFIG.MUDSLIDE_PATH, ...args] : args;
@@ -123,13 +137,13 @@ async function runMudslide(args, timeoutMs, userDir) {
   });
 }
 
-async function getQRCode(userDir) {
+async function getQRCode(userDir, token) {
   if (loginProc && !loginProc.killed) {
     loginProc.kill();
     loginProc = null;
   }
 
-  const confPath = await proxyConfPath(userDir);
+  const confPath = token ? await proxyConfPath(userDir, token) : null;
   const useProxy = confPath && CONFIG.PROXYCHAINS_PATH;
   const bin  = useProxy ? CONFIG.PROXYCHAINS_PATH : CONFIG.MUDSLIDE_PATH;
   const argv = useProxy
@@ -227,7 +241,7 @@ async function checkLoginStatus(userDir, token) {
 async function sendMessage(userDir, token, to, message) {
   const credPath = await decryptMudslideToTemp(userDir, token);
   try {
-    const output = await runMudslide(['-c', credPath, 'send', to, message], 30000, userDir);
+    const output = await runMudslide(['-c', credPath, 'send', to, message], 30000, userDir, token);
     return { success: true, message: 'Message sent successfully', output };
   } finally {
     await cleanupTemp(userDir);
@@ -242,7 +256,7 @@ async function sendMedia(userDir, token, to, mediaPath, caption = '') {
     const cmd = isImage ? 'send-image' : 'send-file';
     const args = ['-c', credPath, cmd, to, mediaPath];
     if (caption) args.push('--caption', caption);
-    const output = await runMudslide(args, 60000, userDir);
+    const output = await runMudslide(args, 60000, userDir, token);
     return { success: true, message: 'Media sent successfully', output };
   } finally {
     await cleanupTemp(userDir);
@@ -252,7 +266,7 @@ async function sendMedia(userDir, token, to, mediaPath, caption = '') {
 async function getGroups(userDir, token) {
   const credPath = await decryptMudslideToTemp(userDir, token);
   try {
-    const output = await runMudslide(['-c', credPath, 'groups'], 15000, userDir);
+    const output = await runMudslide(['-c', credPath, 'groups'], 15000, userDir, token);
 
     try {
       const parsed = JSON.parse(output);
@@ -282,7 +296,7 @@ async function logout(userDir, token) {
   if (!token) return;
   try {
     const credPath = await decryptMudslideToTemp(userDir, token);
-    await runMudslide(['-c', credPath, 'logout'], 30000, userDir);
+    await runMudslide(['-c', credPath, 'logout'], 30000, userDir, token);
   } catch {}
   await cleanupTemp(userDir).catch(() => {});
 }
