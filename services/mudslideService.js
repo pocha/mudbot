@@ -13,27 +13,10 @@ const CONFIG = {
 let loginProc = null;
 
 
-// Builds a per-user proxychains4 config at /tmp/watobot-proxy-<userDir>.conf.
-// Returns the config path, or null if DataImpulse is not configured.
-async function writeProxyConfig(userDir) {
-  if (!process.env.DATAIMPULSE_USERNAME) return null;
-  let country = 'in', port = 10000;
-  try {
-    const p = JSON.parse(await fs.readFile(path.join(CONFIG.USERS_DIR, userDir, 'proxy.json'), 'utf8'));
-    country = (p.country || 'in').toLowerCase();
-    port = p.port || 10000;
-  } catch {}
-  // DataImpulse format: LOGIN__cr.COUNTRYCODE:PASSWORD@gw.dataimpulse.com:PORT
-  const login = `${process.env.DATAIMPULSE_USERNAME}__cr.${country}`;
-  const conf = [
-    'strict_chain',
-    'proxy_dns',
-    '[ProxyList]',
-    `socks5 ${process.env.DATAIMPULSE_GATEWAY || 'gw.dataimpulse.com'} ${port} ${login} ${process.env.DATAIMPULSE_PASSWORD}`
-  ].join('\n');
-  const confPath = `/tmp/watobot-proxy-${userDir}.conf`;
-  await fs.writeFile(confPath, conf, 'utf8');
-  return confPath;
+// Returns the path to the user's proxychains4 config if it exists, otherwise null.
+async function proxyConfPath(userDir) {
+  const confPath = path.join(CONFIG.USERS_DIR, userDir, 'proxychains.conf');
+  try { await fs.access(confPath); return confPath; } catch { return null; }
 }
 
 function mudslideEncFile(userDir) {
@@ -114,7 +97,7 @@ async function cleanupTemp(userDir) {
 }
 
 async function runMudslide(args, timeoutMs, userDir) {
-  const confPath = userDir ? await writeProxyConfig(userDir) : null;
+  const confPath = userDir ? await proxyConfPath(userDir) : null;
   const useProxy = confPath && CONFIG.PROXYCHAINS_PATH;
   const bin  = useProxy ? CONFIG.PROXYCHAINS_PATH : CONFIG.MUDSLIDE_PATH;
   const argv = useProxy ? ['-f', confPath, CONFIG.MUDSLIDE_PATH, ...args] : args;
@@ -146,7 +129,7 @@ async function getQRCode(userDir) {
     loginProc = null;
   }
 
-  const confPath = await writeProxyConfig(userDir);
+  const confPath = await proxyConfPath(userDir);
   const useProxy = confPath && CONFIG.PROXYCHAINS_PATH;
   const bin  = useProxy ? CONFIG.PROXYCHAINS_PATH : CONFIG.MUDSLIDE_PATH;
   const argv = useProxy

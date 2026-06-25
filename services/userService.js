@@ -72,6 +72,19 @@ async function createOrUpdateProxyJson(userDir, clientIp) {
   if (!existing.country) existing.country = 'in';
 
   await fs.writeFile(proxyFile, JSON.stringify(existing));
+
+  // Write proxychains4 config alongside proxy.json so mudslideService can use it directly.
+  if (process.env.DATAIMPULSE_USERNAME) {
+    const login = `${process.env.DATAIMPULSE_USERNAME}__cr.${existing.country}`;
+    const conf = [
+      'strict_chain',
+      'proxy_dns',
+      '[ProxyList]',
+      `socks5 ${process.env.DATAIMPULSE_GATEWAY || 'gw.dataimpulse.com'} ${existing.port} ${login} ${process.env.DATAIMPULSE_PASSWORD}`
+    ].join('\n');
+    await fs.writeFile(path.join(CONFIG.USERS_DIR, userDir, 'proxychains.conf'), conf, 'utf8');
+  }
+
   return existing;
 }
 
