@@ -94,6 +94,28 @@ async function cleanupTemp(userDir) {
 
 const stripProxy = s => s.split('\n').filter(l => !l.trim().startsWith('[proxychains]')).join('\n').trim();
 
+async function getProxiedIpInfo(userDir, token) {
+  const confPath = await proxyConfPath(userDir, token).catch(() => null);
+  if (!confPath || !CONFIG.PROXYCHAINS_PATH) return null;
+
+  return new Promise(resolve => {
+    const proc = spawn(CONFIG.PROXYCHAINS_PATH, [
+      '-f', confPath, 'curl', '-s', '--max-time', '10',
+      'http://ip-api.com/json/?fields=query,city,country,countryCode'
+    ]);
+    let out = '';
+    proc.stdout.on('data', d => { out += d.toString(); });
+    proc.stderr.on('data', () => {});
+    proc.on('close', () => {
+      try {
+        const { query: ip, city, country, countryCode } = JSON.parse(out);
+        resolve({ ip, city, country, countryCode });
+      } catch { resolve(null); }
+    });
+    setTimeout(() => { proc.kill(); resolve(null); }, 15000);
+  });
+}
+
 async function runMudslide(args, timeoutMs, userDir, token) {
   const confPath = (userDir && token) ? await proxyConfPath(userDir, token) : null;
   const useProxy = confPath && CONFIG.PROXYCHAINS_PATH;
@@ -214,14 +236,13 @@ async function checkLoginStatus(userDir, token) {
 
   if (plaintextReady && token) {
     await encryptMudslide(userDir, token);
-    return { loggedIn: true };
   }
 
-  if (plaintextReady) {
-    return { loggedIn: true };
-  }
+  const loggedIn = plaintextReady || encExists;
+  if (!loggedIn) return { loggedIn: false };
 
-  return { loggedIn: encExists };
+  const proxyIp = await getProxiedIpInfo(userDir, token).catch(() => null);
+  return { loggedIn: true, proxyIp };
 }
 
 async function sendMessage(userDir, token, to, message) {
@@ -306,5 +327,6 @@ module.exports = {
   cleanupAfterLogout,
   encryptMudslide,
   decryptMudslideToTemp,
-  cleanupTemp
+  cleanupTemp,
+  getProxiedIpInfo
 };

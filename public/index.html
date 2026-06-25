@@ -308,10 +308,15 @@ Send whatsapp message programatically from
 						</details>
 						<details class="group bg-surface">
 							<summary class="flex items-center justify-between px-6 py-4 cursor-pointer font-label-md font-bold text-on-surface hover:bg-surface-container transition-colors list-none">
-								Is my WhatsApp account safe?
+								Can my WhatsApp account get blocked for using Watobot?
 								<span class="material-symbols-outlined text-on-surface-variant group-open:rotate-180 transition-transform flex-shrink-0">expand_more</span>
 							</summary>
-							<p class="px-6 pb-5 text-on-surface-variant font-body-md">Your WhatsApp session (the credentials created after QR scan) is encrypted with AES-256 using your personal auth token before being stored. Nobody — including the server owner — can use your session without your token, which only you hold in your browser.</p>
+							<div class="px-6 pb-5 text-on-surface-variant font-body-md space-y-3">
+								<p>Watobot works like a device added to your WhatsApp Linked Devices — the same way WhatsApp Web works. It sends messages as you, from your number, and WhatsApp sees it as one of your trusted devices.</p>
+								<p>To keep your account safe, every connection is routed through a dedicated residential IP address near your actual location. WhatsApp sees a local device rather than a shared server, and since every user gets their own IP, your account is never associated with other users.</p>
+								<p>Your WhatsApp session is encrypted with AES-256 using your personal auth token. Nobody — including the server owner — can access your session. Your token lives only in your browser and is never stored on the server.</p>
+								<p>As long as you send messages responsibly (avoid bulk blasting or spam), your account should remain in good standing.</p>
+							</div>
 						</details>
 						<details class="group bg-surface">
 							<summary class="flex items-center justify-between px-6 py-4 cursor-pointer font-label-md font-bold text-on-surface hover:bg-surface-container transition-colors list-none">

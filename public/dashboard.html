@@ -164,6 +164,13 @@
       <h3 class="font-headline-md text-headline-md text-primary">WhatsApp Connected</h3>
     </div>
     <p class="text-on-surface-variant text-body-md">WhatsApp is connected and ready to send messages.</p>
+    <div id="proxy-ip-info" class="hidden flex flex-col gap-1">
+      <p class="text-body-sm text-on-surface-variant flex items-center gap-1">
+        <span class="material-symbols-outlined text-[16px]">location_on</span>
+        <span id="proxy-ip-text"></span>
+      </p>
+      <p class="text-body-sm text-on-surface-variant pl-5">Watobot routes your WhatsApp connection through a residential proxy near your location, so WhatsApp sees a local device rather than a shared server. Each user gets a dedicated IP address, ensuring your account is never associated with other users.</p>
+    </div>
     <div class="bg-surface-container p-4 rounded-xl border border-outline-variant space-y-2 text-body-md text-on-surface-variant">
       <p class="font-semibold text-on-surface">Want to connect a different account?</p>
       <p>1. Click <strong>Disconnect</strong> below.</p>
@@ -392,7 +399,7 @@ async function checkConnectionStatus() {
 
         if (response.ok) {
             const status = await response.json();
-            updateConnectionUI(status.loggedIn);
+            updateConnectionUI(status.loggedIn, status.proxyIp);
         } else if (response.status === 401) {
             alert('Session expired. Please login again.');
             localStorage.removeItem('authToken');
@@ -403,7 +410,7 @@ async function checkConnectionStatus() {
     }
 }
 
-function updateConnectionUI(loggedIn) {
+function updateConnectionUI(loggedIn, proxyIp) {
     const notConnected = document.getElementById('wa-not-connected');
     const connected = document.getElementById('wa-connected');
     const step2 = document.getElementById('step-2');
@@ -413,6 +420,12 @@ function updateConnectionUI(loggedIn) {
         connected.classList.remove('hidden');
         connected.classList.add('flex');
         if (step2) step2.classList.remove('step-disabled');
+        const ipInfo = document.getElementById('proxy-ip-info');
+        const ipText = document.getElementById('proxy-ip-text');
+        if (proxyIp && ipInfo && ipText) {
+            ipText.textContent = `WhatsApp sees your connection from ${proxyIp.ip} (${proxyIp.city}, ${proxyIp.country})`;
+            ipInfo.classList.remove('hidden');
+        }
     } else {
         alert('WhatsApp not connected. Please scan QR code first.');
         window.location.href = `/verify.html?token=${authToken}`;
