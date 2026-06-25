@@ -2,7 +2,7 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs').promises;
 const crypto = require('crypto');
-const { readUserFile } = require('./userService');
+const { readUserFile, proxyConfPath } = require('./userService');
 
 const CONFIG = {
   MUDSLIDE_PATH: process.env.MUDSLIDE_PATH || 'mudslide',
@@ -14,24 +14,6 @@ const CONFIG = {
 let loginProc = null;
 
 
-// Decrypts the user's proxy.json and writes a proxychains4 config to /tmp.
-// Returns the config path, or null if proxy is not configured.
-async function proxyConfPath(userDir, token) {
-  if (!CONFIG.PROXYCHAINS_PATH || !process.env.DATAIMPULSE_USERNAME) return null;
-  try {
-    const proxy = JSON.parse(await readUserFile(
-      path.join(CONFIG.USERS_DIR, userDir, 'proxy.json'), token
-    ));
-    const login = `${process.env.DATAIMPULSE_USERNAME}__cr.${proxy.country || 'in'}`;
-    const conf = [
-      'strict_chain', 'proxy_dns', '[ProxyList]',
-      `socks5 ${process.env.DATAIMPULSE_GATEWAY || 'gw.dataimpulse.com'} ${proxy.port || 10000} ${login} ${process.env.DATAIMPULSE_PASSWORD}`
-    ].join('\n');
-    const confPath = `/tmp/watobot-proxy-${userDir}.conf`;
-    await fs.writeFile(confPath, conf, 'utf8');
-    return confPath;
-  } catch { return null; }
-}
 
 function mudslideEncFile(userDir) {
   return path.join(CONFIG.USERS_DIR, userDir, '.mudslide.enc');

@@ -60,6 +60,26 @@ function decryptData(ciphertext, token) {
   return decrypted.toString('utf8');
 }
 
+async function proxyConfPath(userDir, token, forceRegenerate = false) {
+  if (!process.env.PROXYCHAINS_PATH || !process.env.DATAIMPULSE_USERNAME) return null;
+  const confPath = `/tmp/watobot-proxy-${userDir}.conf`;
+  if (!forceRegenerate) {
+    try { await fs.access(confPath); return confPath; } catch {}
+  }
+  try {
+    const proxy = JSON.parse(await readUserFile(
+      path.join(CONFIG.USERS_DIR, userDir, 'proxy.json'), token
+    ));
+    const login = `${process.env.DATAIMPULSE_USERNAME}__cr.${proxy.country || 'in'}`;
+    const conf = [
+      'strict_chain', 'proxy_dns', '[ProxyList]',
+      `socks5 ${process.env.DATAIMPULSE_GATEWAY || 'gw.dataimpulse.com'} ${proxy.port || 10000} ${login} ${process.env.DATAIMPULSE_PASSWORD}`
+    ].join('\n');
+    await fs.writeFile(confPath, conf, 'utf8');
+    return confPath;
+  } catch { return null; }
+}
+
 async function createOrUpdateProxyJson(userDir, clientIp, token) {
   const proxyFile = path.join(CONFIG.USERS_DIR, userDir, 'proxy.json');
 
@@ -87,6 +107,7 @@ async function createOrUpdateProxyJson(userDir, clientIp, token) {
   } catch {}
 
   await writeUserFile(proxyFile, newContent, token);
+  await proxyConfPath(userDir, token, true).catch(() => {});
   return existing;
 }
 
@@ -165,5 +186,6 @@ module.exports = {
   getUserDir,
   computeTokenHash,
   allocateProxyPort,
-  createOrUpdateProxyJson
+  createOrUpdateProxyJson,
+  proxyConfPath
 };
