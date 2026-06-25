@@ -371,6 +371,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     localStorage.setItem('authToken', authToken);
 
+    // Fire-and-forget: detect user's country for residential proxy assignment
+    fetch(`${API_BASE}/api/user/location`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${authToken}` }
+    }).catch(() => {});
+
     await checkConnectionStatus();
     await loadSchedules();
 

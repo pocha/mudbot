@@ -107,6 +107,25 @@ fi
 # Verify
 mudslide --version 2>/dev/null && success "mudslide $(mudslide --version) ready" || info "mudslide installed (version check not available)"
 
+# --- Install proxychains4 (needed for residential proxy support) ---
+if command -v proxychains4 &>/dev/null; then
+  success "proxychains4 already installed"
+else
+  info "Installing proxychains4 (required for residential proxy support)..."
+  if [ "$OS_NAME" = "macos" ]; then
+    if command -v brew &>/dev/null; then
+      brew install proxychains-ng && success "proxychains4 installed" \
+        || info "proxychains4 install failed — proxy support will be disabled until installed"
+    else
+      info "Homebrew not found — skipping proxychains4 (optional, install manually with 'brew install proxychains-ng')"
+    fi
+  else
+    sudo apt-get install -y proxychains4 2>/dev/null \
+      || sudo yum install -y proxychains-ng 2>/dev/null \
+      || info "Could not install proxychains4 — proxy support will be disabled until installed"
+  fi
+fi
+
 # --- Create .env if missing ---
 if [ ! -f "$SCRIPT_DIR/.env" ]; then
   info "Creating .env from .env.example..."
@@ -131,6 +150,12 @@ REPLY_TO=
 BASE_URL=http://localhost
 PORT=80
 NODE_ENV=production
+
+# Residential proxy (optional — leave blank to disable)
+DATAIMPULSE_USERNAME=
+DATAIMPULSE_PASSWORD=
+DATAIMPULSE_GATEWAY=gw.dataimpulse.com
+DATAIMPULSE_PORT=10000
 EOF
     info ".env created. Edit SMTP and BASE_URL settings before use."
   fi

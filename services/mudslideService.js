@@ -11,6 +11,41 @@ const CONFIG = {
 // Holds the active mudslide login process so confirmLogin() can send a keypress.
 let loginProc = null;
 
+// Cached result of proxychains4 availability check (null = not yet checked).
+let proxyChainsAvailable = null;
+
+async function hasProxyChains() {
+  if (proxyChainsAvailable !== null) return proxyChainsAvailable;
+  proxyChainsAvailable = await new Promise(r => {
+    const p = spawn('which', ['proxychains4']);
+    p.on('close', code => r(code === 0));
+  });
+  return proxyChainsAvailable;
+}
+
+// Builds a per-user proxychains4 config at /tmp/watobot-proxy-<userDir>.conf.
+// Returns the config path, or null if DataImpulse is not configured.
+async function writeProxyConfig(userDir) {
+  if (!process.env.DATAIMPULSE_USERNAME) return null;
+  let country = 'in', port = 10000;
+  try {
+    const p = JSON.parse(await fs.readFile(path.join(CONFIG.USERS_DIR, userDir, 'proxy.json'), 'utf8'));
+    country = (p.country || 'in').toLowerCase();
+    port = p.port || 10000;
+  } catch {}
+  // DataImpulse format: LOGIN__cr.COUNTRYCODE:PASSWORD@gw.dataimpulse.com:PORT
+  const login = `${process.env.DATAIMPULSE_USERNAME}__cr.${country}`;
+  const conf = [
+    'strict_chain',
+    'proxy_dns',
+    '[ProxyList]',
+    `socks5 ${process.env.DATAIMPULSE_GATEWAY || 'gw.dataimpulse.com'} ${port} ${login} ${process.env.DATAIMPULSE_PASSWORD}`
+  ].join('\n');
+  const confPath = `/tmp/watobot-proxy-${userDir}.conf`;
+  await fs.writeFile(confPath, conf, 'utf8');
+  return confPath;
+}
+
 function mudslideEncFile(userDir) {
   return path.join(CONFIG.USERS_DIR, userDir, '.mudslide.enc');
 }
@@ -88,9 +123,14 @@ async function cleanupTemp(userDir) {
   await fs.rm(tempDir(userDir), { recursive: true, force: true });
 }
 
-function runMudslide(args, timeoutMs) {
+async function runMudslide(args, timeoutMs, userDir) {
+  const confPath = userDir ? await writeProxyConfig(userDir) : null;
+  const useProxy = confPath && await hasProxyChains();
+  const bin  = useProxy ? 'proxychains4' : CONFIG.MUDSLIDE_PATH;
+  const argv = useProxy ? ['-f', confPath, CONFIG.MUDSLIDE_PATH, ...args] : args;
+
   return new Promise((resolve, reject) => {
-    const proc = spawn(CONFIG.MUDSLIDE_PATH, args);
+    const proc = spawn(bin, argv);
     let stdout = '';
     let stderr = '';
 
@@ -111,14 +151,20 @@ function runMudslide(args, timeoutMs) {
 }
 
 async function getQRCode(userDir) {
-  // Kill any previously hung login process before starting a new one.
   if (loginProc && !loginProc.killed) {
     loginProc.kill();
     loginProc = null;
   }
 
+  const confPath = await writeProxyConfig(userDir);
+  const useProxy = confPath && await hasProxyChains();
+  const bin  = useProxy ? 'proxychains4' : CONFIG.MUDSLIDE_PATH;
+  const argv = useProxy
+    ? ['-f', confPath, CONFIG.MUDSLIDE_PATH, '-c', mudslideDir(userDir), 'login']
+    : ['-c', mudslideDir(userDir), 'login'];
+
   return new Promise((resolve, reject) => {
-    const proc = spawn(CONFIG.MUDSLIDE_PATH, ['-c', mudslideDir(userDir), 'login']);
+    const proc = spawn(bin, argv);
     loginProc = proc;
     let output = '';
     let idleTimer = null;
@@ -208,7 +254,7 @@ async function checkLoginStatus(userDir, token) {
 async function sendMessage(userDir, token, to, message) {
   const credPath = await decryptMudslideToTemp(userDir, token);
   try {
-    const output = await runMudslide(['-c', credPath, 'send', to, message], 30000);
+    const output = await runMudslide(['-c', credPath, 'send', to, message], 30000, userDir);
     return { success: true, message: 'Message sent successfully', output };
   } finally {
     await cleanupTemp(userDir);
@@ -223,7 +269,7 @@ async function sendMedia(userDir, token, to, mediaPath, caption = '') {
     const cmd = isImage ? 'send-image' : 'send-file';
     const args = ['-c', credPath, cmd, to, mediaPath];
     if (caption) args.push('--caption', caption);
-    const output = await runMudslide(args, 60000);
+    const output = await runMudslide(args, 60000, userDir);
     return { success: true, message: 'Media sent successfully', output };
   } finally {
     await cleanupTemp(userDir);
@@ -233,7 +279,7 @@ async function sendMedia(userDir, token, to, mediaPath, caption = '') {
 async function getGroups(userDir, token) {
   const credPath = await decryptMudslideToTemp(userDir, token);
   try {
-    const output = await runMudslide(['-c', credPath, 'groups'], 15000);
+    const output = await runMudslide(['-c', credPath, 'groups'], 15000, userDir);
 
     try {
       const parsed = JSON.parse(output);
@@ -263,7 +309,7 @@ async function logout(userDir, token) {
   if (!token) return;
   try {
     const credPath = await decryptMudslideToTemp(userDir, token);
-    await runMudslide(['-c', credPath, 'logout'], 30000);
+    await runMudslide(['-c', credPath, 'logout'], 30000, userDir);
   } catch {}
   await cleanupTemp(userDir).catch(() => {});
 }

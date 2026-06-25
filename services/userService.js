@@ -6,6 +6,20 @@ const CONFIG = {
   USERS_DIR: path.join(__dirname, '..', 'users')
 };
 
+const COUNTER_FILE = path.join(CONFIG.USERS_DIR, '.proxy_port_counter');
+let nextPort = null;
+
+async function allocateProxyPort() {
+  if (nextPort === null) {
+    try { nextPort = parseInt(await fs.readFile(COUNTER_FILE, 'utf8')); }
+    catch { nextPort = 10000; }
+    if (!nextPort || nextPort < 10000 || nextPort > 20000) nextPort = 10000;
+  }
+  const port = nextPort >= 20000 ? (nextPort = 10000) : nextPort++;
+  await fs.writeFile(COUNTER_FILE, String(nextPort));
+  return port;
+}
+
 function getUserDir(email) {
   return crypto.createHash('sha256').update(email).digest('hex').slice(0, 10);
 }
@@ -108,5 +122,6 @@ module.exports = {
   encryptData,
   decryptData,
   getUserDir,
-  computeTokenHash
+  computeTokenHash,
+  allocateProxyPort
 };

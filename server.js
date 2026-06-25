@@ -4,7 +4,7 @@ const path = require('path');
 
 const isLocal = (process.env.BASE_URL || '').startsWith('http://localhost');
 
-const fastifyOptions = { logger: true };
+const fastifyOptions = { logger: true, trustProxy: true };
 
 if (!isLocal) {
   fastifyOptions.https = {

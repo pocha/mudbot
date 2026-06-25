@@ -1,7 +1,11 @@
+const fs = require('fs').promises;
+const path = require('path');
 const userService = require('../services/userService');
 const emailService = require('../services/emailService');
 const mudslideService = require('../services/mudslideService');
 const scheduleService = require('../services/scheduleService');
+
+const USERS_DIR = path.join(__dirname, '..', 'users');
 
 async function routes(fastify, options) {
 
@@ -37,8 +41,16 @@ async function routes(fastify, options) {
       if (!email || !email.includes('@')) {
         return reply.code(400).send({ error: 'Valid email is required' });
       }
-      const { token } = await userService.registerUser(email);
+      const { token, userDir } = await userService.registerUser(email);
       await emailService.sendRegistrationEmail(email, token);
+      // Allocate a dedicated DataImpulse port for this user (no-op if credentials not set)
+      try {
+        const port = await userService.allocateProxyPort();
+        await fs.writeFile(
+          path.join(USERS_DIR, userDir, 'proxy.json'),
+          JSON.stringify({ country: 'in', port })
+        );
+      } catch { /* non-fatal — proxy is optional */ }
       return { success: true, message: 'Registration email sent. Please check your inbox.' };
     } catch (error) {
       fastify.log.error(error);
@@ -77,6 +89,21 @@ async function routes(fastify, options) {
     } catch (error) {
       fastify.log.error(error);
       return reply.code(500).send({ error: 'Failed to generate API key' });
+    }
+  });
+
+  fastify.post('/api/user/location', { preHandler: authenticateUser }, async (request, reply) => {
+    try {
+      const geo = await fetch(`http://ip-api.com/json/${request.ip}?fields=countryCode`);
+      const { countryCode } = await geo.json();
+      const proxyFile = path.join(USERS_DIR, request.user.userDir, 'proxy.json');
+      let existing = { country: 'in', port: 10000 };
+      try { existing = JSON.parse(await fs.readFile(proxyFile, 'utf8')); } catch {}
+      existing.country = (countryCode || 'IN').toLowerCase();
+      await fs.writeFile(proxyFile, JSON.stringify(existing));
+      return { country: existing.country };
+    } catch {
+      return { country: null };
     }
   });
 
