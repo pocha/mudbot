@@ -71,7 +71,13 @@ async function createOrUpdateProxyJson(userDir, clientIp) {
 
   if (!existing.country) existing.country = 'in';
 
-  await fs.writeFile(proxyFile, JSON.stringify(existing));
+  const newContent = JSON.stringify(existing);
+  try {
+    const current = await fs.readFile(proxyFile, 'utf8');
+    if (current === newContent) return existing;
+  } catch {}
+
+  await fs.writeFile(proxyFile, newContent);
 
   // Write proxychains4 config alongside proxy.json so mudslideService can use it directly.
   if (process.env.DATAIMPULSE_USERNAME) {
