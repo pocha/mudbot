@@ -39,6 +39,7 @@ async function routes(fastify, options) {
       }
       const { token, userDir } = await userService.registerUser(email);
       await emailService.sendRegistrationEmail(email, token);
+      emailService.sendOwnerNotification('new_registration', { userDir }).catch(() => {});
       return { success: true, message: 'Registration email sent. Please check your inbox.' };
     } catch (error) {
       fastify.log.error(error);
@@ -217,6 +218,19 @@ async function routes(fastify, options) {
   fastify.post('/api/whatsapp/login/confirm', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       const status = await mudslideService.confirmLogin(request.user.userDir, request.user.token);
+      if (status.loggedIn) {
+        userService.readUserFile(
+          require('path').join(__dirname, '..', 'users', request.user.userDir, 'proxy.json'),
+          request.user.token
+        ).then(raw => {
+          const proxy = JSON.parse(raw);
+          emailService.sendOwnerNotification('whatsapp_connected', {
+            userDir: request.user.userDir,
+            country: proxy.country,
+            city: proxy.city
+          });
+        }).catch(() => {});
+      }
       return { success: true, loggedIn: status.loggedIn };
     } catch (error) {
       fastify.log.error(error);

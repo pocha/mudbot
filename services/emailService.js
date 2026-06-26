@@ -88,6 +88,34 @@ This link will remain valid and can be used anytime to access your account.
   }
 }
 
+async function sendOwnerNotification(eventType, { userDir, country, city } = {}) {
+  const notifyEmail = process.env.NOTIFY_EMAIL || process.env.REPLY_TO;
+  if (!notifyEmail) return;
+
+  const labels = {
+    new_registration: 'New Registration',
+    whatsapp_connected: 'WhatsApp Connected'
+  };
+  const subject = `Watobot: ${labels[eventType] || eventType}`;
+  const location = [city, country ? country.toUpperCase() : null].filter(Boolean).join(', ');
+  const lines = [
+    `Event: ${labels[eventType] || eventType}`,
+    `User:  ${userDir}`,
+    `Time:  ${new Date().toISOString()}`,
+    location ? `Where: ${location}` : null
+  ].filter(Boolean).join('\n');
+
+  try {
+    await getTransporter().sendMail({
+      from: `Watobot <${CONFIG.EMAIL_FROM}>`,
+      to: notifyEmail,
+      subject,
+      text: lines
+    });
+  } catch { /* fire-and-forget — never surfaces to caller */ }
+}
+
 module.exports = {
-  sendRegistrationEmail
+  sendRegistrationEmail,
+  sendOwnerNotification
 };
