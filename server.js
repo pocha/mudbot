@@ -2,15 +2,19 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 
-const isLocal = (process.env.BASE_URL || '').startsWith('http://localhost');
-
 const fastifyOptions = { logger: true, trustProxy: true };
 
-if (!isLocal) {
-  fastifyOptions.https = {
-    key: fs.readFileSync('/etc/letsencrypt/live/watobot.xyz/privkey.pem'),
-    cert: fs.readFileSync('/etc/letsencrypt/live/watobot.xyz/fullchain.pem')
-  };
+const baseUrl = process.env.BASE_URL || '';
+if (baseUrl.startsWith('https://')) {
+  try {
+    const domain = new URL(baseUrl).hostname;
+    fastifyOptions.https = {
+      key: fs.readFileSync(`/etc/letsencrypt/live/${domain}/privkey.pem`),
+      cert: fs.readFileSync(`/etc/letsencrypt/live/${domain}/fullchain.pem`)
+    };
+  } catch (e) {
+    console.error('[WARN] SSL cert not found — starting without HTTPS. Run certbot to obtain a certificate.');
+  }
 }
 
 const fastify = require('fastify')(fastifyOptions);

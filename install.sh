@@ -127,6 +127,40 @@ else
 fi
 PROXYCHAINS_BIN=$(which proxychains4 2>/dev/null || echo "")
 
+# --- Install SSL certificate via Let's Encrypt ---
+if [ "$OS_NAME" = "linux" ]; then
+  echo ""
+  read -p "Enter your domain for HTTPS, e.g. watobot.xyz (leave blank to skip): " DOMAIN
+  if [ -n "$DOMAIN" ]; then
+    read -p "Enter your email for Let's Encrypt expiry notifications: " CERTBOT_EMAIL
+
+    if command -v certbot &>/dev/null; then
+      success "certbot already installed"
+    else
+      info "Installing certbot..."
+      sudo apt-get install -y certbot 2>/dev/null \
+        || sudo yum install -y certbot 2>/dev/null \
+        || error "Could not install certbot. Install manually: https://certbot.eff.org"
+    fi
+
+    if [ -d "/etc/letsencrypt/live/$DOMAIN" ]; then
+      success "Certificate for $DOMAIN already exists"
+    else
+      info "Obtaining certificate for $DOMAIN (port 80 must be free)..."
+      sudo certbot certonly --standalone -d "$DOMAIN" \
+        --non-interactive --agree-tos --email "$CERTBOT_EMAIL" \
+        || error "Failed to obtain certificate. Ensure port 80 is open and $DOMAIN points to this server."
+      success "Certificate obtained for $DOMAIN"
+    fi
+
+    # Renewal cron — runs twice daily; certbot skips if cert is not due
+    (crontab -l 2>/dev/null | grep -v "certbot renew"; \
+      echo "0 3,15 * * * certbot renew --quiet --standalone --pre-hook 'systemctl stop watobot 2>/dev/null || true' --post-hook 'systemctl start watobot 2>/dev/null || true'") | crontab -
+    success "Certificate auto-renewal cron added (runs at 3am and 3pm)"
+    info "Set BASE_URL=https://$DOMAIN in .env to enable HTTPS"
+  fi
+fi
+
 # --- Create .env (back up existing one if present) ---
 if [ -f "$SCRIPT_DIR/.env" ]; then
   mv "$SCRIPT_DIR/.env" "$SCRIPT_DIR/.env.bkup"
