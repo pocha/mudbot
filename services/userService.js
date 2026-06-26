@@ -71,7 +71,9 @@ async function proxyConfPath(userDir, token, forceRegenerate = false) {
     const proxy = JSON.parse(await readUserFile(
       path.join(CONFIG.USERS_DIR, userDir, 'proxy.json'), token
     ));
-    const login = `${process.env.DATAIMPULSE_USERNAME}__cr.${proxy.country || 'in'}`;
+    const country = proxy.country || 'in';
+    const zipSuffix = proxy.zipcode ? `;zip.${proxy.zipcode}` : '';
+    const login = `${process.env.DATAIMPULSE_USERNAME}__cr.${country}${zipSuffix}`;
     const conf = [
       'strict_chain', 'proxy_dns', '[ProxyList]',
       `socks5 ${process.env.DATAIMPULSE_GATEWAY || '74.81.81.81'} ${proxy.port || parseInt(process.env.DATAIMPULSE_PORT) || 10000} ${login} ${process.env.DATAIMPULSE_PASSWORD}`
@@ -81,7 +83,7 @@ async function proxyConfPath(userDir, token, forceRegenerate = false) {
   } catch { return null; }
 }
 
-async function createOrUpdateProxyJson(userDir, clientIp, token) {
+async function createOrUpdateProxyJson(userDir, clientIp, token, { country: explicitCountry = null, zipcode = undefined } = {}) {
   const proxyFile = path.join(CONFIG.USERS_DIR, userDir, 'proxy.json');
 
   let existing = {};
@@ -91,7 +93,9 @@ async function createOrUpdateProxyJson(userDir, clientIp, token) {
     existing.port = await allocateProxyPort();
   }
 
-  if (clientIp) {
+  if (explicitCountry) {
+    existing.country = explicitCountry;
+  } else if (clientIp) {
     try {
       const geo = await fetch(`http://ip-api.com/json/${clientIp}?fields=countryCode`);
       const { countryCode } = await geo.json();
@@ -100,6 +104,7 @@ async function createOrUpdateProxyJson(userDir, clientIp, token) {
   }
 
   if (!existing.country) existing.country = 'in';
+  if (zipcode !== undefined) existing.zipcode = zipcode;
 
   const newContent = JSON.stringify(existing);
   try {
