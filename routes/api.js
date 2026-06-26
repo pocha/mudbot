@@ -39,7 +39,6 @@ async function routes(fastify, options) {
       }
       const { token, userDir } = await userService.registerUser(email);
       await emailService.sendRegistrationEmail(email, token);
-      userService.createOrUpdateProxyJson(userDir, request.ip, token).catch(() => {});
       return { success: true, message: 'Registration email sent. Please check your inbox.' };
     } catch (error) {
       fastify.log.error(error);
@@ -86,9 +85,7 @@ async function routes(fastify, options) {
       const { zipcode, force } = request.body || {};
 
       if (!zipcode) {
-        // Plain IP-based country update (dashboard / register flows)
-        const proxy = await userService.createOrUpdateProxyJson(request.user.userDir, request.ip, request.user.token);
-        return { country: proxy.country };
+        return reply.code(400).send({ valid: false, reason: 'missing_zipcode', message: 'PIN code is required.' });
       }
 
       const zip = zipcode.trim();
@@ -143,7 +140,7 @@ async function routes(fastify, options) {
 
       // Nominatim failed, IP works → proceed with IP country, no zipcode stored
       if (!zipOk && ipOk) {
-        const proxy = await userService.createOrUpdateProxyJson(request.user.userDir, null, request.user.token, { country: ipCountry });
+        const proxy = await userService.createOrUpdateProxyJson(request.user.userDir, request.user.token, { country: ipCountry });
         return { valid: true, country: proxy.country, warning: 'pin_validation_unavailable', message: "Couldn't validate your PIN code — using your detected region instead." };
       }
 
@@ -179,7 +176,7 @@ async function routes(fastify, options) {
       }
 
       // All good — store zipcode + country from Nominatim
-      const proxy = await userService.createOrUpdateProxyJson(request.user.userDir, null, request.user.token, { country: countryToStore, zipcode: zip });
+      const proxy = await userService.createOrUpdateProxyJson(request.user.userDir, request.user.token, { country: countryToStore, zipcode: zip });
       return { valid: true, country: proxy.country, zipcodeCity: zipInfo.city };
 
     } catch (err) {

@@ -83,7 +83,7 @@ async function proxyConfPath(userDir, token, forceRegenerate = false) {
   } catch { return null; }
 }
 
-async function createOrUpdateProxyJson(userDir, clientIp, token, { country: explicitCountry = null, zipcode = undefined } = {}) {
+async function createOrUpdateProxyJson(userDir, token, { country = null, zipcode = undefined } = {}) {
   const proxyFile = path.join(CONFIG.USERS_DIR, userDir, 'proxy.json');
 
   let existing = {};
@@ -93,16 +93,7 @@ async function createOrUpdateProxyJson(userDir, clientIp, token, { country: expl
     existing.port = await allocateProxyPort();
   }
 
-  if (explicitCountry) {
-    existing.country = explicitCountry;
-  } else if (clientIp) {
-    try {
-      const geo = await fetch(`http://ip-api.com/json/${clientIp}?fields=countryCode`);
-      const { countryCode } = await geo.json();
-      if (countryCode) existing.country = countryCode.toLowerCase();
-    } catch {}
-  }
-
+  if (country) existing.country = country;
   if (!existing.country) existing.country = 'in';
   if (zipcode !== undefined) existing.zipcode = zipcode;
 
