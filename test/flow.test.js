@@ -8,8 +8,11 @@ const path = require('path');
 const fs = require('fs').promises;
 const crypto = require('crypto');
 
-const BASE_URL = `http://localhost:${process.env.PORT || 3000}`;
-const MAILDEV_URL = 'http://localhost:1080';
+const TEST_PORT = 3099;
+const BASE_URL = `http://localhost:${TEST_PORT}`;
+const MAILDEV_SMTP_PORT = 1025;
+const MAILDEV_WEB_PORT = 1080;
+const MAILDEV_URL = `http://localhost:${MAILDEV_WEB_PORT}`;
 const TEST_EMAIL = `test-${crypto.randomBytes(4).toString('hex')}@example.com`;
 const USERS_DIR = path.join(__dirname, '..', 'users');
 const { getUserDir } = require('../services/userService');
@@ -86,19 +89,42 @@ async function extractTokenFromMaildev() {
   throw new Error('Token not found in MailDev after 10 seconds');
 }
 
+async function killPort(port) {
+  return new Promise((resolve, reject) => {
+    const lsof = spawn('lsof', ['-ti', `tcp:${port}`]);
+    let pids = '';
+    lsof.stdout.on('data', d => { pids += d.toString(); });
+    lsof.on('close', () => {
+      const list = pids.trim().split('\n').filter(Boolean);
+      if (!list.length) return resolve(); // nothing on that port
+      const kill = spawn('kill', ['-9', ...list]);
+      kill.on('close', code => {
+        if (code === 0) return resolve();
+        reject(new Error(`Port ${port} is occupied and could not be freed. Kill whatever is running on it and run tests again.`));
+      });
+    });
+  });
+}
+
 // --- setup / teardown ---
 
 before(async () => {
-  // Start MailDev to capture registration emails
-  maildevServer = new MailDev({ smtp: 1025, web: 1080, silent: true });
+  // Clear ports — kill anything occupying TEST_PORT or MailDev ports
+  await killPort(TEST_PORT);
+  await killPort(MAILDEV_SMTP_PORT);
+  await killPort(MAILDEV_WEB_PORT);
+
+  // Start fresh MailDev
+  maildevServer = new MailDev({ smtp: MAILDEV_SMTP_PORT, web: MAILDEV_WEB_PORT, silent: true });
   await new Promise((resolve, reject) => maildevServer.listen(err => err ? reject(err) : resolve()));
 
-  // Start app server pointing at MailDev SMTP
+  // Start app server on TEST_PORT
   serverProcess = spawn('node', [path.join(__dirname, '..', 'server.js')], {
     env: {
       ...process.env,
+      PORT: String(TEST_PORT),
       SMTP_HOST: 'localhost',
-      SMTP_PORT: '1025',
+      SMTP_PORT: String(MAILDEV_SMTP_PORT),
       SMTP_SECURE: 'false',
       SMTP_USER: '',
       SMTP_PASS: ''
@@ -175,8 +201,8 @@ test('api_key_hash and api_key_token files exist', async () => {
   const hashContent = await fs.readFile(path.join(USERS_DIR, userDir, 'api_key_hash'), 'utf8');
   assert.match(hashContent.trim(), /^[a-f0-9]{64}$/);
 
-  // api_key_token: session token encrypted with apiKey — iv:ciphertext format
-  const tokenContent = await fs.readFile(path.join(USERS_DIR, userDir, 'api_key_token'), 'utf8');
+  // token_enc_with_api_key: session token encrypted with apiKey — iv:ciphertext format
+  const tokenContent = await fs.readFile(path.join(USERS_DIR, userDir, 'token_enc_with_api_key'), 'utf8');
   assert.match(tokenContent.trim(), /^[a-f0-9]+:[a-f0-9]+$/);
 
   // apiKey embeds same userDir as first 10 chars
