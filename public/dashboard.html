@@ -213,10 +213,19 @@
 <div class="whatsapp-border bg-surface-container-low p-5 rounded-xl space-y-4">
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 <div class="space-y-2">
-<label class="font-label-md text-on-surface-variant">Recipient (User/Group)</label>
+<div class="flex items-center gap-1">
+  <label class="font-label-md text-on-surface-variant">Recipient (User/Group)</label>
+  <div class="relative group">
+    <span class="material-symbols-outlined text-[16px] text-on-surface-variant opacity-50 cursor-default select-none">info</span>
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-on-surface text-inverse-on-surface text-[12px] leading-relaxed rounded-lg px-3 py-2 shadow-lg hidden group-hover:block z-30 pointer-events-none">
+      Groups are fetched live from WhatsApp each time — we don't store any of your contacts or group information. This may take up to a minute via the residential proxy.<br/>If it says 'No groups found', try again.
+      <span class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-on-surface"></span>
+    </div>
+  </div>
+</div>
 <div class="relative" id="recipient-combobox">
   <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60 z-10">search</span>
-  <input id="recipient-input" class="w-full pl-10 pr-10 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" placeholder="Tap to load groups..." type="text" autocomplete="off"/>
+  <input id="recipient-input" class="w-full pl-10 pr-10 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" placeholder="Tap to load .. takes a minute to load data" type="text" autocomplete="off"/>
   <span id="recipient-spinner" class="hidden absolute right-3 top-0 bottom-0 flex items-center"><span class="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin block"></span></span>
   <input type="hidden" id="recipient-value"/>
   <div id="recipient-dropdown" class="hidden absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-outline-variant rounded-lg shadow-lg max-h-48 overflow-y-auto"></div>
@@ -614,7 +623,7 @@ function setupRecipientCombobox() {
 
     function showDropdown(groups) {
         if (groups.length === 0) {
-            dropdown.innerHTML = '<p class="px-4 py-3 text-body-md text-on-surface-variant">No groups found</p>';
+            dropdown.innerHTML = '<p class="px-4 py-3 text-body-md text-on-surface-variant">An error occured. Try again please.</p>';
         } else {
             dropdown.innerHTML = groups.map(g =>
                 `<div class="px-4 py-2 hover:bg-surface-container cursor-pointer text-body-md text-on-surface" data-id="${escapeHtml(g.id)}" data-name="${escapeHtml(g.name)}">${escapeHtml(g.name)}</div>`
