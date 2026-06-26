@@ -163,14 +163,8 @@
       <span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings:'FILL' 1">check_circle</span>
       <h3 class="font-headline-md text-headline-md text-primary">WhatsApp Connected</h3>
     </div>
-    <p class="text-on-surface-variant text-body-md">WhatsApp is connected and ready to send messages.</p>
-    <div id="proxy-ip-info" class="hidden bg-primary/5 border border-primary/20 rounded-xl p-4 flex flex-col gap-2">
-      <div class="flex items-center gap-2 text-primary">
-        <span class="material-symbols-outlined text-[18px]" style="font-variation-settings:'FILL' 1">location_on</span>
-        <span id="proxy-ip-text" class="text-body-sm font-semibold"></span>
-      </div>
-      <p class="text-body-sm text-on-surface-variant leading-relaxed">Watobot routes your WhatsApp connection through a residential proxy near your location, so WhatsApp sees a local device rather than a shared server. Each user gets a dedicated IP address, ensuring your account is never associated with other users.</p>
-    </div>
+    <p id="wa-connection-line" class="text-body-md text-on-surface font-semibold">WhatsApp is connected and ready to send messages.</p>
+    <p id="wa-proxy-line" class="hidden text-body-md text-on-surface-variant"></p>
     <div class="bg-surface-container p-4 rounded-xl border border-outline-variant space-y-2 text-body-md text-on-surface-variant">
       <p class="font-semibold text-on-surface">Want to connect a different account?</p>
       <p>1. Click <strong>Disconnect</strong> below.</p>
@@ -420,11 +414,11 @@ function updateConnectionUI(loggedIn, proxyIp) {
         connected.classList.remove('hidden');
         connected.classList.add('flex');
         if (step2) step2.classList.remove('step-disabled');
-        const ipInfo = document.getElementById('proxy-ip-info');
-        const ipText = document.getElementById('proxy-ip-text');
-        if (proxyIp && ipInfo && ipText) {
-            ipText.textContent = `WhatsApp sees your connection from ${proxyIp.ip} (${proxyIp.city}, ${proxyIp.country})`;
-            ipInfo.classList.remove('hidden');
+        if (proxyIp) {
+            document.getElementById('wa-connection-line').textContent = `IP Address ${proxyIp.ip} (location - ${proxyIp.city}, ${proxyIp.country})`;
+            const proxyLine = document.getElementById('wa-proxy-line');
+            proxyLine.textContent = `Watobot is routing your messages through this IP, which belongs to ${proxyIp.city}, ${proxyIp.country}, to make sure the device looks authentic to WhatsApp.`;
+            proxyLine.classList.remove('hidden');
         }
     } else {
         alert('WhatsApp not connected. Please scan QR code first.');
