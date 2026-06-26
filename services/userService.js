@@ -72,8 +72,7 @@ async function proxyConfPath(userDir, token, forceRegenerate = false) {
       path.join(CONFIG.USERS_DIR, userDir, 'proxy.json'), token
     ));
     const country = proxy.country || 'in';
-    const zipSuffix = proxy.zipcode ? `;zip.${proxy.zipcode}` : '';
-    const login = `${process.env.DATAIMPULSE_USERNAME}__cr.${country}${zipSuffix}`;
+    const login = `${process.env.DATAIMPULSE_USERNAME}__cr.${country}`;
     const conf = [
       'strict_chain', 'proxy_dns', '[ProxyList]',
       `socks5 ${process.env.DATAIMPULSE_GATEWAY || '74.81.81.81'} ${proxy.port || parseInt(process.env.DATAIMPULSE_PORT) || 10000} ${login} ${process.env.DATAIMPULSE_PASSWORD}`
@@ -83,7 +82,7 @@ async function proxyConfPath(userDir, token, forceRegenerate = false) {
   } catch { return null; }
 }
 
-async function createOrUpdateProxyJson(userDir, token, { country = null, zipcode = undefined } = {}) {
+async function createOrUpdateProxyJson(userDir, token, { country = null } = {}) {
   const proxyFile = path.join(CONFIG.USERS_DIR, userDir, 'proxy.json');
 
   let existing = {};
@@ -95,7 +94,6 @@ async function createOrUpdateProxyJson(userDir, token, { country = null, zipcode
 
   if (country) existing.country = country;
   if (!existing.country) existing.country = 'in';
-  if (zipcode !== undefined) existing.zipcode = zipcode;
 
   const newContent = JSON.stringify(Object.fromEntries(Object.keys(existing).sort().map(k => [k, existing[k]])));
   try {

@@ -167,7 +167,11 @@ async function getQRCode(userDir, token) {
     const onStdout = (data) => {
       output += data.toString();
       if (idleTimer) clearTimeout(idleTimer);
-      if (output.trim() && !resolved) {
+      const meaningful = output.split('\n')
+        .filter(l => !l.trim().startsWith('Created mudslide cache folder'))
+        .filter(l => !l.trim().startsWith('[proxychains]'))
+        .join('\n').trim();
+      if (meaningful && !resolved) {
         idleTimer = setTimeout(() => {
           resolved = true;
           resolve({ success: true, qr: stripProxy(output) });

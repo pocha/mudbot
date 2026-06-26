@@ -176,8 +176,7 @@ async function routes(fastify, options) {
         }
       }
 
-      // All good — store zipcode + country from Nominatim
-      const proxy = await userService.createOrUpdateProxyJson(request.user.userDir, request.user.token, { country: countryToStore, zipcode: zip });
+      const proxy = await userService.createOrUpdateProxyJson(request.user.userDir, request.user.token, { country: countryToStore });
       return { valid: true, country: proxy.country, zipcodeCity: zipInfo.city };
 
     } catch (err) {
