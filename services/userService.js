@@ -97,7 +97,7 @@ async function createOrUpdateProxyJson(userDir, token, { country = null, zipcode
   if (!existing.country) existing.country = 'in';
   if (zipcode !== undefined) existing.zipcode = zipcode;
 
-  const newContent = JSON.stringify(existing);
+  const newContent = JSON.stringify(Object.fromEntries(Object.keys(existing).sort().map(k => [k, existing[k]])));
   try {
     const current = await readUserFile(proxyFile, token);
     if (current === newContent) return existing;
