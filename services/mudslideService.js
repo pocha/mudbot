@@ -164,27 +164,10 @@ async function getQRCode(userDir, token) {
     let resolved = false;
     let keypressSent = false;
 
-    const onData = (data) => {
+    const onStdout = (data) => {
       output += data.toString();
-
-      // After the user scans the QR, mudslide enters loginSecondPass() and prints
-      // "press any key to exit" while blocking on stdin. Since our stdin is a pipe
-      // (not a TTY) it would hang forever — send the keypress automatically so
-      // mudslide can terminate cleanly once the user clicks Continue in the UI.
-      if (output.includes('press any key') && !keypressSent) {
-        keypressSent = true;
-        proc.stdin.write('\n');
-        return;
-      }
-
       if (idleTimer) clearTimeout(idleTimer);
-      // Only start the idle timer once we have content beyond mudslide's
-      // initialization messages — the QR code arrives after those.
-      const meaningful = output.split('\n')
-        .filter(l => !l.trim().startsWith('Created mudslide cache folder'))
-        .filter(l => !l.trim().startsWith('[proxychains]'))
-        .join('\n').trim();
-      if (meaningful && !resolved) {
+      if (output.trim() && !resolved) {
         idleTimer = setTimeout(() => {
           resolved = true;
           resolve({ success: true, qr: stripProxy(output) });
@@ -192,9 +175,18 @@ async function getQRCode(userDir, token) {
       }
     };
 
+    const onStderr = (data) => {
+      const text = data.toString();
+      // After the user scans the QR, mudslide prints "press any key to exit" on stderr.
+      // Since stdin is a pipe (not a TTY) it would hang forever — send keypress automatically.
+      if (text.includes('press any key') && !keypressSent) {
+        keypressSent = true;
+        proc.stdin.write('\n');
+      }
+    };
 
-    proc.stdout.on('data', onData);
-    proc.stderr.on('data', onData);
+    proc.stdout.on('data', onStdout);
+    proc.stderr.on('data', onStderr);
 
     proc.on('close', () => {
       loginProc = null;
@@ -313,6 +305,7 @@ async function logout(userDir, token) {
 async function cleanupAfterLogout(userDir) {
   await fs.rm(mudslideDir(userDir), { recursive: true, force: true });
   await fs.rm(mudslideEncFile(userDir), { force: true });
+  await fs.rm(`/tmp/watobot-proxy-${userDir}.conf`, { force: true });
 }
 
 module.exports = {
