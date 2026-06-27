@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Privacy Policy — Watobot</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet"/>
+  <script id="tailwind-config">
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            "on-surface-variant": "#3c4a3d",
+            "on-surface": "#191c1e",
+            "surface-container-low": "#f2f4f7",
+            "surface": "#f7f9fc",
+            "primary": "#006d2f",
+            "primary-container": "#25d366",
+            "on-primary-container": "#005523",
+            "outline-variant": "#bbcbb9",
+            "surface-dim": "#d8dadd",
+          },
+          fontFamily: {
+            "body-md": ["Inter"],
+            "headline-md": ["Plus Jakarta Sans"],
+            "headline-lg": ["Plus Jakarta Sans"],
+          },
+          fontSize: {
+            "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+            "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+            "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+            "headline-lg": ["28px", {"lineHeight": "36px", "fontWeight": "700"}],
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-surface text-on-surface font-body-md">
+  <!-- Nav -->
+  <nav class="bg-surface border-b border-outline-variant shadow-sm flex justify-between items-center w-full px-6 py-3 sticky top-0 z-50">
+    <a href="/" class="font-headline-md text-headline-md font-bold text-primary">Watobot</a>
+    <a href="/" class="text-on-surface-variant hover:text-primary font-body-md transition-colors">← Back to Home</a>
+  </nav>
+
+  <main class="max-w-3xl mx-auto px-6 py-12">
+    <h1 class="font-headline-lg text-3xl font-bold text-on-surface mb-2">Privacy Policy</h1>
+    <p class="text-on-surface-variant font-body-md mb-10">Last updated: June 2026</p>
+
+    <div class="space-y-8 font-body-lg text-on-surface-variant leading-relaxed">
+
+      <section>
+        <h2 class="font-headline-md text-on-surface mb-3">What we collect</h2>
+        <p>We collect only what is strictly necessary:</p>
+        <ul class="list-disc pl-6 mt-2 space-y-1">
+          <li><strong class="text-on-surface">Your email address</strong> — used solely to send you a one-time login link. It is never stored on our servers after the email is dispatched.</li>
+          <li><strong class="text-on-surface">Your PIN code / postal code</strong> — used to determine your country for residential proxy routing. Stored in encrypted form and never shared.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 class="font-headline-md text-on-surface mb-3">How your data is stored</h2>
+        <p>All data associated with your account is encrypted using AES-256 with your personal auth token as the key. That token is generated when you register and delivered to you via email — it is never stored on our servers in recoverable form. Only a one-way SHA-256 hash of your token is retained for authentication.</p>
+        <p class="mt-3">This means: <strong class="text-on-surface">even the server operator cannot read your data.</strong> Your WhatsApp session credentials, your message schedules, and your recipient lists are all encrypted at rest and accessible only to someone who holds your token.</p>
+      </section>
+
+      <section>
+        <h2 class="font-headline-md text-on-surface mb-3">WhatsApp session</h2>
+        <p>When you scan the QR code to connect your WhatsApp account, a session credential file is created locally. This file is immediately encrypted with a key derived from your token and the plaintext version is deleted. We never transmit your WhatsApp credentials anywhere other than to WhatsApp's own servers during normal operation.</p>
+        <p class="mt-3">Watobot sends messages <strong class="text-on-surface">on your behalf</strong> using your linked account. It does not read, store, or process any incoming messages.</p>
+      </section>
+
+      <section>
+        <h2 class="font-headline-md text-on-surface mb-3">Residential proxy routing</h2>
+        <p>To protect your WhatsApp account from being flagged, each connection is routed through a dedicated residential IP address near your geographic location. Your IP address is not logged or stored beyond what is needed to assign an appropriate proxy region.</p>
+      </section>
+
+      <section>
+        <h2 class="font-headline-md text-on-surface mb-3">Cookies &amp; tracking</h2>
+        <p>We do not use cookies, tracking pixels, or any third-party analytics. Your auth token is stored in your browser's <code class="bg-surface-container-low px-1 rounded text-sm">localStorage</code> — it never leaves your device except when making API calls to this server.</p>
+      </section>
+
+      <section>
+        <h2 class="font-headline-md text-on-surface mb-3">Data retention</h2>
+        <p>Your encrypted data persists on the server until you explicitly log out and confirm device removal. Logging out deletes your encrypted WhatsApp session. Re-registering with the same email generates a new token, which immediately invalidates the old one and makes all previously encrypted files permanently inaccessible.</p>
+      </section>
+
+      <section>
+        <h2 class="font-headline-md text-on-surface mb-3">Open source</h2>
+        <p>Watobot is open source. The complete server-side code — including all encryption logic — is publicly auditable at <a href="https://github.com/pocha/mudbot" target="_blank" rel="noopener" class="text-primary underline">github.com/pocha/mudbot</a>. You are encouraged to review it.</p>
+      </section>
+
+      <section>
+        <h2 class="font-headline-md text-on-surface mb-3">Contact</h2>
+        <p>Questions about privacy? Reach out via WhatsApp during support hours (9 AM – 7 PM IST, Mon–Sat) or open an issue on GitHub.</p>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-surface-dim border-t border-outline-variant w-full py-6 px-6 text-center text-on-surface-variant font-body-md mt-12">
+    © 2026 Watobot Automation. Released under the ISC License.
+  </footer>
+</body>
+</html>

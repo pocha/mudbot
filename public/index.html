@@ -118,6 +118,7 @@
 			<div class="hidden md:flex items-center gap-8">
 				<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors" href="#features">Features</a>
 				<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors" href="#pricing">Pricing</a>
+				<button onclick="openSupport()" class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors">Support</button>
 				<button id="navLoginBtn" class="font-label-md text-label-md bg-primary-container text-on-primary-container px-6 py-2 rounded-xl font-bold hover:opacity-90 active:scale-95 transition-all" onclick="toggleModal()">Login</button>
 			</div>
 			<button class="md:hidden text-primary">
@@ -244,34 +245,34 @@ Send whatsapp message programatically from
 				<div class="max-w-4xl mx-auto">
 					<div class="text-center mb-10">
 						<div class="flex items-center gap-2 justify-center mb-2">
-							<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">star</span>
-							<span class="font-label-md text-label-md text-primary font-bold uppercase tracking-widest">Transparent Pricing</span>
+							<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">volunteer_activism</span>
+							<span class="font-label-md text-label-md text-primary font-bold uppercase tracking-widest">Pricing</span>
 						</div>
-						<h2 class="font-headline-lg text-4xl font-black text-on-surface">1c <span class="text-on-surface-variant text-xl font-normal">/ message</span></h2>
+						<h2 class="font-headline-lg text-4xl font-black text-on-surface">Free <span class="text-on-surface-variant text-xl font-normal">forever</span></h2>
+						<p class="text-on-surface-variant font-body-md mt-2">No credit card. No subscriptions. No catch.</p>
 					</div>
 					<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-						<!-- Early access card -->
-						<div class="bg-primary-container/30 border-2 border-primary rounded-xl p-6 flex flex-col gap-4 relative overflow-hidden">
-							<span class="absolute top-3 right-3 bg-primary text-on-primary text-xs font-bold px-2 py-1 rounded-full uppercase tracking-wide">Limited Offer</span>
-							<h3 class="font-headline-md text-headline-md text-on-surface">Currently Free</h3>
-							<p class="text-on-surface-variant font-body-md">Sign up before <strong class="text-on-surface">July 15, 2026</strong> and get <strong class="text-on-surface">lifetime free access</strong> — no limits, no credit card.</p>
+						<!-- Free tier -->
+						<div class="bg-primary-container/30 border-2 border-primary rounded-xl p-6 flex flex-col gap-4">
+							<h3 class="font-headline-md text-headline-md text-on-surface">Dashboard &amp; Schedules</h3>
+							<p class="text-on-surface-variant font-body-md">The full dashboard, WhatsApp linking, and scheduled messages are completely free with no limits.</p>
 							<ul class="space-y-2 font-body-md text-on-surface-variant">
-								<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">check</span> Unlimited messages, forever free</li>
+								<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">check</span> Unlimited scheduled messages</li>
 								<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">check</span> All features included</li>
 								<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">check</span> No credit card required</li>
 							</ul>
-							<button class="mt-auto bg-primary text-on-primary font-bold py-3 rounded-xl hover:brightness-110 transition-all" onclick="toggleModal()">Get Lifetime Free Access</button>
+							<button class="mt-auto bg-primary text-on-primary font-bold py-3 rounded-xl hover:brightness-110 transition-all" onclick="toggleModal()">Get Started Free</button>
 						</div>
-						<!-- After July card -->
+						<!-- API key card -->
 						<div class="bg-surface border border-outline-variant rounded-xl p-6 flex flex-col gap-4">
-							<h3 class="font-headline-md text-headline-md text-on-surface">After July 15, 2026</h3>
-							<p class="text-on-surface-variant font-body-md">New accounts will start with a generous free tier, then pay only for what they use.</p>
+							<h3 class="font-headline-md text-headline-md text-on-surface">API Access</h3>
+							<p class="text-on-surface-variant font-body-md">Generate an API key from your dashboard to trigger messages from your own backend or scripts.</p>
 							<ul class="space-y-2 font-body-md text-on-surface-variant">
-								<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">check</span> 30 free messages on signup</li>
-								<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">check</span> 5 free messages every day after that</li>
-								<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">check</span> 1c per message beyond the daily free quota</li>
-								<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">check</span> No monthly subscription</li>
+								<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">check</span> API key valid for <strong class="text-on-surface">1 hour</strong> by default</li>
+								<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">mail</span> Drop us an email with your use case for a <strong class="text-on-surface">permanent API key</strong></li>
+								<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">verified_user</span> Minimal KYC — just your name and use case</li>
 							</ul>
+							<p class="text-on-surface-variant font-body-md text-sm mt-auto">This helps us prevent abuse while keeping the service free for everyone.</p>
 						</div>
 					</div>
 					<!-- Warning box -->
@@ -350,10 +351,9 @@ Send whatsapp message programatically from
 				<p class="text-on-surface-variant font-body-md">© 2024 Watobot Automation. All rights reserved.</p>
 			</div>
 			<div class="flex gap-6">
-				<a class="text-on-surface-variant hover:text-primary font-body-md underline transition-colors" href="#">Privacy Policy</a>
-				<a class="text-on-surface-variant hover:text-primary font-body-md underline transition-colors" href="#">Terms of Service</a>
+				<a class="text-on-surface-variant hover:text-primary font-body-md underline transition-colors" href="/privacy.html">Privacy Policy</a>
 				<a class="text-on-surface-variant hover:text-primary font-body-md underline transition-colors" href="#">API Docs</a>
-				<a class="text-on-surface-variant hover:text-primary font-body-md underline transition-colors" href="#">Support</a>
+				<button onclick="openSupport()" class="text-on-surface-variant hover:text-primary font-body-md underline transition-colors">Support</button>
 			</div>
 		</footer>
 		<!-- Login Modal -->
@@ -507,6 +507,40 @@ Send whatsapp message programatically from
                 el.classList.remove('scale-95');
             });
         });
+
+        function openSupport() {
+            const modal = document.getElementById('supportModal');
+            const now = new Date();
+            const istHour = (now.getUTCHours() * 60 + now.getUTCMinutes() + 330) / 60 % 24;
+            const available = istHour >= 9 && istHour < 19;
+            document.getElementById('support-available').classList.toggle('hidden', !available);
+            document.getElementById('support-unavailable').classList.toggle('hidden', available);
+            modal.classList.remove('hidden');
+        }
+        function closeSupport() {
+            document.getElementById('supportModal').classList.add('hidden');
+        }
     </script>
+
+	<!-- Support Modal -->
+	<div id="supportModal" class="fixed inset-0 z-[200] hidden flex items-center justify-center px-4">
+		<div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="closeSupport()"></div>
+		<div class="bg-surface-container-lowest w-full max-w-sm rounded-xl p-8 shadow-xl relative z-10 border border-outline-variant flex flex-col gap-4">
+			<div class="flex justify-between items-center">
+				<h3 class="font-headline-md text-headline-md text-on-surface">Support</h3>
+				<button onclick="closeSupport()" class="text-on-surface-variant hover:text-error transition-colors"><span class="material-symbols-outlined">close</span></button>
+			</div>
+			<p class="text-on-surface-variant font-body-md">Support is available on WhatsApp between <strong class="text-on-surface">9 AM – 7 PM IST</strong> (Mon–Sat).</p>
+			<div id="support-available" class="hidden">
+				<a href="https://wa.me/919538384545" target="_blank" rel="noopener"
+					class="flex items-center justify-center gap-2 bg-primary-container text-on-primary-container font-bold py-3 rounded-xl hover:opacity-90 transition-all w-full">
+					<span class="material-symbols-outlined text-[20px]">chat</span> Contact Dev on WhatsApp
+				</a>
+			</div>
+			<div id="support-unavailable" class="hidden">
+				<p class="text-on-surface-variant font-body-md text-sm text-center">Developer is currently offline. Please try again during support hours.</p>
+			</div>
+		</div>
+	</div>
 	</body>
 </html>

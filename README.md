@@ -1,8 +1,14 @@
-# Whatsapp Bot on cloud that sends message on your behalf
+# Watobot — Self-hosted WhatsApp Automation
 
 A self-hosted WhatsApp message automation platform built on [Mudslide](https://github.com/robvanderleek/mudslide). Connect your WhatsApp account via QR code, then schedule automated messages or trigger them on demand via a REST API.
 
-All user data is encrypted in the repository using your personal auth token as the key. There is no shared server secret — even the server owner cannot read your data. Check watobot-dot-xyz for live implementation.
+All user data is encrypted using your personal auth token as the key. There is no shared server secret — even the server owner cannot read your data. Live demo: [watobot.xyz](https://watobot.xyz)
+
+---
+
+> **Disclaimer:** This project is for **educational purposes only**. The author takes no liability for WhatsApp banning your account or the accounts of your users if you choose to deploy this as a public web service. Use of unofficial WhatsApp automation may violate WhatsApp's Terms of Service. You assume all responsibility for how you use this software.
+
+---
 
 ---
 
@@ -81,6 +87,39 @@ MUDSLIDE_PATH=/usr/local/bin/mudslide
 For **production**, point `SMTP_*` at a real mail provider (e.g. SendGrid, SES) and set `BASE_URL` to your public domain.
 
 For **local development**, MailDev is started automatically by the test suite (see [Running tests](#running-tests)).
+
+---
+
+## Residential Proxy (strongly recommended for production)
+
+When multiple users connect WhatsApp from the same server IP, WhatsApp can detect that many accounts share one IP address and flag them as bots or spam operations. To prevent this, Watobot routes each user's WhatsApp connection through a **dedicated residential IP address** near their geographic location.
+
+### Why this matters
+
+- **Server IP protection:** Your server's real IP is never exposed to WhatsApp. If WhatsApp blacklists a residential IP, only that one user is affected — your server IP stays clean.
+- **Account authenticity:** WhatsApp sees a local residential connection (like a home router) rather than a data-centre IP. This makes the linked device look like a real phone on a home network.
+- **Per-user isolation:** Each user is assigned a unique proxy port, so no two users share the same residential IP. One user's behaviour cannot affect another's account standing.
+
+### Setup with DataImpulse
+
+1. Sign up at [dataimpulse.com](https://dataimpulse.com) and purchase a residential proxy plan.
+2. Add the following to your `.env`:
+
+```env
+DATAIMPULSE_USERNAME=your_username
+DATAIMPULSE_PASSWORD=your_password
+DATAIMPULSE_GATEWAY=74.81.81.81
+DATAIMPULSE_PORT=10000        # Starting port — each user gets the next port in sequence
+```
+
+3. Ensure `proxychains4` is installed (the install script handles this automatically).
+4. Set `PROXYCHAINS_PATH` in `.env` to the proxychains4 binary path (the install script fills this in).
+
+When `DATAIMPULSE_USERNAME` is not set, Watobot falls back to unproxied connections — all features still work, but WhatsApp connections originate from your server's IP.
+
+### How port allocation works
+
+DataImpulse maps each port in the range 10000–20000 to a distinct sticky residential session. Watobot allocates one port per user at registration time (stored in their encrypted `proxy.json`) and targets their country using the `__cr.<countrycode>` username suffix. The allocation counter is persisted in `users/.proxy_port_counter`.
 
 ---
 

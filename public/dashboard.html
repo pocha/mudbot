@@ -120,13 +120,11 @@
 <span class="font-headline-md text-headline-md font-bold"><span class="text-primary">Wato</span><span class="text-on-surface">Bot</span></span>
 </div>
 <div class="flex items-center gap-4">
-<button class="material-symbols-outlined text-on-surface-variant hover:bg-surface-container-high p-2 rounded-full transition-all">notifications</button>
-<button class="material-symbols-outlined text-on-surface-variant hover:bg-surface-container-high p-2 rounded-full transition-all">settings</button>
+<button onclick="openSupport()" class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors">Support</button>
 <button id="logout-btn" class="flex items-center gap-2 text-error hover:bg-error/10 px-3 py-2 rounded-xl transition-all font-label-md">
 <span class="material-symbols-outlined text-[20px]">logout</span>
 <span class="hidden md:inline">Logout</span>
 </button>
-
 </div>
 </header>
 <div class="flex h-[calc(100vh-64px)] overflow-hidden justify-center">
@@ -321,12 +319,31 @@ No active schedules yet. Use the form above to get started.
 <p class="text-on-surface-variant text-body-md">© 2024 WatoBot Automation. All rights reserved.</p>
 </div>
 <div class="flex gap-6">
-<a class="text-on-surface-variant hover:text-primary transition-opacity hover:opacity-80 underline font-body-md text-body-md" href="#">Privacy Policy</a>
-<a class="text-on-surface-variant hover:text-primary transition-opacity hover:opacity-80 underline font-body-md text-body-md" href="#">Terms of Service</a>
+<a class="text-on-surface-variant hover:text-primary transition-opacity hover:opacity-80 underline font-body-md text-body-md" href="/privacy.html">Privacy Policy</a>
 <a class="text-on-surface-variant hover:text-primary transition-opacity hover:opacity-80 underline font-body-md text-body-md" href="#">API Docs</a>
-<a class="text-on-surface-variant hover:text-primary transition-opacity hover:opacity-80 underline font-body-md text-body-md" href="#">Support</a>
+<button onclick="openSupport()" class="text-on-surface-variant hover:text-primary transition-opacity hover:opacity-80 underline font-body-md text-body-md">Support</button>
 </div>
 </footer>
+<!-- Support Modal -->
+<div id="supportModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center px-4">
+  <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="closeSupport()"></div>
+  <div class="bg-surface-container-lowest w-full max-w-sm rounded-xl p-8 shadow-xl relative z-10 border border-outline-variant flex flex-col gap-4">
+    <div class="flex justify-between items-center">
+      <h3 class="font-headline-md text-headline-md text-on-surface">Support</h3>
+      <button onclick="closeSupport()" class="text-on-surface-variant hover:text-error transition-colors"><span class="material-symbols-outlined">close</span></button>
+    </div>
+    <p class="text-on-surface-variant font-body-md">Support is available on WhatsApp between <strong class="text-on-surface">9 AM – 7 PM IST</strong> (Mon–Sat).</p>
+    <div id="support-available" class="hidden">
+      <a href="https://wa.me/919538384545" target="_blank" rel="noopener"
+        class="flex items-center justify-center gap-2 bg-primary-container text-on-primary-container font-bold py-3 rounded-xl hover:opacity-90 transition-all w-full">
+        <span class="material-symbols-outlined text-[20px]">chat</span> Contact Dev on WhatsApp
+      </a>
+    </div>
+    <div id="support-unavailable" class="hidden">
+      <p class="text-on-surface-variant font-body-md text-sm text-center">Developer is currently offline. Please try again during support hours.</p>
+    </div>
+  </div>
+</div>
 <!-- Backend Integration Script -->
 <script>
 const API_BASE = window.location.origin;
@@ -898,6 +915,19 @@ document.addEventListener('click', (e) => {
     if (e.target.id === 'logoutModalConfirm') handleLogoutConfirm();
     if (e.target.id === 'logoutModalCancel') document.getElementById('logoutModal').classList.add('hidden');
 });
+
+function openSupport() {
+    const modal = document.getElementById('supportModal');
+    const now = new Date();
+    const istHour = (now.getUTCHours() * 60 + now.getUTCMinutes() + 330) / 60 % 24;
+    const available = istHour >= 9 && istHour < 19;
+    document.getElementById('support-available').classList.toggle('hidden', !available);
+    document.getElementById('support-unavailable').classList.toggle('hidden', available);
+    modal.classList.remove('hidden');
+}
+function closeSupport() {
+    document.getElementById('supportModal').classList.add('hidden');
+}
 </script>
 
 <!-- Logout / Disconnect modal -->
