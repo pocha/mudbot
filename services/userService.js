@@ -135,18 +135,29 @@ async function verifyToken(token) {
 async function generateApiKey(userDir, token) {
   const random = crypto.randomBytes(27).toString('hex');
   const apiKey = userDir + random; // same 64-hex format as token
+  const expiresAt = new Date(Date.now() + 3600000).toISOString(); // 1 hour
 
-  await fs.writeFile(
-    path.join(CONFIG.USERS_DIR, userDir, 'api_key_hash'),
-    computeTokenHash(apiKey)
-  );
-  // Store session token encrypted with apiKey so verifyApiKey can recover it
-  await fs.writeFile(
-    path.join(CONFIG.USERS_DIR, userDir, 'token_enc_with_api_key'),
-    encryptData(token, apiKey)
-  );
+  await fs.writeFile(path.join(CONFIG.USERS_DIR, userDir, 'api_key_hash'), computeTokenHash(apiKey));
+  await fs.writeFile(path.join(CONFIG.USERS_DIR, userDir, 'token_enc_with_api_key'), encryptData(token, apiKey));
+  await fs.writeFile(path.join(CONFIG.USERS_DIR, userDir, 'api_key_expiry'), expiresAt);
 
-  return apiKey;
+  return { apiKey, expiresAt };
+}
+
+async function getApiKeyStatus(userDir) {
+  try {
+    await fs.access(path.join(CONFIG.USERS_DIR, userDir, 'api_key_hash'));
+  } catch {
+    return { exists: false };
+  }
+  try {
+    const expiry = (await fs.readFile(path.join(CONFIG.USERS_DIR, userDir, 'api_key_expiry'), 'utf8')).trim();
+    if (expiry === 'permanent') return { exists: true, permanent: true };
+    const expiresAt = new Date(expiry);
+    return { exists: true, permanent: false, expiresAt: expiresAt.toISOString(), expired: expiresAt < new Date() };
+  } catch {
+    return { exists: true, permanent: true }; // no expiry file = legacy permanent key
+  }
 }
 
 async function verifyApiKey(apiKey) {
@@ -157,6 +168,12 @@ async function verifyApiKey(apiKey) {
       path.join(CONFIG.USERS_DIR, userDir, 'api_key_hash'), 'utf8'
     )).trim();
     if (computeTokenHash(apiKey) !== storedHash) return null;
+
+    // Check expiry
+    try {
+      const expiry = (await fs.readFile(path.join(CONFIG.USERS_DIR, userDir, 'api_key_expiry'), 'utf8')).trim();
+      if (expiry !== 'permanent' && new Date(expiry) < new Date()) return null;
+    } catch {} // no expiry file = permanent
 
     const encTokenRaw = (await fs.readFile(
       path.join(CONFIG.USERS_DIR, userDir, 'token_enc_with_api_key'), 'utf8'
@@ -173,6 +190,7 @@ module.exports = {
   registerUser,
   verifyToken,
   generateApiKey,
+  getApiKeyStatus,
   verifyApiKey,
   encryptData,
   decryptData,

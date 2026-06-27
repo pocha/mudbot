@@ -31,6 +31,10 @@ async function routes(fastify, options) {
 
   fastify.get('/api/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
 
+  fastify.get('/api/config', async () => ({
+    contactEmail: process.env.REPLY_TO || process.env.NOTIFY_EMAIL || ''
+  }));
+
   fastify.post('/api/register', async (request, reply) => {
     try {
       const { email } = request.body;
@@ -73,11 +77,20 @@ async function routes(fastify, options) {
       const user = await userService.verifyToken(token);
       if (!user) return reply.code(401).send({ error: 'Invalid token' });
 
-      const apiKey = await userService.generateApiKey(user.userDir, user.token);
-      return { success: true, apiKey };
+      const { apiKey, expiresAt } = await userService.generateApiKey(user.userDir, user.token);
+      return { success: true, apiKey, expiresAt };
     } catch (error) {
       fastify.log.error(error);
       return reply.code(500).send({ error: 'Failed to generate API key' });
+    }
+  });
+
+  fastify.get('/api/apikey/status', { preHandler: authenticateUser }, async (request, reply) => {
+    try {
+      return await userService.getApiKeyStatus(request.user.userDir);
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Failed to get API key status' });
     }
   });
 
