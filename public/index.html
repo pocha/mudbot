@@ -242,47 +242,27 @@ Send whatsapp message programatically from
 
 			<!-- Pricing Section -->
 			<section class="px-gutter md:px-24 py-12 bg-surface-container-low" id="pricing">
-				<div class="max-w-4xl mx-auto">
-					<div class="text-center mb-10">
-						<div class="flex items-center gap-2 justify-center mb-2">
-							<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">volunteer_activism</span>
-							<span class="font-label-md text-label-md text-primary font-bold uppercase tracking-widest">Pricing</span>
-						</div>
-						<h2 class="font-headline-lg text-4xl font-black text-on-surface">Free <span class="text-on-surface-variant text-xl font-normal">forever</span></h2>
-						<p class="text-on-surface-variant font-body-md mt-2">No credit card. No subscriptions. No catch.</p>
+				<div class="max-w-2xl mx-auto text-center">
+					<div class="flex items-center gap-2 justify-center mb-3">
+						<span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings: 'FILL' 1;">volunteer_activism</span>
+						<h2 class="font-headline-lg text-4xl font-black text-on-surface">Free Forever</h2>
 					</div>
-					<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-						<!-- Free tier -->
-						<div class="bg-primary-container/30 border-2 border-primary rounded-xl p-6 flex flex-col gap-4">
-							<h3 class="font-headline-md text-headline-md text-on-surface">Dashboard &amp; Schedules</h3>
-							<p class="text-on-surface-variant font-body-md">The full dashboard, WhatsApp linking, and scheduled messages are completely free with no limits.</p>
-							<ul class="space-y-2 font-body-md text-on-surface-variant">
-								<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">check</span> Unlimited scheduled messages</li>
-								<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">check</span> All features included</li>
-								<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">check</span> No credit card required</li>
-							</ul>
-							<button class="mt-auto bg-primary text-on-primary font-bold py-3 rounded-xl hover:brightness-110 transition-all" onclick="toggleModal()">Get Started Free</button>
+					<p class="text-on-surface-variant font-body-lg mb-6">No credit card. No subscription. No hidden cost.</p>
+					<div class="bg-surface border border-outline-variant rounded-xl p-8 text-left space-y-4 mb-6">
+						<div class="flex items-start gap-3">
+							<span class="material-symbols-outlined text-primary flex-shrink-0" style="font-variation-settings:'FILL' 1;">check_circle</span>
+							<p class="font-body-lg text-on-surface-variant">Everything — dashboard, WhatsApp linking, scheduled messages — is <strong class="text-on-surface">completely free</strong> with no limits.</p>
 						</div>
-						<!-- API key card -->
-						<div class="bg-surface border border-outline-variant rounded-xl p-6 flex flex-col gap-4">
-							<h3 class="font-headline-md text-headline-md text-on-surface">API Access</h3>
-							<p class="text-on-surface-variant font-body-md">Generate an API key from your dashboard to trigger messages from your own backend or scripts.</p>
-							<ul class="space-y-2 font-body-md text-on-surface-variant">
-								<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">check</span> API key valid for <strong class="text-on-surface">1 hour</strong> by default</li>
-								<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">mail</span> Drop us an email with your use case for a <strong class="text-on-surface">permanent API key</strong></li>
-								<li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">verified_user</span> Minimal KYC — just your name and use case</li>
-							</ul>
-							<p class="text-on-surface-variant font-body-md text-sm mt-auto">This helps us prevent abuse while keeping the service free for everyone.</p>
+						<div class="flex items-start gap-3">
+							<span class="material-symbols-outlined text-primary flex-shrink-0" style="font-variation-settings:'FILL' 1;">check_circle</span>
+							<p class="font-body-lg text-on-surface-variant">API keys are free to generate and good for <strong class="text-on-surface">testing</strong> — they expire after <strong class="text-on-surface">1 hour</strong> to keep the service abuse-free.</p>
+						</div>
+						<div class="flex items-start gap-3">
+							<span class="material-symbols-outlined text-primary flex-shrink-0" style="font-variation-settings:'FILL' 1;">mail</span>
+							<p class="font-body-lg text-on-surface-variant">Going to production? Drop us an email with your name and use case — we'll make your API key <strong class="text-on-surface">permanent</strong>. That's the only ask.</p>
 						</div>
 					</div>
-					<!-- Warning box -->
-					<div class="mt-6 border border-amber-200 bg-amber-50 rounded-xl p-5 flex gap-3">
-						<span class="material-symbols-outlined text-amber-500 flex-shrink-0 mt-0.5">warning</span>
-						<div>
-							<p class="font-label-md font-bold text-on-surface mb-1">Use automation responsibly</p>
-							<p class="text-on-surface-variant font-body-md text-sm">Sending messages too frequently (more than 1/min to the same person), blasting the same message to more than 5 contacts at once, or exceeding ~100 messages per hour may trigger WhatsApp's spam detection and get your account temporarily blocked. We don't enforce limits — please use good judgement.</p>
-						</div>
-					</div>
+					<button onclick="toggleModal()" class="bg-primary text-on-primary font-bold px-10 py-4 rounded-xl text-lg hover:brightness-110 transition-all">Get Started Free</button>
 				</div>
 			</section>
 
@@ -352,7 +332,7 @@ Send whatsapp message programatically from
 			</div>
 			<div class="flex gap-6">
 				<a class="text-on-surface-variant hover:text-primary font-body-md underline transition-colors" href="/privacy.html">Privacy Policy</a>
-				<a class="text-on-surface-variant hover:text-primary font-body-md underline transition-colors" href="#">API Docs</a>
+				<a class="text-on-surface-variant hover:text-primary font-body-md underline transition-colors" href="https://github.com/pocha/mudbot?tab=readme-ov-file#api" target="_blank" rel="noopener">API Docs</a>
 				<button onclick="openSupport()" class="text-on-surface-variant hover:text-primary font-body-md underline transition-colors">Support</button>
 			</div>
 		</footer>

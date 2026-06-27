@@ -176,23 +176,54 @@
   </div>
 </section>
 <!-- Step 2: API Key -->
-<section class="md:col-span-5 bg-surface-container-lowest p-6 rounded-xl border border-outline-variant shadow-sm flex flex-col justify-between step-disabled transition-all duration-500" id="step-2">
-<div class="space-y-4">
+<section class="md:col-span-5 bg-surface-container-lowest p-6 rounded-xl border border-outline-variant shadow-sm flex flex-col gap-4 step-disabled transition-all duration-500" id="step-2">
 <div class="flex items-center gap-2">
-<span class="bg-outline text-on-primary w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">2</span>
-<h3 class="font-headline-md text-headline-md">API Access</h3>
+  <span class="bg-outline text-on-primary w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">2</span>
+  <h3 class="font-headline-md text-headline-md">API Access</h3>
 </div>
-<p class="text-on-surface-variant text-body-md">Use the API key to programatically send Whatsapp message from your app.</p>
-<div class="bg-surface-variant p-3 rounded-lg flex items-center justify-between gap-2 overflow-hidden">
-<code class="font-code-sm text-code-sm truncate text-on-surface-variant">wat_live_83920xky_92mzn01LqpZ39</code>
-<button class="material-symbols-outlined text-primary hover:bg-white p-1 rounded transition-colors cursor-pointer" onclick="this.innerText='check'">content_copy</button>
+<p class="text-on-surface-variant text-body-md">Use the API key to send WhatsApp messages from your app or scripts.</p>
+
+<!-- State: no key / expired — show generate button -->
+<div id="apikey-generate-view">
+  <button onclick="generateApiKey()" id="apikey-generate-btn"
+    class="w-full bg-primary-container text-on-primary-container font-bold py-3 rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-2">
+    <span class="material-symbols-outlined text-[20px]">key</span> Generate API Key
+  </button>
+  <p id="apikey-expired-notice" class="hidden text-error font-body-md text-sm mt-2 text-center">Your previous key has expired. Generate a new one.</p>
 </div>
+
+<!-- State: key just generated — show once -->
+<div id="apikey-new-view" class="hidden space-y-3">
+  <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 flex gap-2">
+    <span class="material-symbols-outlined text-amber-500 flex-shrink-0 text-[18px] mt-0.5">warning</span>
+    <p class="text-on-surface font-body-md text-sm">Save this key — it won't be shown again after you leave this page.</p>
+  </div>
+  <div class="bg-surface-variant p-3 rounded-lg flex items-center justify-between gap-2 overflow-hidden">
+    <code id="apikey-value" class="font-code-sm text-code-sm truncate text-on-surface-variant text-xs"></code>
+    <button onclick="copyApiKey()" class="material-symbols-outlined text-primary hover:bg-white p-1 rounded transition-colors flex-shrink-0" id="apikey-copy-btn">content_copy</button>
+  </div>
+  <p id="apikey-expiry-new" class="text-on-surface-variant font-body-md text-sm"></p>
 </div>
-<div class="mt-4">
-<button class="text-secondary font-label-md flex items-center gap-1 hover:underline">
-<span class="material-symbols-outlined text-[18px]">description</span> View API Documentation
-                            </button>
+
+<!-- State: active key (status loaded, key not shown) -->
+<div id="apikey-active-view" class="hidden space-y-3">
+  <div class="bg-surface-variant p-3 rounded-lg flex items-center justify-between gap-2">
+    <span class="text-on-surface-variant font-body-md text-sm" id="apikey-expiry-label"></span>
+    <button onclick="generateApiKey()" class="text-primary font-label-md text-sm hover:underline flex-shrink-0">Regenerate</button>
+  </div>
 </div>
+
+<!-- Permanent key CTA (shown when key is temporary) -->
+<div id="apikey-permanent-cta" class="hidden border border-outline-variant rounded-lg p-3 space-y-2">
+  <p class="text-on-surface font-label-md font-bold text-sm">Need a permanent key?</p>
+  <p class="text-on-surface-variant font-body-md text-sm">Drop an email to <a id="apikey-contact-email" href="#" class="text-primary underline"></a> with your name and use case — we'll make it permanent.</p>
+  <p class="text-on-surface-variant font-body-md text-sm">Include your User ID: <code id="apikey-user-id" class="bg-surface-variant px-1 rounded text-xs font-mono text-on-surface"></code></p>
+</div>
+
+<a href="https://github.com/pocha/mudbot?tab=readme-ov-file#api" target="_blank" rel="noopener"
+  class="text-secondary font-label-md flex items-center gap-1 hover:underline mt-auto">
+  <span class="material-symbols-outlined text-[18px]">description</span> View API Documentation
+</a>
 </section>
 </div>
 <!-- Main Automation Area -->
@@ -320,7 +351,7 @@ No active schedules yet. Use the form above to get started.
 </div>
 <div class="flex gap-6">
 <a class="text-on-surface-variant hover:text-primary transition-opacity hover:opacity-80 underline font-body-md text-body-md" href="/privacy.html">Privacy Policy</a>
-<a class="text-on-surface-variant hover:text-primary transition-opacity hover:opacity-80 underline font-body-md text-body-md" href="#">API Docs</a>
+<a class="text-on-surface-variant hover:text-primary transition-opacity hover:opacity-80 underline font-body-md text-body-md" href="https://github.com/pocha/mudbot?tab=readme-ov-file#api" target="_blank" rel="noopener">API Docs</a>
 <button onclick="openSupport()" class="text-on-surface-variant hover:text-primary transition-opacity hover:opacity-80 underline font-body-md text-body-md">Support</button>
 </div>
 </footer>
@@ -433,7 +464,7 @@ function updateConnectionUI(loggedIn, proxyIp) {
         notConnected.classList.add('hidden');
         connected.classList.remove('hidden');
         connected.classList.add('flex');
-        if (step2) step2.classList.remove('step-disabled');
+        if (step2) { step2.classList.remove('step-disabled'); loadApiKeyStatus(); }
         if (proxyIp) {
             document.getElementById('wa-connection-line').textContent = `IP Address ${proxyIp.ip} (location - ${proxyIp.city}, ${proxyIp.country})`;
             const proxyLine = document.getElementById('wa-proxy-line');
@@ -444,6 +475,92 @@ function updateConnectionUI(loggedIn, proxyIp) {
         alert('WhatsApp not connected. Please scan QR code first.');
         window.location.href = `/verify.html?token=${authToken}`;
     }
+}
+
+async function loadApiKeyStatus() {
+    try {
+        const [statusRes, configRes] = await Promise.all([
+            fetch(`${API_BASE}/api/apikey/status`, { headers: { 'Authorization': `Bearer ${authToken}` } }),
+            fetch(`${API_BASE}/api/config`)
+        ]);
+        const status = await statusRes.json();
+        const config = configRes.ok ? await configRes.json() : {};
+
+        const contactEmail = config.contactEmail || '';
+        const emailEl = document.getElementById('apikey-contact-email');
+        if (emailEl && contactEmail) {
+            emailEl.textContent = contactEmail;
+            emailEl.href = `mailto:${contactEmail}?subject=Permanent API Key Request`;
+        }
+        const userIdEl = document.getElementById('apikey-user-id');
+        if (userIdEl && authToken) userIdEl.textContent = authToken.slice(0, 10);
+
+        if (!status.exists || status.expired) {
+            document.getElementById('apikey-generate-view').classList.remove('hidden');
+            document.getElementById('apikey-active-view').classList.add('hidden');
+            if (status.expired) document.getElementById('apikey-expired-notice').classList.remove('hidden');
+        } else {
+            document.getElementById('apikey-generate-view').classList.add('hidden');
+            document.getElementById('apikey-active-view').classList.remove('hidden');
+            const label = document.getElementById('apikey-expiry-label');
+            if (status.permanent) {
+                label.textContent = 'Key is permanent';
+                document.getElementById('apikey-permanent-cta').classList.add('hidden');
+            } else {
+                const exp = new Date(status.expiresAt);
+                label.textContent = `Expires at ${exp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} today`;
+                document.getElementById('apikey-permanent-cta').classList.remove('hidden');
+            }
+        }
+    } catch (e) {
+        console.error('Failed to load API key status', e);
+    }
+}
+
+async function generateApiKey() {
+    const btn = document.getElementById('apikey-generate-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Generating…'; }
+    try {
+        const res = await fetch(`${API_BASE}/api/apikey/generate`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        const data = await res.json();
+        if (!data.apiKey) throw new Error('No key returned');
+
+        document.getElementById('apikey-generate-view').classList.add('hidden');
+        document.getElementById('apikey-active-view').classList.add('hidden');
+        document.getElementById('apikey-new-view').classList.remove('hidden');
+        document.getElementById('apikey-value').textContent = data.apiKey;
+        const exp = new Date(data.expiresAt);
+        document.getElementById('apikey-expiry-new').textContent =
+            `Valid for 1 hour · expires at ${exp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        document.getElementById('apikey-permanent-cta').classList.remove('hidden');
+        const userIdEl2 = document.getElementById('apikey-user-id');
+        if (userIdEl2 && authToken) userIdEl2.textContent = authToken.slice(0, 10);
+
+        const configRes = await fetch(`${API_BASE}/api/config`);
+        if (configRes.ok) {
+            const config = await configRes.json();
+            const emailEl = document.getElementById('apikey-contact-email');
+            if (emailEl && config.contactEmail) {
+                emailEl.textContent = config.contactEmail;
+                emailEl.href = `mailto:${config.contactEmail}?subject=Permanent API Key Request`;
+            }
+        }
+    } catch (e) {
+        console.error('Failed to generate API key', e);
+        if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined text-[20px]">key</span> Generate API Key'; }
+    }
+}
+
+function copyApiKey() {
+    const key = document.getElementById('apikey-value').textContent;
+    navigator.clipboard.writeText(key).then(() => {
+        const btn = document.getElementById('apikey-copy-btn');
+        btn.textContent = 'check';
+        setTimeout(() => { btn.textContent = 'content_copy'; }, 2000);
+    });
 }
 
 async function loadSchedules() {

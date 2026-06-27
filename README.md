@@ -159,13 +159,22 @@ x-api-key: <api-key>
 
 Generate an API key from the dashboard. The API key embeds the same user directory as the token, so it resolves to the same account.
 
+**API keys expire after 1 hour** and are intended for testing. To make a key permanent, the server owner SSHes in and runs:
+
+```bash
+echo "permanent" > users/<userDir>/api_key_expiry
+```
+
+The `userDir` is the 10-character prefix shown in the dashboard's API key section. Users should email the server owner with their use case to request a permanent key.
+
 ### Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/api/register` | Send magic link to email |
 | `GET` | `/api/verify/:token` | Verify token, get user info |
-| `POST` | `/api/apikey/generate` | Generate a permanent API key |
+| `POST` | `/api/apikey/generate` | Generate a 1-hour API key |
+| `GET` | `/api/apikey/status` | Check if a key exists and whether it has expired |
 | `GET` | `/api/whatsapp/status` | Check WhatsApp connection status |
 | `GET` | `/api/whatsapp/qr` | Get QR code for WhatsApp login |
 | `POST` | `/api/whatsapp/login/confirm` | Confirm QR scan is complete |
@@ -182,7 +191,7 @@ Generate an API key from the dashboard. The API key embeds the same user directo
 ### Send a message
 
 ```bash
-curl -X POST http://localhost:3000/api/message \
+curl -X POST https://<domain>/api/message \
   -H "x-api-key: <your-api-key>" \
   -H "Content-Type: application/json" \
   -d '{"to": "919876543210", "message": "Hello!"}'
@@ -191,7 +200,7 @@ curl -X POST http://localhost:3000/api/message \
 ### Create a schedule
 
 ```bash
-curl -X POST http://localhost:3000/api/schedules \
+curl -X POST https://<domain>/api/schedules \
   -H "x-api-key: <your-api-key>" \
   -H "Content-Type: application/json" \
   -d '{
