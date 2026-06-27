@@ -146,7 +146,7 @@ Generate an API key from the dashboard. The API key embeds the same user directo
 curl -X POST http://localhost:3000/api/message \
   -H "x-api-key: <your-api-key>" \
   -H "Content-Type: application/json" \
-  -d '{"to": "919876543210@s.whatsapp.net", "message": "Hello!"}'
+  -d '{"to": "919876543210", "message": "Hello!"}'
 ```
 
 ### Create a schedule
@@ -157,7 +157,7 @@ curl -X POST http://localhost:3000/api/schedules \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Daily reminder",
-    "recipients": ["919876543210@s.whatsapp.net"],
+    "recipients": ["919876543210"],
     "message": "Good morning!",
     "timezone": "Asia/Kolkata",
     "localTime": "09:00",
