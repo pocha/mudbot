@@ -150,6 +150,17 @@ async function routes(fastify, options) {
       const countryToStore = zipcodeCountry || ipCountry || 'in';
 
       if (!force) {
+        // Nominatim found zip but returned no country — ask user to confirm
+        if (!zipcodeCountry) {
+          return {
+            valid: false,
+            reason: 'confirm_country',
+            zipcodeCountry: (ipCountry || 'in').toUpperCase(),
+            zipcodeCity: zipInfo.city,
+            message: `PIN code found but country couldn't be determined. Is your location ${(ipCountry || 'in').toUpperCase()}?`
+          };
+        }
+
         // ip-api failed: can't compare — ask user to confirm the PIN's country
         if (!ipOk && zipcodeCountry) {
           return {
