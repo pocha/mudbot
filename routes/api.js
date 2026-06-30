@@ -240,7 +240,7 @@ async function routes(fastify, options) {
 
   fastify.post('/api/whatsapp/login/confirm', { preHandler: authenticateUser }, async (request, reply) => {
     try {
-      const status = await mudslideService.confirmLogin(request.user.userDir, request.user.token);
+      const status = await mudslideService.confirmWhatsappLogin(request.user.userDir, request.user.token);
       if (status.loggedIn) {
         userService.readUserFile(
           require('path').join(__dirname, '..', 'users', request.user.userDir, 'proxy.json'),
@@ -266,7 +266,7 @@ async function routes(fastify, options) {
   // Always returns success — if mudslide fails the user can remove the device manually.
   fastify.post('/api/whatsapp/logout', { preHandler: authenticateUser }, async (request, reply) => {
     try {
-      await mudslideService.logout(request.user.userDir, request.user.token);
+      await mudslideService.whatsappDeviceDisconnect(request.user.userDir, request.user.token);
     } catch (error) {
       fastify.log.error(error);
     }
@@ -278,7 +278,7 @@ async function routes(fastify, options) {
   fastify.post('/api/whatsapp/logout/confirm', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       await scheduleService.removeAllCronJobs(request.user.userDir);
-      await mudslideService.cleanupAfterLogout(request.user.userDir);
+      await mudslideService.purgeMudslideCache(request.user.userDir);
       return { success: true };
     } catch (error) {
       fastify.log.error(error);
