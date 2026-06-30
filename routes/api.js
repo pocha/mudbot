@@ -356,16 +356,6 @@ async function routes(fastify, options) {
     }
   });
 
-  fastify.get('/api/schedules/:id/logs', { preHandler: authenticateUser }, async (request, reply) => {
-    try {
-      const limit = parseInt(request.query.limit) || 100;
-      return await scheduleService.getScheduleLogs(request.user.userDir, request.params.id, limit, request.user.token);
-    } catch (error) {
-      fastify.log.error(error);
-      return reply.code(500).send({ error: 'Failed to get logs' });
-    }
-  });
-
   fastify.post('/api/message', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       const { to, message, media } = request.body;

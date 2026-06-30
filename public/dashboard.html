@@ -688,37 +688,22 @@ async function renderLogs() {
         unknown: 'API Call'
     };
 
-    // Fetch usage logs and schedule logs in parallel
-    const [usageRes, scheduleLogsRes] = await Promise.allSettled([
-        fetch(`${API_BASE}/api/usage/logs?limit=50`, { headers: { 'Authorization': `Bearer ${authToken}` } })
-            .then(r => r.ok ? r.json() : { count: 0, logs: [] }),
-        Promise.all(schedules.map(async s => {
-            try {
-                const res = await fetch(`${API_BASE}/api/schedules/${s.id}/logs?limit=5`, {
-                    headers: { 'Authorization': `Bearer ${authToken}` }
-                });
-                const data = res.ok ? await res.json() : { count: 0, logs: [] };
-                return { schedule: s, count: data.count || 0, logs: data.logs || [] };
-            } catch { return { schedule: s, count: 0, logs: [] }; }
-        }))
-    ]);
+    const usageData = await fetch(`${API_BASE}/api/usage/logs?limit=50`, {
+        headers: { 'Authorization': `Bearer ${authToken}` }
+    }).then(r => r.ok ? r.json() : { count: 0, logs: [] }).catch(() => ({ count: 0, logs: [] }));
 
-    const usageData = usageRes.status === 'fulfilled' ? usageRes.value : { count: 0, logs: [] };
     const usageLogs = usageData.logs || [];
-    const allScheduleLogs = scheduleLogsRes.status === 'fulfilled' ? scheduleLogsRes.value : [];
-    const scheduleLogsWithEntries = allScheduleLogs.filter(x => x.logs.length > 0);
 
-    const totalCount = usageData.count + allScheduleLogs.reduce((sum, x) => sum + x.count, 0);
     if (countBadge) {
-        if (totalCount > 0) {
-            countBadge.textContent = totalCount;
+        if (usageData.count > 0) {
+            countBadge.textContent = usageData.count;
             countBadge.classList.remove('hidden');
         } else {
             countBadge.classList.add('hidden');
         }
     }
 
-    if (usageLogs.length === 0 && scheduleLogsWithEntries.length === 0) {
+    if (usageLogs.length === 0) {
         container.innerHTML = '<p class="p-6 text-center text-on-surface-variant text-body-md opacity-50">No logs yet.</p>';
         return;
     }
@@ -769,25 +754,8 @@ async function renderLogs() {
         return makeSection(dotColor, ACTION_LABELS[action] || action, subtitle, logLines);
     });
 
-    const scheduleSections = scheduleLogsWithEntries.map(({ schedule, logs }) => {
-        const latest = logs[logs.length - 1];
-        const dotColor = latest && latest.level !== 'ERROR' ? 'bg-primary' : 'bg-error';
-        const latestTime = latest ? new Date(latest.ts).toLocaleString() : '';
-        const logLines = logs.map(log => {
-            const isErr = log.level === 'ERROR';
-            const isSuccess = log.level === 'SUCCESS';
-            const status = isErr
-                ? `<span class="text-error font-bold">ERROR:</span> ${escapeHtml(log.message)}`
-                : isSuccess
-                    ? `<span class="text-primary font-bold">SUCCESS:</span> ${escapeHtml(log.message)}`
-                    : `<span class="text-on-surface-variant">${escapeHtml(log.message)}</span>`;
-            return `<p>${status} <span class="text-on-surface-variant opacity-70">(${new Date(log.ts).toLocaleString()})</span></p>`;
-        }).join('');
-        return makeSection(dotColor, escapeHtml(schedule.name || 'Untitled'), latestTime, logLines);
-    });
-
     const separator = '<div class="border-t border-outline-variant"></div>';
-    container.innerHTML = [...usageSections, ...scheduleSections].join(separator);
+    container.innerHTML = usageSections.join(separator);
 }
 
 function setupEventListeners() {

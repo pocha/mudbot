@@ -38,16 +38,7 @@ async function main() {
 
     const apiCount = await countInFile(path.join(userPath, 'usage.log'), start, end);
 
-    let schedCount = 0;
-    try {
-      const schedIds = await fs.readdir(path.join(userPath, 'schedules'));
-      for (const id of schedIds) {
-        schedCount += await countInFile(path.join(userPath, 'schedules', id, 'logs.txt'), start, end);
-      }
-    } catch {}
-
-    const total = apiCount + schedCount;
-    if (total > 0) report.push({ userDir, apiCount, schedCount, total });
+    if (apiCount > 0) report.push({ userDir, total: apiCount });
   }
 
   if (report.length === 0) {

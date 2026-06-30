@@ -125,7 +125,7 @@ async function sendDailyReport(report) {
 
   const total = report.reduce((s, r) => s + r.total, 0);
   const rows = report.map(r =>
-    `${r.userDir}  |  API: ${r.apiCount}  |  Scheduled: ${r.schedCount}  |  Total: ${r.total}`
+    `${r.userDir}  |  Actions: ${r.total}`
   ).join('\n');
 
   try {
