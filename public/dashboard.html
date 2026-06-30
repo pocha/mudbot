@@ -332,7 +332,10 @@ No active schedules yet. Use the form above to get started.
 <section class="lg:col-span-1 space-y-4">
 <div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden h-full flex flex-col">
 <div class="p-6 border-b border-outline-variant flex items-center justify-between">
-  <h3 class="font-headline-md text-headline-md">Recent Logs</h3>
+    <div>
+        <h3 class="font-headline-md text-headline-md">Logs</h3>
+        <p class="text-on-surface-variant text-body-md">Check usage & debug failures</p>
+    </div>
   <div class="relative group">
     <span id="logs-total-count" class="hidden text-xs font-label-md bg-primary/10 text-primary px-2 py-1 rounded-full cursor-default select-none"></span>
     <div class="absolute right-0 top-7 z-10 hidden group-hover:block w-52 bg-surface-container-high text-on-surface text-xs rounded-lg p-2 shadow-md border border-outline-variant pointer-events-none">
@@ -340,6 +343,7 @@ No active schedules yet. Use the form above to get started.
     </div>
   </div>
 </div>
+
 <div id="logs-container" class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-outline-variant">
 <p class="p-6 text-center text-on-surface-variant text-body-md opacity-50">No logs yet.</p>
 </div>
