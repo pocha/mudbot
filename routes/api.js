@@ -349,7 +349,7 @@ async function routes(fastify, options) {
   fastify.get('/api/usage/logs', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       const limit = parseInt(request.query.limit) || 50;
-      return await mudslideService.getUsageLogs(request.user.userDir, limit);
+      return await mudslideService.getUsageLogs(request.user.userDir, limit, request.user.token);
     } catch (error) {
       fastify.log.error(error);
       return reply.code(500).send({ error: 'Failed to get usage logs' });
@@ -359,7 +359,7 @@ async function routes(fastify, options) {
   fastify.get('/api/schedules/:id/logs', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       const limit = parseInt(request.query.limit) || 100;
-      return await scheduleService.getScheduleLogs(request.user.userDir, request.params.id, limit);
+      return await scheduleService.getScheduleLogs(request.user.userDir, request.params.id, limit, request.user.token);
     } catch (error) {
       fastify.log.error(error);
       return reply.code(500).send({ error: 'Failed to get logs' });

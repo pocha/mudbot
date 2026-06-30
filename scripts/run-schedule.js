@@ -73,11 +73,13 @@ function runMudslide(args) {
   });
 }
 
-async function appendLog(schDir, level, message) {
-  await fs.appendFile(
-    path.join(schDir, 'logs.txt'),
-    JSON.stringify({ ts: new Date().toISOString(), level, message }) + '\n'
-  );
+async function appendLog(schDir, level, message, token) {
+  const ts = new Date().toISOString();
+  const payload = { level, message };
+  const entry = token
+    ? { ts, enc: encryptData(JSON.stringify(payload), token) }
+    : { ts, ...payload };
+  await fs.appendFile(path.join(schDir, 'logs.txt'), JSON.stringify(entry) + '\n');
 }
 
 async function main() {
@@ -92,14 +94,14 @@ async function main() {
   // Decrypt .mudslide.enc to a temp directory
   const credPath = await decryptMudslideToTemp(userDir, token);
 
-  await appendLog(schDir, 'INFO', `Starting execution for schedule ${scheduleId}`);
+  await appendLog(schDir, 'INFO', `Starting execution for schedule ${scheduleId}`, token);
 
   let success = 0;
   let failure = 0;
 
   try {
     for (const recipient of recipients) {
-      await appendLog(schDir, 'INFO', `Sending to ${recipient}`);
+      await appendLog(schDir, 'INFO', `Sending to ${recipient}`, token);
       try {
         let args;
         if (media) {
@@ -111,10 +113,10 @@ async function main() {
           args = ['-c', credPath, 'send', recipient, message];
         }
         await runMudslide(args);
-        await appendLog(schDir, 'SUCCESS', `Sent to ${recipient}`);
+        await appendLog(schDir, 'SUCCESS', `Sent to ${recipient}`, token);
         success++;
       } catch (err) {
-        await appendLog(schDir, 'ERROR', `Failed to send to ${recipient} - ${err.message}`);
+        await appendLog(schDir, 'ERROR', `Failed to send to ${recipient} - ${err.message}`, token);
         failure++;
       }
     }
@@ -129,7 +131,7 @@ async function main() {
   schedule.lastRun = new Date().toISOString();
   await fs.writeFile(scheduleFile, encryptData(JSON.stringify(schedule), token));
 
-  await appendLog(schDir, 'INFO', `Done - Success: ${success}, Failed: ${failure}`);
+  await appendLog(schDir, 'INFO', `Done - Success: ${success}, Failed: ${failure}`, token);
 }
 
 main().catch(err => {

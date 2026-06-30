@@ -2,7 +2,7 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs').promises;
 const crypto = require('crypto');
-const { proxyConfPath } = require('./userService');
+const { proxyConfPath, encryptData, decryptData } = require('./userService');
 
 const CONFIG = {
   MUDSLIDE_PATH: process.env.MUDSLIDE_PATH || 'mudslide',
@@ -119,7 +119,7 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}) {
       errMsg = err.message;
       throw err;
     } finally {
-      appendUsageLog(userDir, action, succeeded, errMsg, meta);
+      appendUsageLog(userDir, action, succeeded, errMsg, meta, token);
       userQueueDepth[userDir]--;
       if (userQueueDepth[userDir] === 0) {
         try {
@@ -136,20 +136,32 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}) {
   return next;
 }
 
-async function appendUsageLog(userDir, action, success, error = null, meta = {}) {
-  const entry = { ts: new Date().toISOString(), action, success, ...meta };
-  if (error) entry.error = error;
+async function appendUsageLog(userDir, action, success, error = null, meta = {}, token = null) {
+  const payload = { action, success, ...meta };
+  if (error) payload.error = error;
+  const ts = new Date().toISOString();
+  const entry = token
+    ? { ts, enc: encryptData(JSON.stringify(payload), token) }
+    : { ts, ...payload };
   await fs.appendFile(
     path.join(CONFIG.USERS_DIR, userDir, 'usage.log'),
     JSON.stringify(entry) + '\n'
   ).catch(() => {});
 }
 
-async function getUsageLogs(userDir, limit = 50) {
+async function getUsageLogs(userDir, limit = 50, token = null) {
   try {
     const data = await fs.readFile(path.join(CONFIG.USERS_DIR, userDir, 'usage.log'), 'utf8');
     const all = data.trim().split('\n').filter(Boolean).reduce((acc, line) => {
-      try { acc.push(JSON.parse(line)); } catch {}
+      try {
+        const parsed = JSON.parse(line);
+        if (parsed.enc && token) {
+          const decrypted = JSON.parse(decryptData(parsed.enc, token));
+          acc.push({ ts: parsed.ts, ...decrypted });
+        } else {
+          acc.push(parsed);
+        }
+      } catch {}
       return acc;
     }, []);
     return { count: all.length, logs: all.slice(-limit) };

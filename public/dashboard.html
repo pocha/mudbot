@@ -135,8 +135,14 @@
 <div class="grid grid-cols-1 md:grid-cols-12 gap-stack-gap">
 <!-- Step 1: WhatsApp Connect -->
 <section class="md:col-span-7 bg-surface-container-lowest p-6 rounded-xl border border-outline-variant shadow-sm transition-all duration-500" id="step-1">
+  <!-- Loading skeleton -->
+  <div id="wa-loading" class="space-y-4">
+    <div class="flex items-center gap-2"><div class="w-8 h-8 rounded-full bg-outline-variant/40 animate-pulse"></div><div class="h-5 w-48 bg-outline-variant/40 rounded animate-pulse"></div></div>
+    <div class="h-4 w-3/4 bg-outline-variant/30 rounded animate-pulse"></div>
+    <div class="h-4 w-1/2 bg-outline-variant/30 rounded animate-pulse"></div>
+  </div>
   <!-- Not connected -->
-  <div id="wa-not-connected" class="flex flex-col md:flex-row gap-6">
+  <div id="wa-not-connected" class="hidden flex-col md:flex-row gap-6">
     <div class="flex-1 space-y-4">
       <div class="flex items-center gap-2">
         <span class="bg-primary text-on-primary w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">1</span>
@@ -183,8 +189,13 @@
 </div>
 <p class="text-on-surface-variant text-body-md">Use the API key to send WhatsApp messages from your app or scripts.</p>
 
+<!-- Loading skeleton -->
+<div id="apikey-loading" class="space-y-3">
+  <div class="h-4 w-3/4 bg-outline-variant/40 rounded animate-pulse"></div>
+  <div class="h-10 w-full bg-outline-variant/30 rounded-xl animate-pulse"></div>
+</div>
 <!-- State: no key / expired — show generate button -->
-<div id="apikey-generate-view">
+<div id="apikey-generate-view" class="hidden">
   <button onclick="generateApiKey()" id="apikey-generate-btn"
     class="w-full bg-primary-container text-on-primary-container font-bold py-3 rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-2">
     <span class="material-symbols-outlined text-[20px]">key</span> Generate API Key
@@ -321,8 +332,13 @@ Cancel Edit
 <div class="p-6 border-b border-outline-variant">
 <h3 class="font-headline-md text-headline-md">Active Schedules</h3>
 </div>
-<div id="schedules-tbody" class="divide-y divide-outline-variant"></div>
-<div id="schedules-empty" class="p-6 text-center text-on-surface-variant opacity-50 italic text-body-md">
+<div id="schedules-loading" class="p-6 space-y-3">
+  <div class="h-4 w-2/3 bg-outline-variant/40 rounded animate-pulse"></div>
+  <div class="h-4 w-1/2 bg-outline-variant/30 rounded animate-pulse"></div>
+  <div class="h-4 w-3/4 bg-outline-variant/30 rounded animate-pulse"></div>
+</div>
+<div id="schedules-tbody" class="hidden divide-y divide-outline-variant"></div>
+<div id="schedules-empty" class="hidden p-6 text-center text-on-surface-variant opacity-50 italic text-body-md">
 <span class="material-symbols-outlined text-4xl mb-2 block">event_busy</span>
 No active schedules yet. Use the form above to get started.
 </div>
@@ -345,7 +361,11 @@ No active schedules yet. Use the form above to get started.
 </div>
 
 <div id="logs-container" class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-outline-variant">
-<p class="p-6 text-center text-on-surface-variant text-body-md opacity-50">No logs yet.</p>
+  <div id="logs-loading" class="p-6 space-y-3">
+    <div class="h-4 w-3/4 bg-outline-variant/40 rounded animate-pulse"></div>
+    <div class="h-4 w-1/2 bg-outline-variant/30 rounded animate-pulse"></div>
+    <div class="h-4 w-2/3 bg-outline-variant/30 rounded animate-pulse"></div>
+  </div>
 </div>
 </div>
 </section>
@@ -466,6 +486,7 @@ async function checkConnectionStatus() {
 }
 
 function updateConnectionUI(loggedIn, proxyIp) {
+    document.getElementById('wa-loading')?.classList.add('hidden');
     const notConnected = document.getElementById('wa-not-connected');
     const connected = document.getElementById('wa-connected');
     const step2 = document.getElementById('step-2');
@@ -489,6 +510,7 @@ function updateConnectionUI(loggedIn, proxyIp) {
 
 async function loadApiKeyStatus() {
     try {
+        document.getElementById('apikey-loading')?.classList.remove('hidden');
         const [statusRes, configRes] = await Promise.all([
             fetch(`${API_BASE}/api/apikey/status`, { headers: { 'Authorization': `Bearer ${authToken}` } }),
             fetch(`${API_BASE}/api/config`)
@@ -505,6 +527,7 @@ async function loadApiKeyStatus() {
         const userIdEl = document.getElementById('apikey-user-id');
         if (userIdEl && authToken) userIdEl.textContent = authToken.slice(0, 10);
 
+        document.getElementById('apikey-loading')?.classList.add('hidden');
         if (!status.exists || status.expired) {
             document.getElementById('apikey-generate-view').classList.remove('hidden');
             document.getElementById('apikey-active-view').classList.add('hidden');
@@ -592,15 +615,19 @@ async function loadSchedules() {
 function renderSchedules() {
     const tbody = document.getElementById('schedules-tbody');
     const emptyState = document.getElementById('schedules-empty');
+    const loading = document.getElementById('schedules-loading');
     if (!tbody) return;
 
+    if (loading) loading.classList.add('hidden');
+
     if (schedules.length === 0) {
-        tbody.innerHTML = '';
+        tbody.classList.add('hidden');
         if (emptyState) emptyState.classList.remove('hidden');
         return;
     }
 
     if (emptyState) emptyState.classList.add('hidden');
+    tbody.classList.remove('hidden');
 
     tbody.innerHTML = schedules.map(schedule => {
         const name = (schedule.name || 'Untitled');
@@ -651,6 +678,7 @@ async function renderLogs() {
     const container = document.getElementById('logs-container');
     const countBadge = document.getElementById('logs-total-count');
     if (!container) return;
+    document.getElementById('logs-loading')?.classList.add('hidden');
 
     const ACTION_LABELS = {
         sendMessage: 'Send Message',

@@ -181,12 +181,21 @@ async function deleteSchedule(userDir, token, scheduleId) {
   return { success: true };
 }
 
-async function getScheduleLogs(userDir, scheduleId, limit = 50) {
+async function getScheduleLogs(userDir, scheduleId, limit = 50, token = null) {
   const logsFile = path.join(scheduleDir(userDir, scheduleId), 'logs.txt');
   try {
+    const { decryptData } = require('./userService');
     const data = await fs.readFile(logsFile, 'utf8');
     const all = data.trim().split('\n').filter(Boolean).reduce((acc, line) => {
-      try { acc.push(JSON.parse(line)); } catch {}
+      try {
+        const parsed = JSON.parse(line);
+        if (parsed.enc && token) {
+          const decrypted = JSON.parse(decryptData(parsed.enc, token));
+          acc.push({ ts: parsed.ts, ...decrypted });
+        } else {
+          acc.push(parsed);
+        }
+      } catch {}
       return acc;
     }, []);
     return { count: all.length, logs: all.slice(-limit) };
