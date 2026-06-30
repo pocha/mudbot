@@ -740,7 +740,7 @@ async function renderLogs() {
         const dotColor = latest && latest.success ? 'bg-primary' : 'bg-error';
         const latestTime = latest ? new Date(latest.ts).toLocaleString() : '';
         const subtitle = `${latestTime} · ${logs.length} call${logs.length !== 1 ? 's' : ''}`;
-        const logLines = logs.slice(-5).reverse().map(log => {
+        const logLines = logs.slice().reverse().map(log => {
             const status = log.success
                 ? `<span class="text-primary font-bold">SUCCESS</span>`
                 : `<span class="text-error font-bold">FAILED</span>${log.error ? ': ' + escapeHtml(log.error) : ''}`;

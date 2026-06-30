@@ -108,10 +108,11 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}) {
   userQueueDepth[userDir] = (userQueueDepth[userDir] || 0) + 1;
 
   const run = async () => {
-    const credPath = await decryptMudslideToTemp(userDir, token);
+    let credPath = null;
     let succeeded = false;
     let errMsg = null;
     try {
+      credPath = await decryptMudslideToTemp(userDir, token);
       const result = await fn(credPath);
       succeeded = true;
       return result;
@@ -122,9 +123,10 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}) {
       appendUsageLog(userDir, action, succeeded, errMsg, meta, token);
       userQueueDepth[userDir]--;
       if (userQueueDepth[userDir] === 0) {
-        try {
-          await encryptMudslideCache(userDir, token, tempDir(userDir));
-        } finally {
+        if (credPath) {
+          try { await encryptMudslideCache(userDir, token, tempDir(userDir)); }
+          finally { await cleanupTemp(userDir); }
+        } else {
           await cleanupTemp(userDir);
         }
       }
@@ -226,6 +228,8 @@ async function getQRCode(userDir, token) {
     loginProc.kill();
     loginProc = null;
   }
+
+  await purgeMudslideCache(userDir);
 
   const confPath = token ? await proxyConfPath(userDir, token) : null;
   const useProxy = confPath && CONFIG.PROXYCHAINS_PATH;
