@@ -6,3 +6,4 @@ users/**/.mudslide
 users/**/logs.txt
 .claude/
 server.log
+*.key
