@@ -277,7 +277,7 @@ async function getQRCode(userDir, token) {
   });
 }
 
-async function checkLoginStatus(userDir, token) {
+async function confirmWhatsappLogin(userDir, token) {
   const encExists = await isLoggedIn(userDir);
 
   // creds.json is written only after a successful QR scan — check it specifically
@@ -301,11 +301,6 @@ async function checkLoginStatus(userDir, token) {
 
   const proxyIp = await getProxiedIpInfo(userDir, token).catch(() => null);
   return { loggedIn: true, proxyIp };
-}
-
-// Called when the user clicks "Continue" after seeing Google Chrome in Linked Devices.
-async function confirmWhatsappLogin(userDir, token) {
-  return await checkLoginStatus(userDir, token);
 }
 
 async function sendMessage(userDir, token, to, message) {
@@ -371,7 +366,6 @@ async function purgeMudslideCache(userDir) {
 
 module.exports = {
   getQRCode,
-  checkLoginStatus,
   confirmWhatsappLogin,
   sendMessage,
   sendMedia,

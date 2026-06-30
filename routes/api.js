@@ -56,7 +56,7 @@ async function routes(fastify, options) {
       const user = await userService.verifyToken(request.params.token);
       if (!user) return reply.code(401).send({ error: 'Invalid or expired token' });
 
-      const whatsappStatus = await mudslideService.checkLoginStatus(user.userDir, user.token);
+      const whatsappStatus = await mudslideService.confirmWhatsappLogin(user.userDir, user.token);
       return {
         success: true,
         user: {
@@ -212,7 +212,7 @@ async function routes(fastify, options) {
 
   fastify.get('/api/whatsapp/status', { preHandler: authenticateUser }, async (request, reply) => {
     try {
-      return await mudslideService.checkLoginStatus(request.user.userDir, request.user.token);
+      return await mudslideService.confirmWhatsappLogin(request.user.userDir, request.user.token);
     } catch (error) {
       fastify.log.error(error);
       return reply.code(500).send({ error: 'Failed to check status' });
