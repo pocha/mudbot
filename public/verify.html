@@ -279,7 +279,7 @@
 
                 if (response.ok && data.qr) {
                     document.getElementById('qrDisplay').innerHTML =
-                        `<pre class="text-xs leading-tight" style="text-align:center">${escapeHtml(data.qr)}</pre>`;
+                        `<pre class="text-xs leading-tight">${escapeHtml(data.qr)}</pre>`;
                     startConnectionCheck();
                 } else {
                     document.getElementById('qrDisplay').innerHTML =

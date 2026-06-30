@@ -12,22 +12,6 @@ function generateScheduleId() {
   return crypto.randomBytes(8).toString('hex');
 }
 
-function schedulesFile(userDir) {
-  return path.join(CONFIG.USERS_DIR, userDir, 'schedules.json');
-}
-
-async function readSchedules(userDir, token) {
-  try {
-    return JSON.parse(await readUserFile(schedulesFile(userDir), token));
-  } catch {
-    return [];
-  }
-}
-
-async function writeSchedules(userDir, token, schedules) {
-  await writeUserFile(schedulesFile(userDir), JSON.stringify(schedules), token);
-}
-
 // Converts a user's local time + timezone to a UTC cron expression.
 // Uses Intl to find the UTC offset at a fixed reference point (avoids DST ambiguity
 // at schedule-creation time; DST-affected timezones will drift by 1h after a DST change).
@@ -68,6 +52,20 @@ function buildCronExpression(timezone, localTime, frequency, localDate) {
   return `${utcM} ${utcH} * * *`; // Daily (default)
 }
 
+function scheduleDir(userDir, scheduleId) {
+  return path.join(CONFIG.USERS_DIR, userDir, 'schedules', scheduleId);
+}
+
+async function writeSchedule(userDir, token, scheduleId, schedule) {
+  const file = path.join(scheduleDir(userDir, scheduleId), 'schedule.json');
+  await writeUserFile(file, JSON.stringify(schedule), token);
+}
+
+async function readSchedule(userDir, token, scheduleId) {
+  const file = path.join(scheduleDir(userDir, scheduleId), 'schedule.json');
+  return JSON.parse(await readUserFile(file, token));
+}
+
 // Encrypts {token, recipients, message, media} using sha256(token) as key.
 // scheduleId stays outside this payload as a plaintext cron argv.
 function buildCronPayload(token, scheduleData) {
@@ -86,6 +84,7 @@ function buildCronPayload(token, scheduleData) {
 
 async function createSchedule(userDir, token, scheduleData) {
   const scheduleId = generateScheduleId();
+  await fs.mkdir(scheduleDir(userDir, scheduleId), { recursive: true });
 
   const tz   = scheduleData.timezone || 'UTC';
   const lt   = scheduleData.localTime || '09:00';
@@ -110,9 +109,7 @@ async function createSchedule(userDir, token, scheduleData) {
     lastRun: null
   };
 
-  const schedules = await readSchedules(userDir, token);
-  schedules.push(schedule);
-  await writeSchedules(userDir, token, schedules);
+  await writeSchedule(userDir, token, scheduleId, schedule);
 
   const encryptedPayload = buildCronPayload(token, schedule);
   await addCronJob(userDir, scheduleId, schedule.cronExpression, encryptedPayload);
@@ -121,64 +118,88 @@ async function createSchedule(userDir, token, scheduleData) {
 }
 
 async function listSchedules(userDir, token) {
-  return readSchedules(userDir, token);
+  const dir = path.join(CONFIG.USERS_DIR, userDir, 'schedules');
+  try {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    const schedules = [];
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        try {
+          schedules.push(await readSchedule(userDir, token, entry.name));
+        } catch (err) {
+          // Decryption failure means the schedule belongs to a previous token.
+          // Delete it so stale data doesn't accumulate.
+          console.error(`Deleting unreadable schedule ${entry.name}:`, err.message);
+          await fs.rm(scheduleDir(userDir, entry.name), { recursive: true, force: true });
+        }
+      }
+    }
+    return schedules;
+  } catch {
+    return [];
+  }
 }
 
 async function getSchedule(userDir, token, scheduleId) {
-  const schedules = await readSchedules(userDir, token);
-  return schedules.find(s => s.id === scheduleId) || null;
+  try {
+    return await readSchedule(userDir, token, scheduleId);
+  } catch {
+    return null;
+  }
 }
 
 async function updateSchedule(userDir, token, scheduleId, updates) {
-  const schedules = await readSchedules(userDir, token);
-  const idx = schedules.findIndex(s => s.id === scheduleId);
-  if (idx === -1) throw new Error('Schedule not found');
+  const schedule = await getSchedule(userDir, token, scheduleId);
+  if (!schedule) throw new Error('Schedule not found');
 
-  Object.assign(schedules[idx], updates);
-  schedules[idx].updatedAt = new Date().toISOString();
+  Object.assign(schedule, updates);
+  schedule.updatedAt = new Date().toISOString();
 
   // Recompute UTC cron expression from stored local time + timezone (if present).
-  if (schedules[idx].timezone && schedules[idx].localTime) {
-    schedules[idx].cronExpression = buildCronExpression(
-      schedules[idx].timezone,
-      schedules[idx].localTime,
-      schedules[idx].frequency || 'Daily',
-      schedules[idx].localDate || null
+  if (schedule.timezone && schedule.localTime) {
+    schedule.cronExpression = buildCronExpression(
+      schedule.timezone,
+      schedule.localTime,
+      schedule.frequency || 'Daily',
+      schedule.localDate || null
     );
   }
 
-  await writeSchedules(userDir, token, schedules);
+  await writeSchedule(userDir, token, scheduleId, schedule);
 
   // Rebuild cron entry with fresh encrypted payload
   await removeCronJob(userDir, scheduleId);
-  const encryptedPayload = buildCronPayload(token, schedules[idx]);
-  await addCronJob(userDir, scheduleId, schedules[idx].cronExpression, encryptedPayload);
+  const encryptedPayload = buildCronPayload(token, schedule);
+  await addCronJob(userDir, scheduleId, schedule.cronExpression, encryptedPayload);
 
-  return schedules[idx];
+  return schedule;
 }
 
 async function deleteSchedule(userDir, token, scheduleId) {
-  const schedules = await readSchedules(userDir, token);
-  const filtered = schedules.filter(s => s.id !== scheduleId);
-  await writeSchedules(userDir, token, filtered);
   await removeCronJob(userDir, scheduleId);
+  await fs.rm(scheduleDir(userDir, scheduleId), { recursive: true, force: true });
   return { success: true };
 }
 
-async function updateLastRun(userDir, token, scheduleId) {
+async function getScheduleLogs(userDir, scheduleId, limit = 50) {
+  const logsFile = path.join(scheduleDir(userDir, scheduleId), 'logs.txt');
   try {
-    const schedules = await readSchedules(userDir, token);
-    const idx = schedules.findIndex(s => s.id === scheduleId);
-    if (idx !== -1) {
-      schedules[idx].lastRun = new Date().toISOString();
-      await writeSchedules(userDir, token, schedules);
-    }
-  } catch {}
+    const data = await fs.readFile(logsFile, 'utf8');
+    const lines = data.trim().split('\n').filter(Boolean);
+    return lines.slice(-limit);
+  } catch {
+    return [];
+  }
+}
+
+async function appendLog(userDir, scheduleId, logEntry) {
+  const logsFile = path.join(scheduleDir(userDir, scheduleId), 'logs.txt');
+  await fs.appendFile(logsFile, `[${new Date().toISOString()}] ${logEntry}\n`);
 }
 
 async function addCronJob(userDir, scheduleId, cronExpression, encryptedPayload) {
   const scriptPath = path.join(__dirname, '..', 'scripts', 'run-schedule.js');
-  const nodePath = process.execPath;
+  const nodePath = process.execPath; // full path to the node binary running this server
   const cronCommand = `${cronExpression} ${nodePath} ${scriptPath} ${userDir} ${scheduleId} ${encryptedPayload}`;
   const cronLabel = `# mudbot-${userDir}-${scheduleId}`;
 
@@ -192,7 +213,7 @@ async function addCronJob(userDir, scheduleId, cronExpression, encryptedPayload)
       const lines = current.split('\n')
         .filter(l => !l.includes(`mudbot-${userDir}-${scheduleId}`) &&
                     !l.includes(`run-schedule.js ${userDir} ${scheduleId} `))
-        .filter(l => l.trim() !== '');
+        .filter(l => l.trim() !== ''); // strip blank lines
       lines.push(cronLabel, cronCommand);
 
       const setCrontab = spawn('crontab', ['-']);
@@ -248,7 +269,7 @@ async function removeCronJob(userDir, scheduleId) {
   });
 }
 
-// Checks all schedules against crontab; re-adds any missing entries.
+// Checks all schedule files against crontab; re-adds any missing entries.
 // Called on GET /api/schedules to auto-restore cron after a server migration.
 async function syncCronJobs(userDir, token) {
   const schedules = await listSchedules(userDir, token);
@@ -278,7 +299,8 @@ module.exports = {
   getSchedule,
   updateSchedule,
   deleteSchedule,
-  updateLastRun,
+  getScheduleLogs,
+  appendLog,
   addCronJob,
   removeCronJob,
   removeAllCronJobs,

@@ -115,33 +115,7 @@ async function sendOwnerNotification(eventType, { userDir, country, city } = {})
   } catch { /* fire-and-forget — never surfaces to caller */ }
 }
 
-async function sendDailyReport(report) {
-  const notifyEmail = process.env.NOTIFY_EMAIL || process.env.REPLY_TO;
-  if (!notifyEmail) return;
-
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const dateStr = yesterday.toISOString().slice(0, 10);
-
-  const total = report.reduce((s, r) => s + r.total, 0);
-  const rows = report.map(r =>
-    `${r.userDir}  |  Actions: ${r.total}`
-  ).join('\n');
-
-  try {
-    await getTransporter().sendMail({
-      from: `Watobot <${CONFIG.EMAIL_FROM}>`,
-      to: notifyEmail,
-      subject: `Watobot Daily Report — ${dateStr}`,
-      text: `Daily Activity Report for ${dateStr}\n\nTotal actions across all users: ${total}\n\nBreakdown by user:\n\n${rows}`
-    });
-  } catch (e) {
-    console.error('Failed to send daily report:', e.message);
-  }
-}
-
 module.exports = {
   sendRegistrationEmail,
-  sendOwnerNotification,
-  sendDailyReport
+  sendOwnerNotification
 };

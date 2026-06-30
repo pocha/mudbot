@@ -135,14 +135,8 @@
 <div class="grid grid-cols-1 md:grid-cols-12 gap-stack-gap">
 <!-- Step 1: WhatsApp Connect -->
 <section class="md:col-span-7 bg-surface-container-lowest p-6 rounded-xl border border-outline-variant shadow-sm transition-all duration-500" id="step-1">
-  <!-- Loading skeleton -->
-  <div id="wa-loading" class="space-y-4">
-    <div class="flex items-center gap-2"><div class="w-8 h-8 rounded-full bg-outline-variant/40 animate-pulse"></div><div class="h-5 w-48 bg-outline-variant/40 rounded animate-pulse"></div></div>
-    <div class="h-4 w-3/4 bg-outline-variant/30 rounded animate-pulse"></div>
-    <div class="h-4 w-1/2 bg-outline-variant/30 rounded animate-pulse"></div>
-  </div>
   <!-- Not connected -->
-  <div id="wa-not-connected" class="hidden flex-col md:flex-row gap-6">
+  <div id="wa-not-connected" class="flex flex-col md:flex-row gap-6">
     <div class="flex-1 space-y-4">
       <div class="flex items-center gap-2">
         <span class="bg-primary text-on-primary w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">1</span>
@@ -189,13 +183,8 @@
 </div>
 <p class="text-on-surface-variant text-body-md">Use the API key to send WhatsApp messages from your app or scripts.</p>
 
-<!-- Loading skeleton -->
-<div id="apikey-loading" class="space-y-3">
-  <div class="h-4 w-3/4 bg-outline-variant/40 rounded animate-pulse"></div>
-  <div class="h-10 w-full bg-outline-variant/30 rounded-xl animate-pulse"></div>
-</div>
 <!-- State: no key / expired — show generate button -->
-<div id="apikey-generate-view" class="hidden">
+<div id="apikey-generate-view">
   <button onclick="generateApiKey()" id="apikey-generate-btn"
     class="w-full bg-primary-container text-on-primary-container font-bold py-3 rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-2">
     <span class="material-symbols-outlined text-[20px]">key</span> Generate API Key
@@ -332,13 +321,8 @@ Cancel Edit
 <div class="p-6 border-b border-outline-variant">
 <h3 class="font-headline-md text-headline-md">Active Schedules</h3>
 </div>
-<div id="schedules-loading" class="p-6 space-y-3">
-  <div class="h-4 w-2/3 bg-outline-variant/40 rounded animate-pulse"></div>
-  <div class="h-4 w-1/2 bg-outline-variant/30 rounded animate-pulse"></div>
-  <div class="h-4 w-3/4 bg-outline-variant/30 rounded animate-pulse"></div>
-</div>
-<div id="schedules-tbody" class="hidden divide-y divide-outline-variant"></div>
-<div id="schedules-empty" class="hidden p-6 text-center text-on-surface-variant opacity-50 italic text-body-md">
+<div id="schedules-tbody" class="divide-y divide-outline-variant"></div>
+<div id="schedules-empty" class="p-6 text-center text-on-surface-variant opacity-50 italic text-body-md">
 <span class="material-symbols-outlined text-4xl mb-2 block">event_busy</span>
 No active schedules yet. Use the form above to get started.
 </div>
@@ -347,25 +331,11 @@ No active schedules yet. Use the form above to get started.
 <!-- Logs Accordion -->
 <section class="lg:col-span-1 space-y-4">
 <div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden h-full flex flex-col">
-<div class="p-6 border-b border-outline-variant flex items-center justify-between">
-    <div>
-        <h3 class="font-headline-md text-headline-md">Logs</h3>
-        <p class="text-on-surface-variant text-body-md">Check usage & debug failures</p>
-    </div>
-  <div class="relative group">
-    <span id="logs-total-count" class="hidden text-xs font-label-md bg-primary/10 text-primary px-2 py-1 rounded-full cursor-default select-none"></span>
-    <div class="absolute right-0 top-7 z-10 hidden group-hover:block w-52 bg-surface-container-high text-on-surface text-xs rounded-lg p-2 shadow-md border border-outline-variant pointer-events-none">
-      Total log entries across all direct API calls and scheduled messages
-    </div>
-  </div>
+<div class="p-6 border-b border-outline-variant">
+<h3 class="font-headline-md text-headline-md">Recent Logs</h3>
 </div>
-
 <div id="logs-container" class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-outline-variant">
-  <div id="logs-loading" class="p-6 space-y-3">
-    <div class="h-4 w-3/4 bg-outline-variant/40 rounded animate-pulse"></div>
-    <div class="h-4 w-1/2 bg-outline-variant/30 rounded animate-pulse"></div>
-    <div class="h-4 w-2/3 bg-outline-variant/30 rounded animate-pulse"></div>
-  </div>
+<p class="p-6 text-center text-on-surface-variant text-body-md opacity-50">No logs yet.</p>
 </div>
 </div>
 </section>
@@ -486,7 +456,6 @@ async function checkConnectionStatus() {
 }
 
 function updateConnectionUI(loggedIn, proxyIp) {
-    document.getElementById('wa-loading')?.classList.add('hidden');
     const notConnected = document.getElementById('wa-not-connected');
     const connected = document.getElementById('wa-connected');
     const step2 = document.getElementById('step-2');
@@ -510,7 +479,6 @@ function updateConnectionUI(loggedIn, proxyIp) {
 
 async function loadApiKeyStatus() {
     try {
-        document.getElementById('apikey-loading')?.classList.remove('hidden');
         const [statusRes, configRes] = await Promise.all([
             fetch(`${API_BASE}/api/apikey/status`, { headers: { 'Authorization': `Bearer ${authToken}` } }),
             fetch(`${API_BASE}/api/config`)
@@ -527,7 +495,6 @@ async function loadApiKeyStatus() {
         const userIdEl = document.getElementById('apikey-user-id');
         if (userIdEl && authToken) userIdEl.textContent = authToken.slice(0, 10);
 
-        document.getElementById('apikey-loading')?.classList.add('hidden');
         if (!status.exists || status.expired) {
             document.getElementById('apikey-generate-view').classList.remove('hidden');
             document.getElementById('apikey-active-view').classList.add('hidden');
@@ -615,19 +582,15 @@ async function loadSchedules() {
 function renderSchedules() {
     const tbody = document.getElementById('schedules-tbody');
     const emptyState = document.getElementById('schedules-empty');
-    const loading = document.getElementById('schedules-loading');
     if (!tbody) return;
 
-    if (loading) loading.classList.add('hidden');
-
     if (schedules.length === 0) {
-        tbody.classList.add('hidden');
+        tbody.innerHTML = '';
         if (emptyState) emptyState.classList.remove('hidden');
         return;
     }
 
     if (emptyState) emptyState.classList.add('hidden');
-    tbody.classList.remove('hidden');
 
     tbody.innerHTML = schedules.map(schedule => {
         const name = (schedule.name || 'Untitled');
@@ -676,47 +639,52 @@ function renderSchedules() {
 
 async function renderLogs() {
     const container = document.getElementById('logs-container');
-    const countBadge = document.getElementById('logs-total-count');
     if (!container) return;
-    document.getElementById('logs-loading')?.classList.add('hidden');
 
-    const ACTION_LABELS = {
-        sendMessage: 'Send Message',
-        sendMedia: 'Send Media',
-        getGroups: 'Get Groups',
-        logout: 'Disconnect',
-        unknown: 'API Call'
-    };
-
-    const usageData = await fetch(`${API_BASE}/api/usage/logs?limit=50`, {
-        headers: { 'Authorization': `Bearer ${authToken}` }
-    }).then(r => r.ok ? r.json() : { count: 0, logs: [] }).catch(() => ({ count: 0, logs: [] }));
-
-    const usageLogs = usageData.logs || [];
-
-    if (countBadge) {
-        if (usageData.count > 0) {
-            countBadge.textContent = usageData.count;
-            countBadge.classList.remove('hidden');
-        } else {
-            countBadge.classList.add('hidden');
-        }
+    if (schedules.length === 0) {
+        container.innerHTML = '<p class="p-6 text-center text-on-surface-variant text-body-md opacity-50">No schedules yet.</p>';
+        return;
     }
 
-    if (usageLogs.length === 0) {
+    const allLogs = await Promise.all(schedules.map(async (s) => {
+        try {
+            const res = await fetch(`${API_BASE}/api/schedules/${s.id}/logs?limit=5`, {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            });
+            const data = res.ok ? await res.json() : {};
+            return { schedule: s, logs: data.logs || [] };
+        } catch {
+            return { schedule: s, logs: [] };
+        }
+    }));
+
+    const withLogs = allLogs.filter(x => x.logs.length > 0);
+    if (withLogs.length === 0) {
         container.innerHTML = '<p class="p-6 text-center text-on-surface-variant text-body-md opacity-50">No logs yet.</p>';
         return;
     }
 
-    function makeSection(dotColor, title, subtitle, logLines) {
+    container.innerHTML = withLogs.map(({ schedule, logs }) => {
+        const latest = logs[0];
+        const isSuccess = latest && !latest.error;
+        const dotColor = isSuccess ? 'bg-primary' : 'bg-error';
+        const latestTime = latest ? new Date(latest.timestamp || latest.time || Date.now()).toLocaleString() : '';
+        const logLines = logs.map(log => {
+            const status = log.error
+                ? `<span class="text-error font-bold">FAILED:</span> ${escapeHtml(log.error)}`
+                : `<span class="text-primary font-bold">SUCCESS:</span> ${escapeHtml(log.message || 'Sent')}`;
+            const t = new Date(log.timestamp || log.time || Date.now()).toLocaleString();
+            return `<p>${status} <span class="text-on-surface-variant">(${t})</span></p>`;
+        }).join('');
+
         return `
         <details class="group">
           <summary class="list-none cursor-pointer p-4 hover:bg-surface-container transition-colors flex items-center justify-between">
             <div class="flex items-center gap-3">
               <div class="w-2 h-2 rounded-full ${dotColor}"></div>
               <div>
-                <p class="font-label-md text-on-surface">${title}</p>
-                <p class="text-xs text-on-surface-variant">${subtitle}</p>
+                <p class="font-label-md text-on-surface">${escapeHtml(schedule.name || 'Untitled')}</p>
+                <p class="text-xs text-on-surface-variant">${latestTime}</p>
               </div>
             </div>
             <span class="material-symbols-outlined group-open:rotate-180 transition-transform">expand_more</span>
@@ -725,37 +693,7 @@ async function renderLogs() {
             <div class="bg-white p-3 rounded border border-outline-variant/30 text-xs font-code-sm space-y-1">${logLines}</div>
           </div>
         </details>`;
-    }
-
-    // Group usage logs by action
-    const usageByAction = {};
-    for (const log of usageLogs) {
-        const a = log.action || 'unknown';
-        if (!usageByAction[a]) usageByAction[a] = [];
-        usageByAction[a].push(log);
-    }
-
-    const usageSections = Object.entries(usageByAction).map(([action, logs]) => {
-        const latest = logs[logs.length - 1];
-        const dotColor = latest && latest.success ? 'bg-primary' : 'bg-error';
-        const latestTime = latest ? new Date(latest.ts).toLocaleString() : '';
-        const subtitle = `${latestTime} · ${logs.length} call${logs.length !== 1 ? 's' : ''}`;
-        const logLines = logs.slice().reverse().map(log => {
-            const status = log.success
-                ? `<span class="text-primary font-bold">SUCCESS</span>`
-                : `<span class="text-error font-bold">FAILED</span>${log.error ? ': ' + escapeHtml(log.error) : ''}`;
-            const parts = [status];
-            if (log.to) parts.push(`→ <span class="text-on-surface">${escapeHtml(log.to)}</span>`);
-            if (log.message) parts.push(`<span class="text-on-surface-variant italic">"${escapeHtml(log.message)}"</span>`);
-            if (log.caption) parts.push(`<span class="text-on-surface-variant italic">"${escapeHtml(log.caption)}"</span>`);
-            parts.push(`<span class="text-on-surface-variant opacity-70">(${new Date(log.ts).toLocaleString()})</span>`);
-            return `<p>${parts.join(' ')}</p>`;
-        }).join('');
-        return makeSection(dotColor, ACTION_LABELS[action] || action, subtitle, logLines);
-    });
-
-    const separator = '<div class="border-t border-outline-variant"></div>';
-    container.innerHTML = usageSections.join(separator);
+    }).join('<div class="border-t border-outline-variant"></div>');
 }
 
 function setupEventListeners() {

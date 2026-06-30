@@ -235,10 +235,10 @@ test('create schedule', async () => {
   scheduleId = body.schedule.id;
 });
 
-test('schedules.json is encrypted on disk', async () => {
+test('schedule.json is encrypted on disk', async () => {
   const userDir = getUserDir(TEST_EMAIL);
   const content = await fs.readFile(
-    path.join(USERS_DIR, userDir, 'schedules.json'),
+    path.join(USERS_DIR, userDir, 'schedules', scheduleId, 'schedule.json'),
     'utf8'
   );
   assert.match(content, /^[a-f0-9]+:[a-f0-9]+$/);

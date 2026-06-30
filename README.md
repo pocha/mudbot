@@ -16,7 +16,7 @@ All user data is encrypted using your personal auth token as the key. There is n
 
 - **Auth:** passwordless magic link sent to your email. Your email is never stored. Clicking the link gives you a 64-character hex auth token that lives only in your browser (`localStorage`).
 - **Storage:** all user data lives under `users/` as AES-256 encrypted files. The token is the encryption key — the server only holds a one-way hash of it (`sha256(token)`) for authentication.
-- **Scheduling:** cron jobs invoke `scripts/run-schedule.js`, which decrypts a self-contained encrypted payload from the cron entry and POSTs to the local API (`/api/message`). This reuses the same queue and session management as direct API calls. No secrets need to be present on the server at run time beyond what is already in `users/`.
+- **Scheduling:** cron jobs invoke `scripts/run-schedule.js`, which carries a self-contained encrypted payload in the cron entry itself. No secrets need to be present on the server at run time beyond what is already in `users/`.
 - **WhatsApp session:** after QR scan, the `.mudslide/` credentials directory is AES-256 encrypted into `.mudslide.enc` using `sha256(token)`. The plaintext directory is immediately deleted.
 
 ---
@@ -28,7 +28,7 @@ All user data is encrypted using your personal auth token as the key. There is n
 | Your email | Never stored | Nobody |
 | Auth token | Browser `localStorage` only | Only you |
 | `token_hash` (`sha256(token)`) | `users/<dir>/token_hash` | Public-safe — one-way hash, useless without the token |
-| Schedule files (`schedules.json`) | AES-256, key = token | Only you (token required to decrypt) |
+| Schedule files (`schedule.json`) | AES-256, key = token | Only you (token required to decrypt) |
 | WhatsApp session (`.mudslide.enc`) | AES-256, key = `sha256(token)` | Only you |
 | Cron payload | AES-256, key = `token_hash`, embedded in system crontab | Only accessible with server shell access |
 | API key hash (`api_key_hash`) | `sha256(apiKey)` | Public-safe — one-way hash |
@@ -186,6 +186,7 @@ The `userDir` is the 10-character prefix shown in the dashboard's API key sectio
 | `GET` | `/api/schedules/:id` | Get a schedule |
 | `PUT` | `/api/schedules/:id` | Update a schedule |
 | `DELETE` | `/api/schedules/:id` | Delete a schedule |
+| `GET` | `/api/schedules/:id/logs` | Get execution logs for a schedule |
 
 ### Send a message
 

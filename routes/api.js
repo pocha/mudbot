@@ -56,7 +56,7 @@ async function routes(fastify, options) {
       const user = await userService.verifyToken(request.params.token);
       if (!user) return reply.code(401).send({ error: 'Invalid or expired token' });
 
-      const whatsappStatus = await mudslideService.confirmWhatsappLogin(user.userDir, user.token);
+      const whatsappStatus = await mudslideService.checkLoginStatus(user.userDir, user.token);
       return {
         success: true,
         user: {
@@ -212,7 +212,7 @@ async function routes(fastify, options) {
 
   fastify.get('/api/whatsapp/status', { preHandler: authenticateUser }, async (request, reply) => {
     try {
-      return await mudslideService.confirmWhatsappLogin(request.user.userDir, request.user.token);
+      return await mudslideService.checkLoginStatus(request.user.userDir, request.user.token);
     } catch (error) {
       fastify.log.error(error);
       return reply.code(500).send({ error: 'Failed to check status' });
@@ -240,7 +240,7 @@ async function routes(fastify, options) {
 
   fastify.post('/api/whatsapp/login/confirm', { preHandler: authenticateUser }, async (request, reply) => {
     try {
-      const status = await mudslideService.confirmWhatsappLogin(request.user.userDir, request.user.token);
+      const status = await mudslideService.confirmLogin(request.user.userDir, request.user.token);
       if (status.loggedIn) {
         userService.readUserFile(
           require('path').join(__dirname, '..', 'users', request.user.userDir, 'proxy.json'),
@@ -266,7 +266,7 @@ async function routes(fastify, options) {
   // Always returns success — if mudslide fails the user can remove the device manually.
   fastify.post('/api/whatsapp/logout', { preHandler: authenticateUser }, async (request, reply) => {
     try {
-      await mudslideService.whatsappDeviceDisconnect(request.user.userDir, request.user.token);
+      await mudslideService.logout(request.user.userDir, request.user.token);
     } catch (error) {
       fastify.log.error(error);
     }
@@ -278,7 +278,7 @@ async function routes(fastify, options) {
   fastify.post('/api/whatsapp/logout/confirm', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       await scheduleService.removeAllCronJobs(request.user.userDir);
-      await mudslideService.purgeMudslideCache(request.user.userDir);
+      await mudslideService.cleanupAfterLogout(request.user.userDir);
       return { success: true };
     } catch (error) {
       fastify.log.error(error);
@@ -346,13 +346,14 @@ async function routes(fastify, options) {
     }
   });
 
-  fastify.get('/api/usage/logs', { preHandler: authenticateUser }, async (request, reply) => {
+  fastify.get('/api/schedules/:id/logs', { preHandler: authenticateUser }, async (request, reply) => {
     try {
-      const limit = parseInt(request.query.limit) || 50;
-      return await mudslideService.getUsageLogs(request.user.userDir, limit, request.user.token);
+      const limit = parseInt(request.query.limit) || 100;
+      const logs = await scheduleService.getScheduleLogs(request.user.userDir, request.params.id, limit);
+      return { logs };
     } catch (error) {
       fastify.log.error(error);
-      return reply.code(500).send({ error: 'Failed to get usage logs' });
+      return reply.code(500).send({ error: 'Failed to get logs' });
     }
   });
 
@@ -362,10 +363,10 @@ async function routes(fastify, options) {
       if (!to || !message) {
         return reply.code(400).send({ error: 'to and message are required' });
       }
-      await (media
-        ? mudslideService.sendMedia(request.user.userDir, request.user.token, to, media, message)
-        : mudslideService.sendMessage(request.user.userDir, request.user.token, to, message));
-      return { success: true };
+      const result = media
+        ? await mudslideService.sendMedia(request.user.userDir, request.user.token, to, media, message)
+        : await mudslideService.sendMessage(request.user.userDir, request.user.token, to, message);
+      return { success: true, result };
     } catch (error) {
       fastify.log.error(error);
       return reply.code(500).send({ error: 'Failed to send message' });
