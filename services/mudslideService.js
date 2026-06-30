@@ -15,6 +15,7 @@ let loginProc = null;
 
 // Per-user operation queue — ensures only one mudslide command runs at a time per user.
 const userQueue = {};
+const userQueueDepth = {};
 
 function mudslideEncFile(userDir) {
   return path.join(CONFIG.USERS_DIR, userDir, '.mudslide.enc');
@@ -62,7 +63,15 @@ async function encryptMudslideCache(userDir, token, fromDir = null) {
 }
 
 // Decrypt .mudslide.enc → /tmp/mudbot-<userDir>/.mudslide, return that path.
+// If the temp dir already exists (previous op in same queue batch), reuse it.
 async function decryptMudslideToTemp(userDir, token) {
+  const tmp = tempDir(userDir);
+  const credPath = path.join(tmp, '.mudslide');
+  try {
+    await fs.access(credPath);
+    return credPath;  // already decrypted by an earlier op in this batch
+  } catch {}
+
   const data = await fs.readFile(mudslideEncFile(userDir));
   const iv = data.slice(0, 16);
   const encrypted = data.slice(16);
@@ -71,7 +80,6 @@ async function decryptMudslideToTemp(userDir, token) {
   const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
   const tarBuffer = Buffer.concat([decipher.update(encrypted), decipher.final()]);
 
-  const tmp = tempDir(userDir);
   await fs.mkdir(tmp, { recursive: true });
 
   await new Promise((resolve, reject) => {
@@ -85,7 +93,7 @@ async function decryptMudslideToTemp(userDir, token) {
     });
   });
 
-  return path.join(tmp, '.mudslide');
+  return credPath;
 }
 
 async function cleanupTemp(userDir) {
@@ -93,22 +101,60 @@ async function cleanupTemp(userDir) {
 }
 
 // Queues fn(credPath) for the user — operations are strictly sequential per user,
-// ensuring WhatsApp sees one message at a time. Decrypts before, re-encrypts and
-// cleans up after each operation.
-function withSession(userDir, token, fn) {
+// ensuring WhatsApp sees one message at a time. Decrypts once on first op in a
+// batch, reuses the temp dir for subsequent ops, then encrypts and cleans up only
+// after the last queued op completes.
+function withSession(userDir, token, fn, action = 'unknown', meta = {}) {
+  userQueueDepth[userDir] = (userQueueDepth[userDir] || 0) + 1;
+
   const run = async () => {
     const credPath = await decryptMudslideToTemp(userDir, token);
+    let succeeded = false;
+    let errMsg = null;
     try {
-      return await fn(credPath);
+      const result = await fn(credPath);
+      succeeded = true;
+      return result;
+    } catch (err) {
+      errMsg = err.message;
+      throw err;
     } finally {
-      await encryptMudslideCache(userDir, token, tempDir(userDir));
-      await cleanupTemp(userDir);
+      appendUsageLog(userDir, action, succeeded, errMsg, meta);
+      userQueueDepth[userDir]--;
+      if (userQueueDepth[userDir] === 0) {
+        try {
+          await encryptMudslideCache(userDir, token, tempDir(userDir));
+        } finally {
+          await cleanupTemp(userDir);
+        }
+      }
     }
   };
   const prev = userQueue[userDir] || Promise.resolve();
   const next = prev.then(run, run);          // run even if previous op failed
   userQueue[userDir] = next.catch(() => {});  // don't let errors block the queue
   return next;
+}
+
+async function appendUsageLog(userDir, action, success, error = null, meta = {}) {
+  const entry = { ts: new Date().toISOString(), action, success, ...meta };
+  if (error) entry.error = error;
+  await fs.appendFile(
+    path.join(CONFIG.USERS_DIR, userDir, 'usage.log'),
+    JSON.stringify(entry) + '\n'
+  ).catch(() => {});
+}
+
+async function getUsageLogs(userDir, limit = 50) {
+  try {
+    const data = await fs.readFile(path.join(CONFIG.USERS_DIR, userDir, 'usage.log'), 'utf8');
+    return data.trim().split('\n').filter(Boolean).reduce((acc, line) => {
+      try { acc.push(JSON.parse(line)); } catch {}
+      return acc;
+    }, []).slice(-limit);
+  } catch {
+    return [];
+  }
 }
 
 const stripProxy = s => s.split('\n').filter(l => !l.trim().startsWith('[proxychains]')).join('\n').trim();
@@ -242,7 +288,11 @@ async function checkLoginStatus(userDir, token) {
   } catch {}
 
   if (plaintextReady && token) {
-    await encryptMudslideCache(userDir, token);
+    try {
+      await encryptMudslideCache(userDir, token);
+    } finally {
+      await fs.rm(mudslideDir(userDir), { recursive: true, force: true });
+    }
   }
 
   const loggedIn = plaintextReady || encExists;
@@ -259,8 +309,8 @@ async function confirmWhatsappLogin(userDir, token) {
 
 async function sendMessage(userDir, token, to, message) {
   return withSession(userDir, token, credPath =>
-    runMudslide(['-c', credPath, 'send', to, message], 60000, userDir, token)
-      .then(output => ({ success: true, message: 'Message sent successfully', output }))
+    runMudslide(['-c', credPath, 'send', to, message], 60000, userDir, token),
+    'sendMessage', { to, message }
   );
 }
 
@@ -271,9 +321,8 @@ async function sendMedia(userDir, token, to, mediaPath, caption = '') {
     const cmd = isImage ? 'send-image' : 'send-file';
     const args = ['-c', credPath, cmd, to, mediaPath];
     if (caption) args.push('--caption', caption);
-    const output = await runMudslide(args, 60000, userDir, token);
-    return { success: true, message: 'Media sent successfully', output };
-  });
+    await runMudslide(args, 60000, userDir, token);
+  }, 'sendMedia', { to, ...(caption && { caption }) });
 }
 
 async function getGroups(userDir, token) {
@@ -297,7 +346,7 @@ async function getGroups(userDir, token) {
       if (line.includes('@g.us')) return { name: line.trim(), id: line.trim() };
       return null;
     }).filter(Boolean);
-  });
+  }, 'getGroups');
 }
 
 // Signals WhatsApp to remove this device. Queued so it waits for any in-flight
@@ -306,7 +355,8 @@ async function whatsappDeviceDisconnect(userDir, token) {
   if (!token) return;
   try {
     await withSession(userDir, token, credPath =>
-      runMudslide(['-c', credPath, 'logout'], 60000, userDir, token)
+      runMudslide(['-c', credPath, 'logout'], 60000, userDir, token),
+      'logout'
     );
   } catch {}
 }
@@ -326,5 +376,6 @@ module.exports = {
   sendMedia,
   getGroups,
   whatsappDeviceDisconnect,
-  purgeMudslideCache
+  purgeMudslideCache,
+  getUsageLogs
 };

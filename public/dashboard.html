@@ -331,8 +331,14 @@ No active schedules yet. Use the form above to get started.
 <!-- Logs Accordion -->
 <section class="lg:col-span-1 space-y-4">
 <div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden h-full flex flex-col">
-<div class="p-6 border-b border-outline-variant">
-<h3 class="font-headline-md text-headline-md">Recent Logs</h3>
+<div class="p-6 border-b border-outline-variant flex items-center justify-between">
+  <h3 class="font-headline-md text-headline-md">Recent Logs</h3>
+  <div class="relative group">
+    <span id="logs-total-count" class="hidden text-xs font-label-md bg-primary/10 text-primary px-2 py-1 rounded-full cursor-default select-none"></span>
+    <div class="absolute right-0 top-7 z-10 hidden group-hover:block w-52 bg-surface-container-high text-on-surface text-xs rounded-lg p-2 shadow-md border border-outline-variant pointer-events-none">
+      Total log entries across all direct API calls and scheduled messages
+    </div>
+  </div>
 </div>
 <div id="logs-container" class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-outline-variant">
 <p class="p-6 text-center text-on-surface-variant text-body-md opacity-50">No logs yet.</p>
@@ -639,52 +645,60 @@ function renderSchedules() {
 
 async function renderLogs() {
     const container = document.getElementById('logs-container');
+    const countBadge = document.getElementById('logs-total-count');
     if (!container) return;
 
-    if (schedules.length === 0) {
-        container.innerHTML = '<p class="p-6 text-center text-on-surface-variant text-body-md opacity-50">No schedules yet.</p>';
-        return;
+    const ACTION_LABELS = {
+        sendMessage: 'Send Message',
+        sendMedia: 'Send Media',
+        getGroups: 'Get Groups',
+        logout: 'Disconnect',
+        unknown: 'API Call'
+    };
+
+    // Fetch usage logs and schedule logs in parallel
+    const [usageRes, scheduleLogsRes] = await Promise.allSettled([
+        fetch(`${API_BASE}/api/usage/logs?limit=50`, { headers: { 'Authorization': `Bearer ${authToken}` } })
+            .then(r => r.ok ? r.json() : { logs: [] }).then(d => d.logs || []),
+        Promise.all(schedules.map(async s => {
+            try {
+                const res = await fetch(`${API_BASE}/api/schedules/${s.id}/logs?limit=5`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = res.ok ? await res.json() : {};
+                return { schedule: s, logs: data.logs || [] };
+            } catch { return { schedule: s, logs: [] }; }
+        }))
+    ]);
+
+    const usageLogs = usageRes.status === 'fulfilled' ? usageRes.value : [];
+    const allScheduleLogs = scheduleLogsRes.status === 'fulfilled' ? scheduleLogsRes.value : [];
+    const scheduleLogsWithEntries = allScheduleLogs.filter(x => x.logs.length > 0);
+
+    const totalCount = usageLogs.length + scheduleLogsWithEntries.reduce((sum, x) => sum + x.logs.length, 0);
+    if (countBadge) {
+        if (totalCount > 0) {
+            countBadge.textContent = totalCount;
+            countBadge.classList.remove('hidden');
+        } else {
+            countBadge.classList.add('hidden');
+        }
     }
 
-    const allLogs = await Promise.all(schedules.map(async (s) => {
-        try {
-            const res = await fetch(`${API_BASE}/api/schedules/${s.id}/logs?limit=5`, {
-                headers: { 'Authorization': `Bearer ${authToken}` }
-            });
-            const data = res.ok ? await res.json() : {};
-            return { schedule: s, logs: data.logs || [] };
-        } catch {
-            return { schedule: s, logs: [] };
-        }
-    }));
-
-    const withLogs = allLogs.filter(x => x.logs.length > 0);
-    if (withLogs.length === 0) {
+    if (usageLogs.length === 0 && scheduleLogsWithEntries.length === 0) {
         container.innerHTML = '<p class="p-6 text-center text-on-surface-variant text-body-md opacity-50">No logs yet.</p>';
         return;
     }
 
-    container.innerHTML = withLogs.map(({ schedule, logs }) => {
-        const latest = logs[0];
-        const isSuccess = latest && !latest.error;
-        const dotColor = isSuccess ? 'bg-primary' : 'bg-error';
-        const latestTime = latest ? new Date(latest.timestamp || latest.time || Date.now()).toLocaleString() : '';
-        const logLines = logs.map(log => {
-            const status = log.error
-                ? `<span class="text-error font-bold">FAILED:</span> ${escapeHtml(log.error)}`
-                : `<span class="text-primary font-bold">SUCCESS:</span> ${escapeHtml(log.message || 'Sent')}`;
-            const t = new Date(log.timestamp || log.time || Date.now()).toLocaleString();
-            return `<p>${status} <span class="text-on-surface-variant">(${t})</span></p>`;
-        }).join('');
-
+    function makeSection(dotColor, title, subtitle, logLines) {
         return `
         <details class="group">
           <summary class="list-none cursor-pointer p-4 hover:bg-surface-container transition-colors flex items-center justify-between">
             <div class="flex items-center gap-3">
               <div class="w-2 h-2 rounded-full ${dotColor}"></div>
               <div>
-                <p class="font-label-md text-on-surface">${escapeHtml(schedule.name || 'Untitled')}</p>
-                <p class="text-xs text-on-surface-variant">${latestTime}</p>
+                <p class="font-label-md text-on-surface">${title}</p>
+                <p class="text-xs text-on-surface-variant">${subtitle}</p>
               </div>
             </div>
             <span class="material-symbols-outlined group-open:rotate-180 transition-transform">expand_more</span>
@@ -693,7 +707,54 @@ async function renderLogs() {
             <div class="bg-white p-3 rounded border border-outline-variant/30 text-xs font-code-sm space-y-1">${logLines}</div>
           </div>
         </details>`;
-    }).join('<div class="border-t border-outline-variant"></div>');
+    }
+
+    // Group usage logs by action
+    const usageByAction = {};
+    for (const log of usageLogs) {
+        const a = log.action || 'unknown';
+        if (!usageByAction[a]) usageByAction[a] = [];
+        usageByAction[a].push(log);
+    }
+
+    const usageSections = Object.entries(usageByAction).map(([action, logs]) => {
+        const latest = logs[logs.length - 1];
+        const dotColor = latest && latest.success ? 'bg-primary' : 'bg-error';
+        const latestTime = latest ? new Date(latest.ts).toLocaleString() : '';
+        const subtitle = `${latestTime} · ${logs.length} call${logs.length !== 1 ? 's' : ''}`;
+        const logLines = logs.slice(-5).reverse().map(log => {
+            const status = log.success
+                ? `<span class="text-primary font-bold">SUCCESS</span>`
+                : `<span class="text-error font-bold">FAILED</span>${log.error ? ': ' + escapeHtml(log.error) : ''}`;
+            const parts = [status];
+            if (log.to) parts.push(`→ <span class="text-on-surface">${escapeHtml(log.to)}</span>`);
+            if (log.message) parts.push(`<span class="text-on-surface-variant italic">"${escapeHtml(log.message)}"</span>`);
+            if (log.caption) parts.push(`<span class="text-on-surface-variant italic">"${escapeHtml(log.caption)}"</span>`);
+            parts.push(`<span class="text-on-surface-variant opacity-70">(${new Date(log.ts).toLocaleString()})</span>`);
+            return `<p>${parts.join(' ')}</p>`;
+        }).join('');
+        return makeSection(dotColor, ACTION_LABELS[action] || action, subtitle, logLines);
+    });
+
+    const scheduleSections = scheduleLogsWithEntries.map(({ schedule, logs }) => {
+        const latest = logs[logs.length - 1];
+        const dotColor = latest && latest.level !== 'ERROR' ? 'bg-primary' : 'bg-error';
+        const latestTime = latest ? new Date(latest.ts).toLocaleString() : '';
+        const logLines = logs.map(log => {
+            const isErr = log.level === 'ERROR';
+            const isSuccess = log.level === 'SUCCESS';
+            const status = isErr
+                ? `<span class="text-error font-bold">ERROR:</span> ${escapeHtml(log.message)}`
+                : isSuccess
+                    ? `<span class="text-primary font-bold">SUCCESS:</span> ${escapeHtml(log.message)}`
+                    : `<span class="text-on-surface-variant">${escapeHtml(log.message)}</span>`;
+            return `<p>${status} <span class="text-on-surface-variant opacity-70">(${new Date(log.ts).toLocaleString()})</span></p>`;
+        }).join('');
+        return makeSection(dotColor, escapeHtml(schedule.name || 'Untitled'), latestTime, logLines);
+    });
+
+    const separator = '<div class="border-t border-outline-variant"></div>';
+    container.innerHTML = [...usageSections, ...scheduleSections].join(separator);
 }
 
 function setupEventListeners() {

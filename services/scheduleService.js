@@ -185,16 +185,18 @@ async function getScheduleLogs(userDir, scheduleId, limit = 50) {
   const logsFile = path.join(scheduleDir(userDir, scheduleId), 'logs.txt');
   try {
     const data = await fs.readFile(logsFile, 'utf8');
-    const lines = data.trim().split('\n').filter(Boolean);
-    return lines.slice(-limit);
+    return data.trim().split('\n').filter(Boolean).reduce((acc, line) => {
+      try { acc.push(JSON.parse(line)); } catch {}
+      return acc;
+    }, []).slice(-limit);
   } catch {
     return [];
   }
 }
 
-async function appendLog(userDir, scheduleId, logEntry) {
+async function appendLog(userDir, scheduleId, level, message) {
   const logsFile = path.join(scheduleDir(userDir, scheduleId), 'logs.txt');
-  await fs.appendFile(logsFile, `[${new Date().toISOString()}] ${logEntry}\n`);
+  await fs.appendFile(logsFile, JSON.stringify({ ts: new Date().toISOString(), level, message }) + '\n');
 }
 
 async function addCronJob(userDir, scheduleId, cronExpression, encryptedPayload) {

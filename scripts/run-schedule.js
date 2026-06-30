@@ -73,10 +73,10 @@ function runMudslide(args) {
   });
 }
 
-async function appendLog(schDir, line) {
+async function appendLog(schDir, level, message) {
   await fs.appendFile(
     path.join(schDir, 'logs.txt'),
-    `[${new Date().toISOString()}] ${line}\n`
+    JSON.stringify({ ts: new Date().toISOString(), level, message }) + '\n'
   );
 }
 
@@ -92,14 +92,14 @@ async function main() {
   // Decrypt .mudslide.enc to a temp directory
   const credPath = await decryptMudslideToTemp(userDir, token);
 
-  await appendLog(schDir, `INFO: Starting execution for schedule ${scheduleId}`);
+  await appendLog(schDir, 'INFO', `Starting execution for schedule ${scheduleId}`);
 
   let success = 0;
   let failure = 0;
 
   try {
     for (const recipient of recipients) {
-      await appendLog(schDir, `INFO: Sending to ${recipient}`);
+      await appendLog(schDir, 'INFO', `Sending to ${recipient}`);
       try {
         let args;
         if (media) {
@@ -111,10 +111,10 @@ async function main() {
           args = ['-c', credPath, 'send', recipient, message];
         }
         await runMudslide(args);
-        await appendLog(schDir, `SUCCESS: Sent to ${recipient}`);
+        await appendLog(schDir, 'SUCCESS', `Sent to ${recipient}`);
         success++;
       } catch (err) {
-        await appendLog(schDir, `ERROR: Failed to send to ${recipient} - ${err.message}`);
+        await appendLog(schDir, 'ERROR', `Failed to send to ${recipient} - ${err.message}`);
         failure++;
       }
     }
@@ -129,7 +129,7 @@ async function main() {
   schedule.lastRun = new Date().toISOString();
   await fs.writeFile(scheduleFile, encryptData(JSON.stringify(schedule), token));
 
-  await appendLog(schDir, `INFO: Done - Success: ${success}, Failed: ${failure}`);
+  await appendLog(schDir, 'INFO', `Done - Success: ${success}, Failed: ${failure}`);
 }
 
 main().catch(err => {

@@ -346,6 +346,17 @@ async function routes(fastify, options) {
     }
   });
 
+  fastify.get('/api/usage/logs', { preHandler: authenticateUser }, async (request, reply) => {
+    try {
+      const limit = parseInt(request.query.limit) || 50;
+      const logs = await mudslideService.getUsageLogs(request.user.userDir, limit);
+      return { logs };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Failed to get usage logs' });
+    }
+  });
+
   fastify.get('/api/schedules/:id/logs', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       const limit = parseInt(request.query.limit) || 100;
@@ -363,10 +374,10 @@ async function routes(fastify, options) {
       if (!to || !message) {
         return reply.code(400).send({ error: 'to and message are required' });
       }
-      const result = media
-        ? await mudslideService.sendMedia(request.user.userDir, request.user.token, to, media, message)
-        : await mudslideService.sendMessage(request.user.userDir, request.user.token, to, message);
-      return { success: true, result };
+      await (media
+        ? mudslideService.sendMedia(request.user.userDir, request.user.token, to, media, message)
+        : mudslideService.sendMessage(request.user.userDir, request.user.token, to, message));
+      return { success: true };
     } catch (error) {
       fastify.log.error(error);
       return reply.code(500).send({ error: 'Failed to send message' });
