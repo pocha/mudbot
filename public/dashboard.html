@@ -663,23 +663,24 @@ async function renderLogs() {
     // Fetch usage logs and schedule logs in parallel
     const [usageRes, scheduleLogsRes] = await Promise.allSettled([
         fetch(`${API_BASE}/api/usage/logs?limit=50`, { headers: { 'Authorization': `Bearer ${authToken}` } })
-            .then(r => r.ok ? r.json() : { logs: [] }).then(d => d.logs || []),
+            .then(r => r.ok ? r.json() : { count: 0, logs: [] }),
         Promise.all(schedules.map(async s => {
             try {
                 const res = await fetch(`${API_BASE}/api/schedules/${s.id}/logs?limit=5`, {
                     headers: { 'Authorization': `Bearer ${authToken}` }
                 });
-                const data = res.ok ? await res.json() : {};
-                return { schedule: s, logs: data.logs || [] };
-            } catch { return { schedule: s, logs: [] }; }
+                const data = res.ok ? await res.json() : { count: 0, logs: [] };
+                return { schedule: s, count: data.count || 0, logs: data.logs || [] };
+            } catch { return { schedule: s, count: 0, logs: [] }; }
         }))
     ]);
 
-    const usageLogs = usageRes.status === 'fulfilled' ? usageRes.value : [];
+    const usageData = usageRes.status === 'fulfilled' ? usageRes.value : { count: 0, logs: [] };
+    const usageLogs = usageData.logs || [];
     const allScheduleLogs = scheduleLogsRes.status === 'fulfilled' ? scheduleLogsRes.value : [];
     const scheduleLogsWithEntries = allScheduleLogs.filter(x => x.logs.length > 0);
 
-    const totalCount = usageLogs.length + scheduleLogsWithEntries.reduce((sum, x) => sum + x.logs.length, 0);
+    const totalCount = usageData.count + allScheduleLogs.reduce((sum, x) => sum + x.count, 0);
     if (countBadge) {
         if (totalCount > 0) {
             countBadge.textContent = totalCount;

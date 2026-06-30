@@ -185,12 +185,13 @@ async function getScheduleLogs(userDir, scheduleId, limit = 50) {
   const logsFile = path.join(scheduleDir(userDir, scheduleId), 'logs.txt');
   try {
     const data = await fs.readFile(logsFile, 'utf8');
-    return data.trim().split('\n').filter(Boolean).reduce((acc, line) => {
+    const all = data.trim().split('\n').filter(Boolean).reduce((acc, line) => {
       try { acc.push(JSON.parse(line)); } catch {}
       return acc;
-    }, []).slice(-limit);
+    }, []);
+    return { count: all.length, logs: all.slice(-limit) };
   } catch {
-    return [];
+    return { count: 0, logs: [] };
   }
 }
 
