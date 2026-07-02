@@ -5,7 +5,6 @@ const path = require('path');
 const crypto = require('crypto');
 
 const USERS_DIR = path.join(__dirname, '..', 'users');
-const PORT = process.env.PORT || 3000;
 
 const [userDir, scheduleId, encryptedPayload] = process.argv.slice(2);
 
@@ -32,7 +31,7 @@ async function main() {
     try {
       const body = { to: recipient, message };
       if (media) body.media = media;
-      const res = await fetch(`http://localhost:${PORT}/api/message`, {
+      const res = await fetch(`${process.env.BASE_URL || 'http://localhost'}:${process.env.PORT || 80}/api/message`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
