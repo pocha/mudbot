@@ -4,5 +4,7 @@ package-lock.json
 .env.*
 users/**/.mudslide
 users/**/logs.txt
+users/**/usage.log
 .claude/
 server.log
+*.key
