@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Generate a FAQ from your WhatsApp Group — Watobot</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+  <div class="max-w-2xl mx-auto px-4 py-12">
+    <header class="mb-8 text-center">
+      <h1 class="text-2xl font-semibold text-slate-900">Turn a WhatsApp group chat into a FAQ</h1>
+      <p class="mt-2 text-slate-600 text-sm">
+        Export a group's chat as a .zip from WhatsApp (Group Info → Export Chat → Without Media), upload it below,
+        and we'll generate a shareable FAQ page from the recent conversation.
+      </p>
+    </header>
+
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+      <form id="upload-form" class="space-y-4">
+        <div>
+          <label for="group-name" class="block text-sm font-medium text-slate-700 mb-1">Group name (optional)</label>
+          <input id="group-name" name="groupName" type="text" placeholder="e.g. Building 4B Residents"
+            class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label for="zip-file" class="block text-sm font-medium text-slate-700 mb-1">Chat export (.zip)</label>
+          <input id="zip-file" name="zipFile" type="file" accept=".zip" required
+            class="w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-700 file:text-sm file:font-medium hover:file:bg-indigo-100" />
+        </div>
+        <button id="submit-btn" type="submit"
+          class="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed">
+          Generate FAQ
+        </button>
+      </form>
+
+      <div id="status-box" class="hidden mt-6 flex items-center gap-3 text-sm text-slate-600">
+        <span class="w-4 h-4 border-2 border-slate-300 border-t-indigo-600 rounded-full animate-spin block"></span>
+        <span id="status-text">Uploading…</span>
+      </div>
+
+      <div id="error-box" class="hidden mt-6 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm p-4"></div>
+    </div>
+
+    <div id="faq-result" class="hidden mt-8 bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+      <h2 class="text-lg font-semibold text-slate-900 mb-4">Your FAQ</h2>
+      <div id="faq-content" class="prose prose-slate max-w-none text-sm"></div>
+    </div>
+  </div>
+
+  <script>
+    // TODO: confirm this matches the deployed URL after `firebase deploy --only functions`
+    const FUNCTIONS_BASE = 'https://asia-south1-wato-bot.cloudfunctions.net';
+
+    const form = document.getElementById('upload-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const statusBox = document.getElementById('status-box');
+    const statusText = document.getElementById('status-text');
+    const errorBox = document.getElementById('error-box');
+    const faqResult = document.getElementById('faq-result');
+    const faqContent = document.getElementById('faq-content');
+
+    let pollTimer = null;
+
+    function showError(message) {
+      errorBox.textContent = message;
+      errorBox.classList.remove('hidden');
+    }
+
+    function resetUi() {
+      errorBox.classList.add('hidden');
+      faqResult.classList.add('hidden');
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    }
+
+    function setBusy(isBusy, label) {
+      submitBtn.disabled = isBusy;
+      statusBox.classList.toggle('hidden', !isBusy);
+      if (label) statusText.textContent = label;
+    }
+
+    async function pollStatus(jobId) {
+      pollTimer = setInterval(async () => {
+        try {
+          const res = await fetch(`${FUNCTIONS_BASE}/getFaqStatus?jobId=${encodeURIComponent(jobId)}`);
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Failed to check status');
+
+          if (data.state === 'generating') {
+            statusText.textContent = 'Generating FAQ with Gemini…';
+          } else if (data.state === 'done') {
+            clearInterval(pollTimer);
+            pollTimer = null;
+            setBusy(false);
+            faqContent.innerHTML = data.faqHtml;
+            faqResult.classList.remove('hidden');
+          } else if (data.state === 'failed') {
+            clearInterval(pollTimer);
+            pollTimer = null;
+            setBusy(false);
+            showError(data.error || 'FAQ generation failed.');
+          }
+        } catch (err) {
+          clearInterval(pollTimer);
+          pollTimer = null;
+          setBusy(false);
+          showError(err.message || 'Something went wrong while checking status.');
+        }
+      }, 3000);
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      resetUi();
+
+      const fileInput = document.getElementById('zip-file');
+      if (!fileInput.files.length) return;
+
+      const formData = new FormData();
+      formData.append('groupName', document.getElementById('group-name').value);
+      formData.append('zipFile', fileInput.files[0]);
+
+      setBusy(true, 'Uploading…');
+
+      try {
+        const res = await fetch(`${FUNCTIONS_BASE}/submitFaqUpload`, {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Upload failed');
+
+        setBusy(true, 'Generating FAQ with Gemini…');
+        pollStatus(data.jobId);
+      } catch (err) {
+        setBusy(false);
+        showError(err.message || 'Upload failed.');
+      }
+    });
+  </script>
+</body>
+</html>
