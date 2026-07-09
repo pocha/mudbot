@@ -11,107 +11,8 @@
 <!-- Tailwind CSS -->
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <!-- Style Guidance Implementation -->
-<script id="tailwind-config">
-      tailwind.config = {
-        darkMode: "class",
-        theme: {
-          extend: {
-            "colors": {
-                    "on-surface-variant": "#3c4a3d",
-                    "inverse-surface": "#2d3133",
-                    "on-surface": "#191c1e",
-                    "error": "#ba1a1a",
-                    "tertiary-fixed": "#c0e8ff",
-                    "on-tertiary-container": "#004f69",
-                    "secondary-container": "#76f6cd",
-                    "on-error": "#ffffff",
-                    "surface-bright": "#f7f9fc",
-                    "surface-container-lowest": "#ffffff",
-                    "on-error-container": "#93000a",
-                    "on-primary-container": "#005523",
-                    "on-secondary": "#ffffff",
-                    "background": "#f7f9fc",
-                    "inverse-on-surface": "#eff1f4",
-                    "secondary": "#006b53",
-                    "error-container": "#ffdad6",
-                    "secondary-fixed-dim": "#59dcb5",
-                    "on-background": "#191c1e",
-                    "surface-container-high": "#e6e8eb",
-                    "on-primary-fixed-variant": "#005322",
-                    "surface-container": "#eceef1",
-                    "surface": "#f7f9fc",
-                    "on-secondary-container": "#007057",
-                    "surface-tint": "#006d2f",
-                    "primary-fixed-dim": "#3de273",
-                    "secondary-fixed": "#79f9d0",
-                    "on-tertiary-fixed": "#001e2b",
-                    "surface-container-highest": "#e0e3e6",
-                    "tertiary": "#006686",
-                    "tertiary-fixed-dim": "#70d2ff",
-                    "on-secondary-fixed-variant": "#00513e",
-                    "surface-dim": "#d8dadd",
-                    "on-secondary-fixed": "#002117",
-                    "primary-container": "#25d366",
-                    "on-primary": "#ffffff",
-                    "primary": "#006d2f",
-                    "outline": "#6c7b6b",
-                    "tertiary-container": "#5bc4f2",
-                    "outline-variant": "#bbcbb9",
-                    "inverse-primary": "#3de273",
-                    "surface-container-low": "#f2f4f7",
-                    "primary-fixed": "#66ff8e",
-                    "on-primary-fixed": "#002109",
-                    "on-tertiary-fixed-variant": "#004d66",
-                    "on-tertiary": "#ffffff",
-                    "surface-variant": "#e0e3e6"
-            },
-            "borderRadius": {
-                    "DEFAULT": "0.125rem",
-                    "lg": "0.25rem",
-                    "xl": "0.5rem",
-                    "full": "0.75rem"
-            },
-            "spacing": {
-                    "stack-gap": "12px",
-                    "unit": "4px",
-                    "gutter": "16px",
-                    "sidebar-width": "320px",
-                    "container-padding": "24px"
-            },
-            "fontFamily": {
-                    "body-lg": ["Inter"],
-                    "code-sm": ["Geist"],
-                    "headline-md": ["Plus Jakarta Sans"],
-                    "headline-lg": ["Plus Jakarta Sans"],
-                    "label-md": ["Inter"],
-                    "body-md": ["Inter"]
-            },
-            "fontSize": {
-                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
-                    "code-sm": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
-                    "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
-                    "headline-lg": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
-                    "label-md": ["13px", {"lineHeight": "18px", "letterSpacing": "0.05em", "fontWeight": "600"}],
-                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]
-            }
-          },
-        },
-      }
-    </script>
-<style>
-        .material-symbols-outlined {
-            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-        }
-        .whatsapp-border { border-left: 4px solid #25D366; }
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #bbcbb9; border-radius: 10px; }
-        
-        /* Step Logic Visuals */
-        .step-active { opacity: 1; pointer-events: auto; }
-        .step-disabled { opacity: 0.5; pointer-events: none; filter: grayscale(1); }
-        .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-    </style>
+<script src="/assets/theme.js"></script>
+<link rel="stylesheet" href="/assets/theme.css"/>
 </head>
 <body class="bg-surface text-on-surface font-body-md overflow-hidden">
 <!-- Top Navigation -->
@@ -374,17 +275,8 @@ No active schedules yet. Use the form above to get started.
 </main>
 </div>
 <!-- Footer -->
-<footer class="w-full py-8 px-gutter flex flex-col md:flex-row justify-between items-center gap-stack-gap bg-surface-dim dark:bg-inverse-surface border-t border-outline-variant">
-<div class="flex flex-col items-center md:items-start">
-<span class="font-label-md text-label-md font-bold text-on-surface">WatoBot Automation</span>
-<p class="text-on-surface-variant text-body-md">© 2024 WatoBot Automation. All rights reserved.</p>
-</div>
-<div class="flex gap-6">
-<a class="text-on-surface-variant hover:text-primary transition-opacity hover:opacity-80 underline font-body-md text-body-md" href="/privacy.html">Privacy Policy</a>
-<a class="text-on-surface-variant hover:text-primary transition-opacity hover:opacity-80 underline font-body-md text-body-md" href="https://github.com/pocha/mudbot?tab=readme-ov-file#api" target="_blank" rel="noopener">API Docs</a>
-<button onclick="openSupport()" class="text-on-surface-variant hover:text-primary transition-opacity hover:opacity-80 underline font-body-md text-body-md">Support</button>
-</div>
-</footer>
+<div id="site-footer"></div>
+<script src="/assets/footer.js"></script>
 <!-- Support Modal -->
 <div id="supportModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center px-4">
   <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="closeSupport()"></div>

@@ -18,9 +18,43 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
+// Best-effort only — WhatsApp export date formats vary and aren't reliably
+// parseable, so this is used purely as a secondary tie-break under count,
+// never surfaced as a guaranteed-accurate value.
+function looseDateValue(str) {
+  const t = Date.parse(str);
+  return Number.isNaN(t) ? 0 : t;
+}
+
 function renderFaqHtml(faq) {
-  return faq
-    .map(({ question, answer }) => `<h3>${escapeHtml(question)}</h3>\n<p>${escapeHtml(answer)}</p>`)
+  const sorted = [...faq].sort((a, b) => {
+    const countDiff = (b.count || 0) - (a.count || 0);
+    if (countDiff !== 0) return countDiff;
+    return looseDateValue(b.mostRecentDate) - looseDateValue(a.mostRecentDate);
+  });
+
+  return sorted
+    .map(({ question, count, mostRecentDate, answers = [] }) => {
+      const [latest, ...older] = answers;
+      const olderHtml = older.length
+        ? `
+  <details class="mt-2 pl-6">
+    <summary class="cursor-pointer font-label-md text-label-md text-primary font-bold">See ${older.length} earlier answer${older.length > 1 ? 's' : ''}</summary>
+    <div class="mt-2 space-y-2">
+      ${older.map(a => `<p class="font-body-md text-on-surface-variant"><span class="text-xs opacity-70">${escapeHtml(a.date)}</span> — ${escapeHtml(a.text)}</p>`).join('\n      ')}
+    </div>
+  </details>`
+        : '';
+
+      return `
+<div class="pb-5 mb-5 border-b border-outline-variant last:border-b-0 last:mb-0 last:pb-0">
+  <h3 class="flex gap-2 font-headline-md text-body-lg font-bold text-on-surface">
+    <span class="text-primary shrink-0">Q.</span> ${escapeHtml(question)}
+  </h3>
+  <p class="mt-2 pl-6 font-body-md text-on-surface-variant">${escapeHtml(latest ? latest.text : '')}</p>
+  <p class="mt-1 pl-6 text-xs text-on-surface-variant opacity-70">Came up ~${count || 1} time${(count || 1) === 1 ? '' : 's'} &middot; last discussed ${escapeHtml(mostRecentDate || '')}</p>${olderHtml}
+</div>`.trim();
+    })
     .join('\n');
 }
 
@@ -34,7 +68,12 @@ const db = admin.firestore();
 const geminiApiKey = defineSecret('GEMINI_API_KEY');
 
 const MAX_ZIP_BYTES = 10 * 1024 * 1024; // 10MB
-const MAX_MESSAGES = 500;
+// Zip uploads carry the group's full history for free (no live fetch cost),
+// and system/join-leave noise is now filtered out before this cap is applied,
+// so this can be generous. Still well under Firestore's 1MB doc limit and
+// Gemini 3.1 Flash Lite's 250K TPM free-tier ceiling once truncated in
+// buildFaqPrompt.
+const MAX_MESSAGES = 1500;
 
 function parseMultipart(req) {
   return new Promise((resolve, reject) => {
@@ -146,6 +185,9 @@ exports.getFaqStatus = onRequest({ cors: true }, async (req, res) => {
     return;
   }
 
-  const { state, faq, error, groupName } = doc.data();
-  res.json({ jobId, state, groupName, faq: faq || null, faqHtml: faq ? renderFaqHtml(faq) : null, error: error || null });
+  const { state, faq, error, groupName, messageCount } = doc.data();
+  res.json({
+    jobId, state, groupName, messageCount: messageCount || null,
+    faq: faq || null, faqHtml: faq ? renderFaqHtml(faq) : null, error: error || null
+  });
 });

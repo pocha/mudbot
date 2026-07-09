@@ -53,7 +53,12 @@ function parseWhatsAppChat(text) {
     }
   }
 
-  return messages.filter(m => m.text && !/<Media omitted>/i.test(m.text));
+  // "System" bucket = a timestamped line with no "Name: text" pattern, which in
+  // practice is always a WhatsApp-generated notice (joined/left/added/removed,
+  // changed group settings/description, disappearing-messages toggle, the
+  // end-to-end-encryption banner, etc.) — never substantive conversation, so
+  // drop it entirely rather than let it eat into the message budget.
+  return messages.filter(m => m.text && m.name !== 'System' && !/<Media omitted>/i.test(m.text));
 }
 
 module.exports = { extractChatText, parseWhatsAppChat };
