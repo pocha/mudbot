@@ -11,6 +11,7 @@
 <script src="/assets/theme.js"></script>
 <link rel="stylesheet" href="/assets/theme.css"/>
 <script src="/assets/whatsapp-parser.js"></script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
 <body class="bg-surface text-on-surface font-body-md min-h-screen flex flex-col">
 
@@ -40,7 +41,7 @@
     <div class="p-6 space-y-gutter">
       <form id="upload-form" class="space-y-4">
         <div class="flex flex-col gap-1">
-          <label for="group-name" class="font-label-md text-label-md text-on-surface-variant">Group name (optional)</label>
+          <label for="group-name" class="font-label-md text-label-md text-on-surface-variant">Group name (required to publish)</label>
           <input id="group-name" name="groupName" type="text" placeholder="e.g. Building 4B Residents"
             class="bg-surface-container-low border-b-2 border-transparent focus:border-primary focus:ring-0 rounded-lg p-3 transition-all outline-none font-body-md" />
         </div>
@@ -71,8 +72,29 @@
     <div class="p-6 border-b border-outline-variant">
       <h2 class="font-headline-md text-headline-md text-on-surface">Your FAQ</h2>
       <p id="faq-subtitle" class="mt-1 font-body-md text-on-surface-variant text-sm"></p>
+      <p class="mt-2 font-body-md text-on-surface-variant text-xs">Click any question or answer below to edit it before publishing.</p>
     </div>
     <div id="faq-content" class="p-6"></div>
+
+    <div class="p-6 pt-0 flex flex-col gap-3">
+      <div id="publish-error" class="hidden rounded-lg bg-error-container border border-error text-on-error-container font-body-md text-sm p-4"></div>
+
+      <!-- Rendered explicitly via JS once this section becomes visible (see
+           renderTurnstileWidget) rather than Turnstile's auto-render, since
+           auto-render runs at page load while this container is still
+           display:none and won't pick it up once unhidden later. -->
+      <div id="turnstile-widget"></div>
+
+      <button id="publish-btn" type="button" disabled
+        class="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-on-primary px-4 py-3 font-label-md text-label-md font-bold hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+        Publish FAQ
+      </button>
+
+      <div id="publish-status-box" class="hidden flex items-center gap-3 text-on-surface-variant font-body-md text-sm">
+        <span class="w-4 h-4 border-2 border-outline-variant border-t-primary rounded-full animate-spin block"></span>
+        <span id="publish-status-text">Publishing…</span>
+      </div>
+    </div>
   </div>
 </main>
 
@@ -113,8 +135,39 @@
   const faqResult = document.getElementById('faq-result');
   const faqContent = document.getElementById('faq-content');
   const faqSubtitle = document.getElementById('faq-subtitle');
+  const groupNameInput = document.getElementById('group-name');
+  const publishBtn = document.getElementById('publish-btn');
+  const publishError = document.getElementById('publish-error');
+  const publishStatusBox = document.getElementById('publish-status-box');
+  const publishStatusText = document.getElementById('publish-status-text');
 
   let pollTimer = null;
+  let publishPollTimer = null;
+  let currentFaq = null; // live-edited copy of the generated FAQ, kept in sync with the contenteditable fields
+  let turnstileToken = null;
+  let turnstileRendered = false;
+
+  const TURNSTILE_SITE_KEY = '0x4AAAAAADyyPhijs7U9dZz3';
+
+  function onTurnstileSuccess(token) {
+    turnstileToken = token;
+    publishBtn.disabled = false;
+  }
+
+  // Called once the FAQ result section is revealed (widget must be visible
+  // to render correctly). Guarded so re-generating doesn't double-render.
+  function renderTurnstileWidget() {
+    if (turnstileRendered) return;
+    if (typeof turnstile === 'undefined') {
+      // Turnstile's script loads async/defer — in the rare case it hasn't
+      // finished by the time generation completes, retry briefly rather than
+      // silently leaving the widget (and Publish button) unusable.
+      setTimeout(renderTurnstileWidget, 200);
+      return;
+    }
+    turnstile.render('#turnstile-widget', { sitekey: TURNSTILE_SITE_KEY, callback: onTurnstileSuccess });
+    turnstileRendered = true;
+  }
 
   function showError(message) {
     errorBox.textContent = message;
@@ -125,6 +178,153 @@
     errorBox.classList.add('hidden');
     faqResult.classList.add('hidden');
     if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    if (publishPollTimer) { clearInterval(publishPollTimer); publishPollTimer = null; }
+    publishError.classList.add('hidden');
+    publishStatusBox.classList.add('hidden');
+    publishBtn.disabled = true;
+    publishBtn.textContent = 'Publish FAQ';
+    currentFaq = null;
+    turnstileToken = null;
+    if (turnstileRendered && typeof turnstile !== 'undefined') turnstile.reset('#turnstile-widget');
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  // Same visual layout as the server-rendered faqHtml fragment, but with the
+  // question and each answer's text made contenteditable, and wired to keep
+  // currentFaq (what actually gets published) in sync as the user types.
+  function renderEditableFaq(faq) {
+    faqContent.innerHTML = faq.map((entry, entryIndex) => {
+      const answers = entry.answers || [];
+      const [latest, ...older] = answers;
+      const olderHtml = older.length
+        ? `
+  <details class="mt-2 pl-6">
+    <summary class="cursor-pointer font-label-md text-label-md text-primary font-bold">See ${older.length} earlier answer${older.length > 1 ? 's' : ''}</summary>
+    <div class="mt-2 space-y-2">
+      ${older.map((a, i) => `<p class="font-body-md text-on-surface-variant"><span class="text-xs opacity-70">${escapeHtml(a.date)}</span> — <span contenteditable="true" class="outline-none focus:bg-surface-container-low rounded px-1 -mx-1" data-field="answer" data-entry-index="${entryIndex}" data-answer-index="${i + 1}">${escapeHtml(a.text)}</span></p>`).join('\n      ')}
+    </div>
+  </details>`
+        : '';
+
+      return `
+<div class="pb-5 mb-5 border-b border-outline-variant last:border-b-0 last:mb-0 last:pb-0">
+  <h3 class="flex gap-2 font-headline-md text-body-lg font-bold text-on-surface">
+    <span class="text-primary shrink-0">Q.</span>
+    <span contenteditable="true" class="outline-none focus:bg-surface-container-low rounded px-1 -mx-1" data-field="question" data-entry-index="${entryIndex}">${escapeHtml(entry.question)}</span>
+  </h3>
+  <p class="mt-2 pl-6 font-body-md text-on-surface-variant">
+    <span contenteditable="true" class="outline-none focus:bg-surface-container-low rounded px-1 -mx-1" data-field="answer" data-entry-index="${entryIndex}" data-answer-index="0">${escapeHtml(latest ? latest.text : '')}</span>
+  </p>
+  <p class="mt-1 pl-6 text-xs text-on-surface-variant opacity-70">Came up ~${entry.count || 1} time${(entry.count || 1) === 1 ? '' : 's'} &middot; last discussed ${escapeHtml(entry.mostRecentDate || '')}</p>${olderHtml}
+</div>`.trim();
+    }).join('\n');
+  }
+
+  faqContent.addEventListener('input', (e) => {
+    const el = e.target.closest('[data-field]');
+    if (!el || !currentFaq) return;
+    const entryIndex = Number(el.dataset.entryIndex);
+    if (el.dataset.field === 'question') {
+      currentFaq[entryIndex].question = el.textContent.trim();
+    } else if (el.dataset.field === 'answer') {
+      const answerIndex = Number(el.dataset.answerIndex);
+      currentFaq[entryIndex].answers[answerIndex].text = el.textContent.trim();
+    }
+  });
+
+  function showPublishError(message) {
+    publishError.textContent = message;
+    publishError.classList.remove('hidden');
+  }
+
+  function setPublishBusy(isBusy, label) {
+    publishBtn.disabled = isBusy;
+    publishStatusBox.classList.toggle('hidden', !isBusy);
+    if (label) publishStatusText.textContent = label;
+  }
+
+  publishBtn.addEventListener('click', async () => {
+    publishError.classList.add('hidden');
+
+    const groupName = groupNameInput.value.trim();
+    if (!groupName) {
+      groupNameInput.focus();
+      showPublishError('Group name is required to publish.');
+      return;
+    }
+    if (!turnstileToken) {
+      showPublishError('Please complete the captcha above, then try again.');
+      return;
+    }
+    if (!currentFaq || !currentFaq.length) {
+      showPublishError('No FAQ content to publish.');
+      return;
+    }
+
+    setPublishBusy(true, 'Publishing…');
+
+    try {
+      const res = await fetch(`${FUNCTIONS_BASE}/publishFaq`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupName, faq: currentFaq, turnstileToken })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Publish failed');
+
+      setPublishBusy(true, 'Published — waiting for the site to update…');
+      pollPublishStatus(data.commitSha, data.faqUrl);
+    } catch (err) {
+      setPublishBusy(false);
+      publishBtn.disabled = false;
+      showPublishError(err.message || 'Publish failed.');
+    }
+  });
+
+  function pollPublishStatus(commitSha, faqUrl) {
+    let attempts = 0;
+    const maxAttempts = 40; // ~40 * 4s = ~160s, generous for a GitHub Pages build+deploy
+    publishPollTimer = setInterval(async () => {
+      attempts++;
+      try {
+        const res = await fetch(`${FUNCTIONS_BASE}/getPublishStatus?commitSha=${encodeURIComponent(commitSha)}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Status check failed');
+
+        if (data.state === 'success') {
+          clearInterval(publishPollTimer);
+          publishPollTimer = null;
+          window.location.href = faqUrl;
+        } else if (data.state === 'failure') {
+          clearInterval(publishPollTimer);
+          publishPollTimer = null;
+          setPublishBusy(false);
+          publishBtn.disabled = false;
+          showPublishError('Publishing failed during deployment. Please try again.');
+        } else if (attempts >= maxAttempts) {
+          clearInterval(publishPollTimer);
+          publishPollTimer = null;
+          setPublishBusy(false);
+          publishBtn.disabled = false;
+          showPublishError(`Taking longer than expected — your FAQ should appear shortly at ${faqUrl}`);
+        }
+        // 'pending' / 'running' -> keep polling
+      } catch (err) {
+        clearInterval(publishPollTimer);
+        publishPollTimer = null;
+        setPublishBusy(false);
+        publishBtn.disabled = false;
+        showPublishError(err.message || 'Something went wrong while checking publish status.');
+      }
+    }, 4000);
   }
 
   function setBusy(isBusy, label) {
@@ -146,11 +346,13 @@
           clearInterval(pollTimer);
           pollTimer = null;
           setBusy(false);
-          faqContent.innerHTML = data.faqHtml;
+          currentFaq = JSON.parse(JSON.stringify(data.faq));
+          renderEditableFaq(currentFaq);
           faqSubtitle.textContent = data.messageCount
             ? `Based on the most recent ${data.messageCount} messages. Connect your WhatsApp account to keep this FAQ updated automatically every night.`
             : 'Connect your WhatsApp account to keep this FAQ updated automatically every night.';
           faqResult.classList.remove('hidden');
+          renderTurnstileWidget();
         } else if (data.state === 'failed') {
           clearInterval(pollTimer);
           pollTimer = null;
