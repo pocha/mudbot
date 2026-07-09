@@ -2,10 +2,8 @@ const { onRequest } = require('firebase-functions/v2/https');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { defineSecret } = require('firebase-functions/params');
 const { setGlobalOptions } = require('firebase-functions/v2');
-const Busboy = require('busboy');
 const admin = require('firebase-admin');
 
-const { extractChatText, parseWhatsAppChat } = require('./src/zipParser');
 const { buildFaqPrompt } = require('./src/prompt');
 const { callGeminiForFaq } = require('./src/gemini');
 
@@ -67,68 +65,39 @@ const db = admin.firestore();
 
 const geminiApiKey = defineSecret('GEMINI_API_KEY');
 
-const MAX_ZIP_BYTES = 10 * 1024 * 1024; // 10MB
-// Zip uploads carry the group's full history for free (no live fetch cost),
-// and system/join-leave noise is now filtered out before this cap is applied,
-// so this can be generous. Still well under Firestore's 1MB doc limit and
-// Gemini 3.1 Flash Lite's 250K TPM free-tier ceiling once truncated in
-// buildFaqPrompt.
+// Parsing and truncation to the most recent messages now happens client-side
+// (public/assets/whatsapp-parser.js) so large exports never have to be
+// uploaded. This is re-applied here only as a defensive backstop against a
+// client sending an unbounded array directly to the endpoint — not a claim
+// that the client's cap can be trusted.
 const MAX_MESSAGES = 1500;
 
-function parseMultipart(req) {
-  return new Promise((resolve, reject) => {
-    const busboy = Busboy({ headers: req.headers, limits: { fileSize: MAX_ZIP_BYTES } });
-    let zipBuffer = null;
-    let groupName = '';
-    let fileTooLarge = false;
-
-    busboy.on('field', (name, val) => {
-      if (name === 'groupName') groupName = val;
-    });
-
-    busboy.on('file', (_name, file) => {
-      const chunks = [];
-      file.on('data', d => chunks.push(d));
-      file.on('limit', () => { fileTooLarge = true; file.resume(); });
-      file.on('end', () => { zipBuffer = Buffer.concat(chunks); });
-    });
-
-    busboy.on('finish', () => {
-      if (fileTooLarge) return reject(new Error(`Zip file exceeds ${MAX_ZIP_BYTES / (1024 * 1024)}MB limit`));
-      if (!zipBuffer || !zipBuffer.length) return reject(new Error('No zip file uploaded'));
-      resolve({ groupName, zipBuffer });
-    });
-
-    busboy.on('error', reject);
-    busboy.end(req.rawBody);
-  });
-}
-
-// Unauthenticated: accepts a WhatsApp chat-export zip, parses it, and creates a
-// Firestore job doc. processFaqJob (below) picks it up and does the Gemini call.
-exports.submitFaqUpload = onRequest({ cors: true, memory: '512MiB', timeoutSeconds: 60 }, async (req, res) => {
+// Unauthenticated: accepts a pre-parsed, pre-capped message array (JSON body)
+// and creates a Firestore job doc. processFaqJob (below) picks it up and does
+// the Gemini call.
+exports.submitFaqUpload = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, res) => {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
   }
 
   try {
-    const { groupName, zipBuffer } = await parseMultipart(req);
-    const chatText = extractChatText(zipBuffer);
-    const messages = parseWhatsAppChat(chatText).slice(-MAX_MESSAGES);
+    const { groupName, messages } = req.body || {};
 
-    if (!messages.length) {
-      res.status(400).json({ error: 'No messages could be parsed from the uploaded export.' });
+    if (!Array.isArray(messages) || !messages.length) {
+      res.status(400).json({ error: 'No messages provided.' });
       return;
     }
+
+    const capped = messages.slice(-MAX_MESSAGES);
 
     const jobRef = db.collection('faqJobs').doc();
     await jobRef.set({
       groupName: groupName || 'WhatsApp Group',
       source: 'upload',
       state: 'queued',
-      messageCount: messages.length,
-      messages,
+      messageCount: capped.length,
+      messages: capped,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });

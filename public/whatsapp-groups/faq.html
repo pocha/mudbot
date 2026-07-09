@@ -10,6 +10,7 @@
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <script src="/assets/theme.js"></script>
 <link rel="stylesheet" href="/assets/theme.css"/>
+<script src="/assets/whatsapp-parser.js"></script>
 </head>
 <body class="bg-surface text-on-surface font-body-md min-h-screen flex flex-col">
 
@@ -44,9 +45,12 @@
             class="bg-surface-container-low border-b-2 border-transparent focus:border-primary focus:ring-0 rounded-lg p-3 transition-all outline-none font-body-md" />
         </div>
         <div class="flex flex-col gap-1">
-          <label for="zip-file" class="font-label-md text-label-md text-on-surface-variant">Chat export (.zip)</label>
-          <input id="zip-file" name="zipFile" type="file" accept=".zip" required
+          <label for="chat-file" class="font-label-md text-label-md text-on-surface-variant">Chat export (_chat.txt)</label>
+          <input id="chat-file" name="chatFile" type="file" accept=".txt" required
             class="font-body-md text-on-surface-variant file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-primary-container file:text-on-primary-container file:font-label-md file:text-label-md file:font-bold hover:file:opacity-90" />
+          <p class="mt-1 text-xs text-on-surface-variant">
+            WhatsApp exports as a .zip. Unzip it first, then select the <code>_chat.txt</code> file inside — we only need the text, not the media.
+          </p>
         </div>
         <button id="submit-btn" type="submit"
           class="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary-container text-on-primary-container px-4 py-3 font-label-md text-label-md font-bold hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
@@ -162,23 +166,33 @@
     }, 3000);
   }
 
+  const MAX_MESSAGES = 1500;
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     resetUi();
 
-    const fileInput = document.getElementById('zip-file');
+    const fileInput = document.getElementById('chat-file');
     if (!fileInput.files.length) return;
 
-    const formData = new FormData();
-    formData.append('groupName', document.getElementById('group-name').value);
-    formData.append('zipFile', fileInput.files[0]);
+    const groupName = document.getElementById('group-name').value;
 
-    setBusy(true, 'Uploading…');
+    setBusy(true, 'Reading chat file…');
 
     try {
+      const text = await fileInput.files[0].text();
+      const messages = parseWhatsAppChat(text).slice(-MAX_MESSAGES);
+
+      if (!messages.length) {
+        throw new Error('No messages could be parsed from that file. Make sure you selected the _chat.txt file from the unzipped export.');
+      }
+
+      setBusy(true, 'Uploading…');
+
       const res = await fetch(`${FUNCTIONS_BASE}/submitFaqUpload`, {
         method: 'POST',
-        body: formData
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupName, messages })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Upload failed');
