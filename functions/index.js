@@ -1,59 +1,30 @@
+const crypto = require('crypto');
 const { onRequest } = require('firebase-functions/v2/https');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
-const { defineSecret } = require('firebase-functions/params');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
 
 const { buildFaqPrompt } = require('./src/prompt');
 const { callGeminiForFaq } = require('./src/gemini');
+const { renderFaqEntriesHtml, renderFaqPage } = require('./src/faqRender');
+const { publishFile } = require('./src/githubPublish');
+const { getDeployStatusForCommit } = require('./src/githubDeployStatus');
+const { verifyTurnstileToken } = require('./src/turnstile');
 
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-// Best-effort only — WhatsApp export date formats vary and aren't reliably
-// parseable, so this is used purely as a secondary tie-break under count,
-// never surfaced as a guaranteed-accurate value.
-function looseDateValue(str) {
-  const t = Date.parse(str);
-  return Number.isNaN(t) ? 0 : t;
-}
-
-function renderFaqHtml(faq) {
-  const sorted = [...faq].sort((a, b) => {
-    const countDiff = (b.count || 0) - (a.count || 0);
-    if (countDiff !== 0) return countDiff;
-    return looseDateValue(b.mostRecentDate) - looseDateValue(a.mostRecentDate);
-  });
-
-  return sorted
-    .map(({ question, count, mostRecentDate, answers = [] }) => {
-      const [latest, ...older] = answers;
-      const olderHtml = older.length
-        ? `
-  <details class="mt-2 pl-6">
-    <summary class="cursor-pointer font-label-md text-label-md text-primary font-bold">See ${older.length} earlier answer${older.length > 1 ? 's' : ''}</summary>
-    <div class="mt-2 space-y-2">
-      ${older.map(a => `<p class="font-body-md text-on-surface-variant"><span class="text-xs opacity-70">${escapeHtml(a.date)}</span> — ${escapeHtml(a.text)}</p>`).join('\n      ')}
-    </div>
-  </details>`
-        : '';
-
-      return `
-<div class="pb-5 mb-5 border-b border-outline-variant last:border-b-0 last:mb-0 last:pb-0">
-  <h3 class="flex gap-2 font-headline-md text-body-lg font-bold text-on-surface">
-    <span class="text-primary shrink-0">Q.</span> ${escapeHtml(question)}
-  </h3>
-  <p class="mt-2 pl-6 font-body-md text-on-surface-variant">${escapeHtml(latest ? latest.text : '')}</p>
-  <p class="mt-1 pl-6 text-xs text-on-surface-variant opacity-70">Came up ~${count || 1} time${(count || 1) === 1 ? '' : 's'} &middot; last discussed ${escapeHtml(mostRecentDate || '')}</p>${olderHtml}
-</div>`.trim();
-    })
-    .join('\n');
+// Deterministic on the group name alone (not a job/session id) so publishing
+// the same-named group again always overwrites the same file rather than
+// minting a new one each time — matches the "Publish" button's create-or-
+// update semantics.
+function slugifyGroupName(groupName) {
+  const slug = groupName
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+  const hash = crypto.createHash('sha256').update(groupName.trim().toLowerCase()).digest('hex').slice(0, 5);
+  return `${slug || 'group'}-${hash}`;
 }
 
 // Mumbai — GCP's only Functions/Firestore region in India (there's no Hyderabad
@@ -63,7 +34,10 @@ setGlobalOptions({ region: 'asia-south1' });
 admin.initializeApp();
 const db = admin.firestore();
 
-const geminiApiKey = defineSecret('GEMINI_API_KEY');
+// Plain deploy-time env vars (functions/.env, loaded automatically by
+// Firebase on deploy) rather than defineSecret/Secret Manager — simpler for
+// a solo project, at the cost of not being access-controlled/audited the way
+// Secret Manager values are.
 
 // Parsing and capping-by-size now happens client-side
 // (public/assets/whatsapp-parser.js) so large exports never have to be
@@ -130,7 +104,7 @@ exports.submitFaqUpload = onRequest({ cors: true, timeoutSeconds: 60 }, async (r
 // timeoutSeconds raised from the 60s default: callGeminiForFaq can now wait
 // out a 429's retry delay (commonly ~15s) before retrying, on top of the
 // generation call itself.
-exports.processFaqJob = onDocumentCreated({ document: 'faqJobs/{jobId}', secrets: [geminiApiKey], timeoutSeconds: 120 }, async (event) => {
+exports.processFaqJob = onDocumentCreated({ document: 'faqJobs/{jobId}', timeoutSeconds: 120 }, async (event) => {
   const snap = event.data;
   if (!snap) return;
   const job = snap.data();
@@ -140,7 +114,7 @@ exports.processFaqJob = onDocumentCreated({ document: 'faqJobs/{jobId}', secrets
     await ref.update({ state: 'generating', updatedAt: admin.firestore.FieldValue.serverTimestamp() });
 
     const prompt = buildFaqPrompt(job.groupName, job.messages || []);
-    const faq = await callGeminiForFaq(prompt, geminiApiKey.value());
+    const faq = await callGeminiForFaq(prompt, process.env.GEMINI_API_KEY);
 
     await ref.update({
       state: 'done',
@@ -176,6 +150,73 @@ exports.getFaqStatus = onRequest({ cors: true }, async (req, res) => {
   const { state, faq, error, groupName, messageCount } = doc.data();
   res.json({
     jobId, state, groupName, messageCount: messageCount || null,
-    faq: faq || null, faqHtml: faq ? renderFaqHtml(faq) : null, error: error || null
+    faq: faq || null, faqHtml: faq ? renderFaqEntriesHtml(faq) : null, error: error || null
   });
+});
+
+// Unauthenticated: publishes the (possibly user-edited) FAQ as a static page
+// committed straight to the repo's public/whatsapp-groups/ directory, which
+// the existing deploy-pages.yml workflow picks up automatically. Gated by
+// Turnstile since — unlike submitFaqUpload/getFaqStatus, which only touch
+// Firestore — this writes directly into the live site's repo, and is
+// reachable by anyone who finds the URL, not just through the UI.
+exports.publishFaq = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, res) => {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
+
+  try {
+    const { groupName, faq, turnstileToken } = req.body || {};
+
+    if (!groupName || !groupName.trim()) {
+      res.status(400).json({ error: 'Group name is required to publish.' });
+      return;
+    }
+    if (!Array.isArray(faq) || !faq.length) {
+      res.status(400).json({ error: 'No FAQ content to publish.' });
+      return;
+    }
+
+    const verified = await verifyTurnstileToken(turnstileToken, process.env.TURNSTILE_SECRET_KEY, req.ip);
+    if (!verified) {
+      res.status(400).json({ error: 'Captcha verification failed — please retry.' });
+      return;
+    }
+
+    const fileSlug = slugifyGroupName(groupName);
+    const repoPath = `public/whatsapp-groups/${fileSlug}.html`;
+    const html = renderFaqPage(groupName, faq);
+
+    const { commitSha } = await publishFile({
+      repoPath,
+      content: html,
+      message: `Publish FAQ: ${groupName}`,
+      token: process.env.GITHUB_TOKEN
+    });
+
+    res.json({ commitSha, faqUrl: `https://watobot.xyz/whatsapp-groups/${fileSlug}.html` });
+  } catch (err) {
+    console.error('publishFaq failed:', err);
+    res.status(500).json({ error: err.message || 'Publish failed' });
+  }
+});
+
+// Unauthenticated: polled by whatsapp-group-faq/index.html after publishFaq
+// returns a commitSha, so the user only gets redirected once GitHub Pages has
+// actually finished deploying the new file (not just committed it).
+exports.getPublishStatus = onRequest({ cors: true }, async (req, res) => {
+  const commitSha = req.query.commitSha;
+  if (!commitSha) {
+    res.status(400).json({ error: 'commitSha is required' });
+    return;
+  }
+
+  try {
+    const status = await getDeployStatusForCommit(String(commitSha), process.env.GITHUB_TOKEN);
+    res.json(status);
+  } catch (err) {
+    console.error('getPublishStatus failed:', err);
+    res.status(500).json({ error: err.message || 'Status check failed' });
+  }
 });

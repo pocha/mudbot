@@ -5,12 +5,10 @@
 //
 // Usage:
 //   npm test -- path/to/_chat.txt [maxChars]
-// Reads GEMINI_API_KEY from the environment, or from functions/.env.local
-// (gitignored). Deliberately .env.local, not .env — Firebase Functions v2
-// auto-loads functions/.env as a plain deployed env var, which collides with
-// the GEMINI_API_KEY *secret* binding on processFaqJob (same name, two
-// mechanisms). .env.local is excluded from deploys by Firebase's own
-// convention, so it's local/test-only by construction.
+// Reads GEMINI_API_KEY from the environment, or from functions/.env
+// (gitignored) — the same file Firebase loads as plain deploy-time env vars,
+// since index.js reads GEMINI_API_KEY/GITHUB_TOKEN/TURNSTILE_SECRET_KEY via
+// process.env rather than defineSecret/Secret Manager.
 
 const fs = require('fs');
 const path = require('path');
@@ -28,7 +26,7 @@ function loadDotEnv(envPath) {
     }
   }
 }
-loadDotEnv(path.join(__dirname, '..', '.env.local'));
+loadDotEnv(path.join(__dirname, '..', '.env'));
 
 const { parseWhatsAppChat, capMessagesBySize } = require('../../public/assets/whatsapp-parser.js');
 const { buildFaqPrompt } = require('../src/prompt');
