@@ -299,7 +299,11 @@ No active schedules yet. Use the form above to get started.
 </div>
 <!-- Backend Integration Script -->
 <script>
-const API_BASE = window.location.origin;
+// Same origin locally (server.js serves public/ + /api together);
+// split into a dedicated API subdomain once served from GitHub Pages.
+const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+    ? window.location.origin
+    : 'https://api.watobot.xyz';
 let authToken = null;
 let schedules = [];
 let allGroups = [];

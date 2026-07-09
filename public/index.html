@@ -272,7 +272,11 @@ Send whatsapp message programatically from
 			</div>
 		</div>
 		<script>
-        const API_BASE = '';  // Same origin
+        // Same origin locally (server.js serves public/ + /api together);
+        // split into a dedicated API subdomain once served from GitHub Pages.
+        const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+            ? ''
+            : 'https://api.watobot.xyz';
 
         function toggleModal() {
             const modal = document.getElementById('loginModal');

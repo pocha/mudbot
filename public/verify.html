@@ -163,6 +163,12 @@
     </div>
 
     <script>
+        // Same origin locally (server.js serves public/ + /api together);
+        // split into a dedicated API subdomain once served from GitHub Pages.
+        const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+            ? ''
+            : 'https://api.watobot.xyz';
+
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
         let checkInterval = null;
@@ -175,7 +181,7 @@
 
         async function verifyToken() {
             try {
-                const response = await fetch(`/api/verify/${token}`);
+                const response = await fetch(`${API_BASE}/api/verify/${token}`);
                 const data = await response.json();
 
                 if (!response.ok) {
@@ -223,7 +229,7 @@
 
             try {
                 const body = force ? { zipcode: pincode, force: true } : { zipcode: pincode };
-                const response = await fetch('/api/user/location', {
+                const response = await fetch(`${API_BASE}/api/user/location`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -272,7 +278,7 @@
 
         async function loadQRCode() {
             try {
-                const response = await fetch('/api/whatsapp/qr', {
+                const response = await fetch(`${API_BASE}/api/whatsapp/qr`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await response.json();
@@ -296,7 +302,7 @@
             if (checkInterval) clearInterval(checkInterval);
             checkInterval = setInterval(async () => {
                 try {
-                    const response = await fetch('/api/whatsapp/status', {
+                    const response = await fetch(`${API_BASE}/api/whatsapp/status`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
                     const data = await response.json();
@@ -320,7 +326,7 @@
             errMsg.classList.add('hidden');
 
             try {
-                const response = await fetch('/api/whatsapp/login/confirm', {
+                const response = await fetch(`${API_BASE}/api/whatsapp/login/confirm`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
