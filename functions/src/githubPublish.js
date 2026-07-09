@@ -1,4 +1,4 @@
-// Commits FAQ pages directly into the public/whatsapp-groups/ directory of
+// Commits FAQ pages directly into the public/whatsapp-group-faq/ directory of
 // the site's own repo via the GitHub Contents API (not git clone+push — one
 // HTTP call per file, no local git state to manage from a Cloud Function).
 // Pushing to main is what the existing deploy-pages.yml workflow watches

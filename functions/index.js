@@ -155,7 +155,7 @@ exports.getFaqStatus = onRequest({ cors: true }, async (req, res) => {
 });
 
 // Unauthenticated: publishes the (possibly user-edited) FAQ as a static page
-// committed straight to the repo's public/whatsapp-groups/ directory, which
+// committed straight to the repo's public/whatsapp-group-faq/ directory, which
 // the existing deploy-pages.yml workflow picks up automatically. Gated by
 // Turnstile since — unlike submitFaqUpload/getFaqStatus, which only touch
 // Firestore — this writes directly into the live site's repo, and is
@@ -185,7 +185,7 @@ exports.publishFaq = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, r
     }
 
     const fileSlug = slugifyGroupName(groupName);
-    const repoPath = `public/whatsapp-groups/${fileSlug}.html`;
+    const repoPath = `public/whatsapp-group-faq/${fileSlug}.html`;
     const html = renderFaqPage(groupName, faq);
 
     const { commitSha } = await publishFile({
@@ -195,7 +195,7 @@ exports.publishFaq = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, r
       token: process.env.GITHUB_TOKEN
     });
 
-    res.json({ commitSha, faqUrl: `https://watobot.xyz/whatsapp-groups/${fileSlug}.html` });
+    res.json({ commitSha, faqUrl: `https://watobot.xyz/whatsapp-group-faq/${fileSlug}.html` });
   } catch (err) {
     console.error('publishFaq failed:', err);
     res.status(500).json({ error: err.message || 'Publish failed' });
