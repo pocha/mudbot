@@ -120,7 +120,7 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}) {
       errMsg = err.message;
       throw err;
     } finally {
-      appendUsageLog(userDir, action, succeeded, errMsg, meta, token);
+      await appendUsageLog(userDir, action, succeeded, errMsg, meta, token);
       userQueueDepth[userDir]--;
       if (userQueueDepth[userDir] === 0) {
         if (credPath) {
