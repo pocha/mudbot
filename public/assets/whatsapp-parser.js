@@ -67,3 +67,10 @@ function capMessagesBySize(messages, maxChars) {
 
   return messages.slice(startIndex);
 }
+
+// Browser-safe: `module` is undefined when loaded via a plain <script> tag, so
+// this only takes effect under Node (e.g. functions/test-prompt.js), letting
+// that script reuse this exact parsing logic instead of forking a copy.
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { parseWhatsAppChat, capMessagesBySize };
+}

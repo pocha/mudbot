@@ -60,6 +60,13 @@ async function callGeminiForFaq(prompt, apiKey, attempt = 1) {
       generationConfig: {
         responseMimeType: 'application/json',
         responseSchema: FAQ_RESPONSE_SCHEMA,
+        // Entry-boundary decisions (is X its own topic or folded into a
+        // broader one) are exactly the kind of marginal call that's sensitive
+        // to sampling — testing showed run-to-run entry count/topic variance
+        // on the same transcript at the default temperature. Low but nonzero
+        // to keep answer phrasing natural while making clustering decisions
+        // more repeatable.
+        temperature: 0.3,
         // Each FAQ entry can carry up to 3 dated answers plus JSON structure
         // overhead — a handful of entries can easily run to a few thousand
         // output tokens. Without an explicit ceiling here, the model falls
