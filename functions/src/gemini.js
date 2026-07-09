@@ -44,7 +44,18 @@ async function callGeminiForFaq(prompt, apiKey) {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
         responseMimeType: 'application/json',
-        responseSchema: FAQ_RESPONSE_SCHEMA
+        responseSchema: FAQ_RESPONSE_SCHEMA,
+        // Each FAQ entry can carry up to 3 dated answers plus JSON structure
+        // overhead — a handful of entries can easily run to a few thousand
+        // output tokens. Without an explicit ceiling here, the model falls
+        // back to its own default, which is very plausibly what was cutting
+        // generation short at 8-9 entries rather than the prompt's
+        // "be comprehensive" instruction losing out to the model's judgment.
+        // Generous on purpose: this is a cap, not a target, and the API
+        // clamps to the model's real max if this exceeds it — combined with
+        // our ~50K-token input cap, even this stays well under the 250K TPM
+        // free-tier ceiling.
+        maxOutputTokens: 32768
       }
     })
   });
@@ -55,9 +66,17 @@ async function callGeminiForFaq(prompt, apiKey) {
   }
 
   const data = await response.json();
-  const text = (data?.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('');
+  const candidate = data?.candidates?.[0];
+  const text = (candidate?.content?.parts || []).map(p => p.text || '').join('');
   if (!text.trim()) {
     throw new Error('Gemini returned an empty response');
+  }
+
+  if (candidate?.finishReason && candidate.finishReason !== 'STOP') {
+    // Most commonly MAX_TOKENS — the response is likely truncated (fewer FAQ
+    // entries than the transcript actually supports). Logged rather than
+    // thrown since a truncated-but-valid JSON array is still usable.
+    console.warn(`Gemini generation finished with reason "${candidate.finishReason}" — output may be truncated`);
   }
 
   let faq;
