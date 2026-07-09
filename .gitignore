@@ -9,3 +9,4 @@ users/**/usage.log
 server.log
 *.key
 .DS_Store
+public/.DS_Store
