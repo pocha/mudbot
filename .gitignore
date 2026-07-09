@@ -8,3 +8,4 @@ users/**/usage.log
 .claude/
 server.log
 *.key
+.DS_Store
