@@ -166,7 +166,12 @@
     }, 3000);
   }
 
-  const MAX_MESSAGES = 1500;
+  // Capped by serialized size, not a flat message count — a long-running,
+  // bursty group can otherwise have its entire budget consumed by a few
+  // recent weeks of heavy activity, crowding out everything older. 900KB
+  // leaves headroom under Firestore's 1MiB job-doc limit (the array is
+  // stored there before generation) alongside the doc's other small fields.
+  const MAX_MESSAGES_CHARS = 900000;
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -181,7 +186,7 @@
 
     try {
       const text = await fileInput.files[0].text();
-      const messages = parseWhatsAppChat(text).slice(-MAX_MESSAGES);
+      const messages = capMessagesBySize(parseWhatsAppChat(text), MAX_MESSAGES_CHARS);
 
       if (!messages.length) {
         throw new Error('No messages could be parsed from that file. Make sure you selected the _chat.txt file from the unzipped export.');

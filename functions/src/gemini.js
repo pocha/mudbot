@@ -32,9 +32,24 @@ const FAQ_RESPONSE_SCHEMA = {
   }
 };
 
+// Extracts the RetryInfo.retryDelay hint (e.g. "14s") a 429 response includes,
+// falling back to a fixed delay if the response doesn't have one.
+function getRetryDelayMs(errBody, fallbackMs) {
+  try {
+    const details = JSON.parse(errBody)?.error?.details || [];
+    const retryInfo = details.find(d => d['@type']?.includes('RetryInfo'));
+    const seconds = parseFloat(retryInfo?.retryDelay);
+    if (!Number.isNaN(seconds)) return Math.ceil(seconds * 1000);
+  } catch {}
+  return fallbackMs;
+}
+
 // Requests structured JSON directly from Gemini (rather than parsing free-form
-// text) so the caller gets a reliable array of clustered FAQ entries.
-async function callGeminiForFaq(prompt, apiKey) {
+// text) so the caller gets a reliable array of clustered FAQ entries. Retries
+// once on a 429 (RESOURCE_EXHAUSTED) — the free tier's per-minute token quota
+// is easy to brush up against with a large transcript, and it's a transient,
+// self-clearing limit (the API tells us how long to wait via RetryInfo).
+async function callGeminiForFaq(prompt, apiKey, attempt = 1) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;
 
   const response = await fetch(url, {
@@ -52,13 +67,19 @@ async function callGeminiForFaq(prompt, apiKey) {
         // generation short at 8-9 entries rather than the prompt's
         // "be comprehensive" instruction losing out to the model's judgment.
         // Generous on purpose: this is a cap, not a target, and the API
-        // clamps to the model's real max if this exceeds it — combined with
-        // our ~50K-token input cap, even this stays well under the 250K TPM
-        // free-tier ceiling.
+        // clamps to the model's real max if this exceeds it.
         maxOutputTokens: 32768
       }
     })
   });
+
+  if (response.status === 429 && attempt === 1) {
+    const errText = await response.text().catch(() => '');
+    const delayMs = getRetryDelayMs(errText, 15000);
+    console.warn(`Gemini rate-limited (429), retrying in ${delayMs}ms`);
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+    return callGeminiForFaq(prompt, apiKey, attempt + 1);
+  }
 
   if (!response.ok) {
     const errText = await response.text().catch(() => '');

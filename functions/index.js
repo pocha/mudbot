@@ -65,12 +65,28 @@ const db = admin.firestore();
 
 const geminiApiKey = defineSecret('GEMINI_API_KEY');
 
-// Parsing and truncation to the most recent messages now happens client-side
+// Parsing and capping-by-size now happens client-side
 // (public/assets/whatsapp-parser.js) so large exports never have to be
 // uploaded. This is re-applied here only as a defensive backstop against a
 // client sending an unbounded array directly to the endpoint — not a claim
-// that the client's cap can be trusted.
-const MAX_MESSAGES = 1500;
+// that the client's cap can be trusted. Same size-based approach as the
+// client: a flat message count badly under-serves long-running, bursty
+// groups (see capMessagesBySize's twin in whatsapp-parser.js for why).
+const MAX_MESSAGES_CHARS = 900000; // headroom under Firestore's 1MiB doc limit
+
+function capMessagesBySize(messages, maxChars) {
+  let total = 0;
+  let startIndex = messages.length;
+
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const size = JSON.stringify(messages[i]).length;
+    if (total + size > maxChars) break;
+    total += size;
+    startIndex = i;
+  }
+
+  return messages.slice(startIndex);
+}
 
 // Unauthenticated: accepts a pre-parsed, pre-capped message array (JSON body)
 // and creates a Firestore job doc. processFaqJob (below) picks it up and does
@@ -89,7 +105,7 @@ exports.submitFaqUpload = onRequest({ cors: true, timeoutSeconds: 60 }, async (r
       return;
     }
 
-    const capped = messages.slice(-MAX_MESSAGES);
+    const capped = capMessagesBySize(messages, MAX_MESSAGES_CHARS);
 
     const jobRef = db.collection('faqJobs').doc();
     await jobRef.set({
@@ -111,7 +127,10 @@ exports.submitFaqUpload = onRequest({ cors: true, timeoutSeconds: 60 }, async (r
 
 // Firestore-triggered worker: does the actual Gemini call asynchronously so the
 // upload request itself doesn't have to block on it.
-exports.processFaqJob = onDocumentCreated({ document: 'faqJobs/{jobId}', secrets: [geminiApiKey] }, async (event) => {
+// timeoutSeconds raised from the 60s default: callGeminiForFaq can now wait
+// out a 429's retry delay (commonly ~15s) before retrying, on top of the
+// generation call itself.
+exports.processFaqJob = onDocumentCreated({ document: 'faqJobs/{jobId}', secrets: [geminiApiKey], timeoutSeconds: 120 }, async (event) => {
   const snap = event.data;
   if (!snap) return;
   const job = snap.data();

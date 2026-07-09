@@ -1,6 +1,12 @@
-// Free-tier headroom for gemini-3.1-flash-lite is 250K tokens/min; ~4 chars/token
-// gives comfortable margin for prompt + output within a single request.
-const MAX_PROMPT_CHARS = 200000;
+// The free-tier quota that actually bit us (generate_content_free_tier_input_
+// token_count) is 250K INPUT tokens/min specifically — separate from output,
+// not a combined budget as originally assumed here. It's also a per-minute
+// window, so a slow day of testing won't fix a prompt that's simply too big.
+// Chat-transcript text (short lines, names, timestamps, punctuation) tokenizes
+// less efficiently than prose, so a conservative ~2.5 chars/token is assumed
+// rather than the ~4 chars/token typical of continuous text: 450K chars ≈
+// 180K tokens even at that ratio, leaving real margin under 250K.
+const MAX_PROMPT_CHARS = 450000;
 
 function buildFaqPrompt(groupName, messages) {
   let transcript = messages

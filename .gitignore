@@ -10,3 +10,4 @@ server.log
 *.key
 .DS_Store
 public/.DS_Store
+firebase-debug.log

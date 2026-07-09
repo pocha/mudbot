@@ -45,3 +45,25 @@ function parseWhatsAppChat(text) {
   // drop it entirely rather than let it eat into the message budget.
   return messages.filter(m => m.text && m.name !== 'System' && !/<Media omitted>/i.test(m.text));
 }
+
+// A flat message-count cap (e.g. "last 1500 messages") badly under-serves
+// long-running, bursty groups: a few weeks of heavy back-and-forth can fill
+// the whole budget and crowd out a year of other topics entirely. Capping by
+// serialized size instead adapts to the actual content — chatty recent
+// periods use more of the budget, quiet ones use less — while still
+// guaranteeing we stay under Firestore's 1MiB document limit (the array is
+// stored in the job doc before generation). Keeps the most recent messages
+// that fit, walking backward from the end.
+function capMessagesBySize(messages, maxChars) {
+  let total = 0;
+  let startIndex = messages.length;
+
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const size = JSON.stringify(messages[i]).length;
+    if (total + size > maxChars) break;
+    total += size;
+    startIndex = i;
+  }
+
+  return messages.slice(startIndex);
+}
