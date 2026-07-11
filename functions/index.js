@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const { onRequest } = require('firebase-functions/v2/https');
-const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+const { onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
 
@@ -63,8 +63,11 @@ function capMessagesBySize(messages, maxChars) {
 }
 
 // Unauthenticated: accepts a pre-parsed, pre-capped message array (JSON body)
-// and creates a Firestore job doc. processFaqJob (below) picks it up and does
-// the Gemini call.
+// and creates (or, given an existing jobId, overwrites/resets) a Firestore
+// job doc. processFaqJob (below) picks it up and does the Gemini call. Gated
+// by Turnstile — this is the expensive-to-abuse step (a real Gemini call
+// against a rate-limited quota), unlike getFaqStatus which just reads
+// Firestore.
 exports.submitFaqUpload = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, res) => {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -72,16 +75,26 @@ exports.submitFaqUpload = onRequest({ cors: true, timeoutSeconds: 60 }, async (r
   }
 
   try {
-    const { groupName, messages } = req.body || {};
+    const { groupName, messages, jobId, turnstileToken } = req.body || {};
 
     if (!Array.isArray(messages) || !messages.length) {
       res.status(400).json({ error: 'No messages provided.' });
       return;
     }
 
+    const verified = await verifyTurnstileToken(turnstileToken, process.env.TURNSTILE_SECRET_KEY, req.ip);
+    if (!verified) {
+      res.status(400).json({ error: 'Captcha verification failed — please retry.' });
+      return;
+    }
+
     const capped = capMessagesBySize(messages, MAX_MESSAGES_CHARS);
 
-    const jobRef = db.collection('faqJobs').doc();
+    // Reuses the given jobId when present (a regenerate against an existing
+    // FAQ project) so the same doc — and the same edit URL — carries forward,
+    // rather than minting a new jobId on every resubmit. Firestore mints a
+    // fresh id when jobId is falsy, same as before.
+    const jobRef = db.collection('faqJobs').doc(jobId || undefined);
     await jobRef.set({
       groupName: groupName || 'WhatsApp Group',
       source: 'upload',
@@ -104,10 +117,18 @@ exports.submitFaqUpload = onRequest({ cors: true, timeoutSeconds: 60 }, async (r
 // timeoutSeconds raised from the 60s default: callGeminiForFaq can now wait
 // out a 429's retry delay (commonly ~15s) before retrying, on top of the
 // generation call itself.
-exports.processFaqJob = onDocumentCreated({ document: 'faqJobs/{jobId}', timeoutSeconds: 120 }, async (event) => {
-  const snap = event.data;
-  if (!snap) return;
+//
+// onDocumentWritten (not onDocumentCreated) — submitFaqUpload now reuses an
+// existing jobId for regenerate requests, which is an *update* to an existing
+// doc, not a creation. onDocumentCreated only fires on creation, so it would
+// silently never re-trigger on a regenerate. The state === 'queued' guard
+// below is what keeps this from re-processing the worker's own subsequent
+// writes (generating/done/failed), which would otherwise also match.
+exports.processFaqJob = onDocumentWritten({ document: 'faqJobs/{jobId}', timeoutSeconds: 120 }, async (event) => {
+  const snap = event.data && event.data.after;
+  if (!snap || !snap.exists) return;
   const job = snap.data();
+  if (job.state !== 'queued') return;
   const ref = snap.ref;
 
   try {
@@ -167,8 +188,12 @@ exports.publishFaq = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, r
   }
 
   try {
-    const { groupName, faq, turnstileToken } = req.body || {};
+    const { groupName, faq, jobId, turnstileToken } = req.body || {};
 
+    if (!jobId) {
+      res.status(400).json({ error: 'jobId is required to publish.' });
+      return;
+    }
     if (!groupName || !groupName.trim()) {
       res.status(400).json({ error: 'Group name is required to publish.' });
       return;
@@ -183,6 +208,17 @@ exports.publishFaq = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, r
       res.status(400).json({ error: 'Captcha verification failed — please retry.' });
       return;
     }
+
+    // Persist the (possibly edited) FAQ back to the job doc before publishing,
+    // so it survives a reload / a later visit via ?jobId= — without this, any
+    // edits made in the browser only ever exist in currentFaq client-side and
+    // would silently revert to the originally-generated content next time
+    // getFaqStatus is read. Done before the GitHub commit so a GitHub failure
+    // still leaves the edit saved and retriable rather than lost.
+    await db.collection('faqJobs').doc(jobId).update({
+      faq,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
 
     const fileSlug = slugifyGroupName(groupName);
     const repoPath = `public/whatsapp-group-faq/${fileSlug}.html`;

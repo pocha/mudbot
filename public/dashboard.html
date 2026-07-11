@@ -55,6 +55,9 @@
         <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-[18px]">check_circle</span> Tap Menu or Settings and select Linked Devices</li>
         <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-[18px]">check_circle</span> Point your phone to this screen to capture the code</li>
       </ul>
+      <a id="wa-connect-btn" href="#" class="inline-flex items-center gap-2 bg-primary-container text-on-primary-container font-bold px-4 py-2 rounded-xl hover:opacity-90 transition-all">
+        <span class="material-symbols-outlined text-[20px]">qr_code_scanner</span> Connect WhatsApp
+      </a>
     </div>
     <div class="w-48 h-48 bg-surface-container mx-auto p-4 rounded-xl border-2 border-dashed border-primary/30 flex items-center justify-center relative overflow-hidden">
       <div class="absolute inset-0 bg-primary/5 flex items-center justify-center pointer-events-none">
@@ -244,6 +247,27 @@ Cancel Edit
 No active schedules yet. Use the form above to get started.
 </div>
 </div>
+<!-- WhatsApp Groups (FAQ) Section -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden flex flex-col">
+<div class="p-6 border-b border-outline-variant flex justify-between items-center">
+<div>
+<h3 class="font-headline-md text-headline-md">WhatsApp Groups</h3>
+<p class="text-on-surface-variant text-body-md">FAQ pages generated from your WhatsApp groups</p>
+</div>
+<a href="/whatsapp-group-faq" class="text-primary font-label-md text-sm hover:underline flex items-center gap-1 flex-shrink-0">
+  <span class="material-symbols-outlined text-[18px]">add</span> New FAQ
+</a>
+</div>
+<div id="faqs-loading" class="p-6 space-y-3">
+  <div class="h-4 w-2/3 bg-outline-variant/40 rounded animate-pulse"></div>
+  <div class="h-4 w-1/2 bg-outline-variant/30 rounded animate-pulse"></div>
+</div>
+<div id="faqs-tbody" class="hidden divide-y divide-outline-variant"></div>
+<div id="faqs-empty" class="hidden p-6 text-center text-on-surface-variant opacity-50 italic text-body-md">
+<span class="material-symbols-outlined text-4xl mb-2 block">quiz</span>
+No FAQs yet. Create one from a WhatsApp group chat export.
+</div>
+</div>
 </section>
 <!-- Logs Accordion -->
 <section class="lg:col-span-1 space-y-4">
@@ -355,8 +379,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     localStorage.setItem('authToken', authToken);
 
+    const waConnectBtn = document.getElementById('wa-connect-btn');
+    if (waConnectBtn) waConnectBtn.href = `/verify.html?token=${authToken}`;
+
     await checkConnectionStatus();
+    await claimPendingFaqs();
     await loadSchedules();
+    await loadFaqEntries();
 
     setupEventListeners();
     setupRecipientCombobox();
@@ -399,8 +428,15 @@ function updateConnectionUI(loggedIn, proxyIp) {
             proxyLine.classList.remove('hidden');
         }
     } else {
-        alert('WhatsApp not connected. Please scan QR code first.');
-        window.location.href = `/verify.html?token=${authToken}`;
+        // Previously a hard redirect to verify.html — now shows this inline
+        // state instead, with its own "Connect WhatsApp" link, so a user who
+        // signed up without connecting (or chose "connect later") can still
+        // use the rest of the dashboard (schedules, FAQs) without being
+        // forced through the QR flow first.
+        connected.classList.add('hidden');
+        connected.classList.remove('flex');
+        notConnected.classList.remove('hidden');
+        notConnected.classList.add('flex');
     }
 }
 
@@ -568,6 +604,83 @@ function renderSchedules() {
             </div>
         `;
     }).join('');
+}
+
+let faqs = [];
+
+async function loadFaqEntries() {
+    try {
+        const response = await fetch(`${API_BASE}/api/faq`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        if (response.ok) {
+            faqs = (await response.json()).faqs || [];
+            renderFaqEntries();
+        }
+    } catch (error) {
+        console.error('Error loading FAQs:', error);
+    }
+}
+
+function renderFaqEntries() {
+    const tbody = document.getElementById('faqs-tbody');
+    const emptyState = document.getElementById('faqs-empty');
+    const loading = document.getElementById('faqs-loading');
+    if (!tbody) return;
+
+    if (loading) loading.classList.add('hidden');
+
+    if (faqs.length === 0) {
+        tbody.classList.add('hidden');
+        if (emptyState) emptyState.classList.remove('hidden');
+        return;
+    }
+
+    if (emptyState) emptyState.classList.add('hidden');
+    tbody.classList.remove('hidden');
+
+    tbody.innerHTML = faqs.map(faq => {
+        const name = faq.groupName || 'Untitled group';
+        const editUrl = `/whatsapp-group-faq/?jobId=${encodeURIComponent(faq.jobId)}`;
+        const viewLink = faq.faqUrl
+            ? `<a href="${escapeHtml(faq.faqUrl)}" target="_blank" rel="noopener" class="text-primary font-label-md text-sm hover:underline">View</a>`
+            : '';
+        return `
+            <div class="flex items-center gap-3 px-5 py-4 hover:bg-surface-container-low/50 transition-colors">
+                <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+                    <span class="material-symbols-outlined text-[18px]">quiz</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <span class="font-label-md text-on-surface">${escapeHtml(name)}</span>
+                </div>
+                <div class="flex gap-3 flex-shrink-0">
+                    ${viewLink}
+                    <a href="${escapeHtml(editUrl)}" class="text-primary font-label-md text-sm hover:underline">Edit</a>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Consumes whatever the FAQ tool (whatsapp-group-faq/index.html) stashed in
+// localStorage after an anonymous publish + "email me a login link" — this
+// is the step that actually attaches those FAQs to the now-logged-in
+// account. No-ops if there's nothing pending (the normal case).
+async function claimPendingFaqs() {
+    let claims = [];
+    try { claims = JSON.parse(localStorage.getItem('pendingFaqClaims') || '[]'); } catch { claims = []; }
+    if (!claims.length) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/api/faq/claim`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ claims })
+        });
+        if (res.ok) localStorage.removeItem('pendingFaqClaims');
+    } catch (error) {
+        console.error('Error claiming pending FAQs:', error);
+    }
 }
 
 async function renderLogs() {

@@ -106,14 +106,32 @@ async function createOrUpdateProxyJson(userDir, token, { country = null } = {}) 
   return existing;
 }
 
+// For a brand-new email (no token_hash on disk yet), this is pure token
+// generation — no disk writes. The directory and token_hash aren't created
+// until the first successful verifyToken call (i.e. the first time the
+// emailed link is actually clicked), so a mistyped email never leaves behind
+// an orphaned, never-owned directory.
+//
+// For an email that already has a verified account, this is instead a
+// "resend my login link" request — token_hash is a one-way hash, so the old
+// token can never be recovered/resent. The only way to give this person a
+// working new link is to mint a new token and overwrite the hash right away
+// (invalidating the old token immediately), same as the pre-existing
+// behavior for repeat registrations. Deferring in this case wouldn't protect
+// anything (the directory already exists) and would just leave the new link
+// permanently unusable, since nothing would ever write its hash.
 async function registerUser(email) {
   const token = generateToken(email);
   const userDir = token.slice(0, 10);
-  const hash = computeTokenHash(token);
+  const tokenHashFile = path.join(CONFIG.USERS_DIR, userDir, 'token_hash');
 
-  const fullUserDir = path.join(CONFIG.USERS_DIR, userDir);
-  await fs.mkdir(path.join(fullUserDir, 'schedules'), { recursive: true });
-  await fs.writeFile(path.join(fullUserDir, 'token_hash'), hash);
+  try {
+    await fs.access(tokenHashFile); // throws if this is a first-time registration
+    await fs.writeFile(tokenHashFile, computeTokenHash(token));
+  } catch {
+    // no existing account for this email — nothing to do here;
+    // verifyToken creates it on the first successful click instead.
+  }
 
   return { token, userDir };
 }
@@ -121,14 +139,26 @@ async function registerUser(email) {
 async function verifyToken(token) {
   if (!token || token.length !== 64) return null;
   const userDir = token.slice(0, 10);
+  const tokenHashFile = path.join(CONFIG.USERS_DIR, userDir, 'token_hash');
   try {
-    const storedHash = (await fs.readFile(
-      path.join(CONFIG.USERS_DIR, userDir, 'token_hash'), 'utf8'
-    )).trim();
+    const storedHash = (await fs.readFile(tokenHashFile, 'utf8')).trim();
     if (computeTokenHash(token) !== storedHash) return null;
     return { token, userDir };
   } catch {
-    return null;
+    // No token_hash on disk yet — either this is the first click on a
+    // genuine registration link (materialize the account now) or the token
+    // is simply invalid. A 64-hex-char token is unguessable either way, so
+    // treating "no file yet" as "first use" here doesn't weaken anything —
+    // it's the same trust boundary registerUser used to enforce at register
+    // time, just checked here instead.
+    const fullUserDir = path.join(CONFIG.USERS_DIR, userDir);
+    try {
+      await fs.mkdir(path.join(fullUserDir, 'schedules'), { recursive: true });
+      await fs.writeFile(tokenHashFile, computeTokenHash(token));
+      return { token, userDir };
+    } catch {
+      return null;
+    }
   }
 }
 

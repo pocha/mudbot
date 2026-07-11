@@ -30,9 +30,9 @@ function getTransporter() {
   return transporter;
 }
 
-async function sendRegistrationEmail(email, token) {
-  const loginLink = `${CONFIG.BASE_URL}/verify.html?token=${token}`;
-  
+async function sendRegistrationEmail(email, token, { skipWhatsappConnect = false } = {}) {
+  const loginLink = `${CONFIG.BASE_URL}/verify.html?token=${token}${skipWhatsappConnect ? '&skip-whatsapp-connect=true' : ''}`;
+
   const mailOptions = {
     from: `Watobot <${CONFIG.EMAIL_FROM}>`,
     replyTo: CONFIG.REPLY_TO || undefined,
