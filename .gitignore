@@ -12,3 +12,4 @@ server.log
 public/.DS_Store
 firebase-debug.log
 functions/*.json
+certs/

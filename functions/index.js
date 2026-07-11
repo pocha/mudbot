@@ -100,9 +100,11 @@ exports.submitFaqUpload = onRequest({ cors: true, timeoutSeconds: 60 }, async (r
 
     // Reuses the given jobId when present (a regenerate against an existing
     // FAQ project) so the same doc — and the same edit URL — carries forward,
-    // rather than minting a new jobId on every resubmit. Firestore mints a
-    // fresh id when jobId is falsy, same as before.
-    const jobRef = db.collection('faqJobs').doc(jobId || undefined);
+    // rather than minting a new jobId on every resubmit. Firestore only
+    // auto-generates an id when .doc() is called with zero arguments —
+    // passing an explicit `undefined` (e.g. via `.doc(jobId || undefined)`)
+    // still counts as an argument and fails path validation instead.
+    const jobRef = jobId ? db.collection('faqJobs').doc(jobId) : db.collection('faqJobs').doc();
     await jobRef.set({
       groupName: groupName || 'WhatsApp Group',
       source: 'upload',

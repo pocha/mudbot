@@ -105,7 +105,10 @@
     </div>
 
     <div id="publish-success" class="hidden p-6 pt-0 flex flex-col gap-4 border-t border-outline-variant">
-      <div class="rounded-lg bg-secondary-container/30 border border-secondary text-on-surface font-body-md text-sm p-4 flex items-center justify-between gap-4 flex-wrap">
+      <!-- Hidden until the deploy poll actually confirms success — shown as
+           soon as the initial publish request succeeds is the claim section
+           below, not this, since the page isn't live yet at that point. -->
+      <div id="publish-live-banner" class="hidden rounded-lg bg-secondary-container/30 border border-secondary text-on-surface font-body-md text-sm p-4 flex items-center justify-between gap-4 flex-wrap">
         <span>Your FAQ is live!</span>
         <a id="published-faq-link" href="#" target="_blank" rel="noopener" class="font-bold text-primary hover:underline whitespace-nowrap">View it &rarr;</a>
       </div>
@@ -178,6 +181,7 @@
   const publishStatusBox = document.getElementById('publish-status-box');
   const publishStatusText = document.getElementById('publish-status-text');
   const publishSuccess = document.getElementById('publish-success');
+  const publishLiveBanner = document.getElementById('publish-live-banner');
   const publishedFaqLink = document.getElementById('published-faq-link');
   const claimLoggedIn = document.getElementById('claim-logged-in');
   const claimLoggedInStatus = document.getElementById('claim-logged-in-status');
@@ -217,6 +221,15 @@
   let turnstileToken = null;
   let turnstileRendered = false;
 
+  // Always the real site key, even on localhost — Turnstile cryptographically
+  // pairs a site key with a specific secret key, and there's only one
+  // deployed backend (no separate dev/prod split) holding one secret key. A
+  // test site key would only pass server-side verification if the server
+  // also accepted Cloudflare's public, documented test secret key — which
+  // would let anyone bypass Turnstile in production too, since that pairing
+  // is deliberately public. So this has to stay the real key everywhere;
+  // local testing needs the real widget to actually work (see Hostname
+  // Management on the Cloudflare Turnstile dashboard).
   const TURNSTILE_SITE_KEY = '0x4AAAAAADyyPhijs7U9dZz3';
 
   // Enables both actions — Generate and Publish share one widget/token, since
@@ -282,11 +295,31 @@
       .replace(/'/g, '&#39;');
   }
 
-  // Same visual layout as the server-rendered faqHtml fragment, but with the
+  // Best-effort only — WhatsApp export date formats vary and aren't reliably
+  // parseable. Mirrors the same helper in functions/src/faqRender.js, used
+  // purely as a secondary tie-break under count.
+  function looseDateValue(str) {
+    const t = Date.parse(str);
+    return Number.isNaN(t) ? 0 : t;
+  }
+
+  // Same visual layout (and same count-desc sort, matching the server-
+  // rendered faqHtml fragment this replaced) as before, but with the
   // question and each answer's text made contenteditable, and wired to keep
   // currentFaq (what actually gets published) in sync as the user types.
+  // Sorting is display-only — data-entry-index always points at the entry's
+  // real position in currentFaq, not its sorted position, so editing/adding/
+  // deleting still mutates the right array element regardless of sort order.
   function renderEditableFaq(faq) {
-    faqContent.innerHTML = faq.map((entry, entryIndex) => {
+    const sorted = faq
+      .map((entry, entryIndex) => ({ entry, entryIndex }))
+      .sort((a, b) => {
+        const countDiff = (b.entry.count || 0) - (a.entry.count || 0);
+        if (countDiff !== 0) return countDiff;
+        return looseDateValue(b.entry.mostRecentDate) - looseDateValue(a.entry.mostRecentDate);
+      });
+
+    faqContent.innerHTML = sorted.map(({ entry, entryIndex }) => {
       const answers = entry.answers || [];
       const [latest, ...older] = answers;
       const olderHtml = older.length
@@ -394,7 +427,24 @@
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Publish failed');
 
-      setPublishBusy(true, 'Published — waiting for the site to update…');
+      // The commit itself is done at this point — jobId/faqSlug are final,
+      // so there's no need to wait for the GitHub Pages deploy (which is
+      // what's slow, up to a minute) before letting the user claim edit
+      // access. Show that immediately so they can fill in their email while
+      // the deploy finishes in the background; the "live" banner below is
+      // the only part still gated on the deploy actually completing.
+      lastPublishedFaqSlug = data.faqSlug;
+      publishLiveBanner.classList.add('hidden'); // re-hide in case this is a republish — only this cycle's deploy should light it back up
+      publishSuccess.classList.remove('hidden');
+      if (existingAuthToken) {
+        claimAnonymous.classList.add('hidden');
+        claimLoggedInAutomatically(data.faqSlug);
+      } else {
+        claimLoggedIn.classList.add('hidden');
+        claimAnonymous.classList.remove('hidden');
+      }
+
+      setPublishBusy(true, 'Publishing — this can take up to a minute…');
       pollPublishStatus(data.commitSha, data.faqSlug);
     } catch (err) {
       setPublishBusy(false);
@@ -417,16 +467,8 @@
           clearInterval(publishPollTimer);
           publishPollTimer = null;
           setPublishBusy(false);
-          lastPublishedFaqSlug = faqSlug;
           publishedFaqLink.href = buildFaqUrl(faqSlug);
-          publishSuccess.classList.remove('hidden');
-          if (existingAuthToken) {
-            claimAnonymous.classList.add('hidden');
-            claimLoggedInAutomatically(faqSlug);
-          } else {
-            claimLoggedIn.classList.add('hidden');
-            claimAnonymous.classList.remove('hidden');
-          }
+          publishLiveBanner.classList.remove('hidden');
         } else if (data.state === 'failure') {
           clearInterval(publishPollTimer);
           publishPollTimer = null;
