@@ -576,12 +576,12 @@
                   </div>
                   <a
                     href="/whatsapp-group-faq"
-                    class="text-primary font-label-md text-sm hover:underline flex items-center gap-1 flex-shrink-0"
+                    class="inline-flex items-center gap-1 bg-primary-container text-on-primary-container font-bold text-sm px-3 py-2 rounded-xl hover:opacity-90 transition-all flex-shrink-0"
                   >
                     <span class="material-symbols-outlined text-[18px]"
                       >add</span
                     >
-                    New FAQ
+                    Add FAQ
                   </a>
                 </div>
                 <div id="faqs-loading" class="p-6 space-y-3">
@@ -714,6 +714,16 @@
         location.hostname === "localhost" || location.hostname === "127.0.0.1"
           ? window.location.origin
           : "https://api.watobot.xyz";
+
+      // Published FAQ pages always live on the real production domain,
+      // regardless of where the dashboard itself is running. Only faqSlug is
+      // ever stored (in faq.json via /api/faq); this is the one place that
+      // turns a slug into an actual URL.
+      const PUBLISHED_FAQ_BASE = "https://watobot.xyz/whatsapp-group-faq/";
+      function buildFaqUrl(faqSlug) {
+        return `${PUBLISHED_FAQ_BASE}${faqSlug}.html`;
+      }
+
       let authToken = null;
       let schedules = [];
       let allGroups = [];
@@ -1079,8 +1089,8 @@
           .map((faq) => {
             const name = faq.groupName || "Untitled group";
             const editUrl = `/whatsapp-group-faq/?jobId=${encodeURIComponent(faq.jobId)}`;
-            const viewLink = faq.faqUrl
-              ? `<a href="${escapeHtml(faq.faqUrl)}" target="_blank" rel="noopener" class="text-primary font-label-md text-sm hover:underline">View</a>`
+            const viewLink = faq.faqSlug
+              ? `<a href="${escapeHtml(buildFaqUrl(faq.faqSlug))}" target="_blank" rel="noopener" class="text-primary font-label-md text-sm hover:underline">View</a>`
               : "";
             return `
             <div class="flex items-center gap-3 px-5 py-4 hover:bg-surface-container-low/50 transition-colors">

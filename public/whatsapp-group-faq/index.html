@@ -110,7 +110,14 @@
         <a id="published-faq-link" href="#" target="_blank" rel="noopener" class="font-bold text-primary hover:underline whitespace-nowrap">View it &rarr;</a>
       </div>
 
-      <div class="flex flex-col gap-2">
+      <div id="claim-logged-in" class="hidden flex-col gap-2">
+        <div id="claim-logged-in-status" class="font-body-md text-sm text-on-surface-variant"></div>
+        <a href="/dashboard.html" class="inline-flex items-center gap-2 w-fit rounded-xl bg-primary-container text-on-primary-container px-4 py-3 font-label-md text-label-md font-bold hover:opacity-90 active:scale-95 transition-all">
+          Go to your dashboard
+        </a>
+      </div>
+
+      <div id="claim-anonymous" class="flex flex-col gap-2">
         <p class="font-label-md text-label-md text-on-surface-variant">Want to come back and edit this FAQ later? Save it to your account.</p>
         <form id="claim-form" class="flex flex-col sm:flex-row gap-2">
           <input id="claim-email" type="email" placeholder="you@example.com" required
@@ -172,6 +179,9 @@
   const publishStatusText = document.getElementById('publish-status-text');
   const publishSuccess = document.getElementById('publish-success');
   const publishedFaqLink = document.getElementById('published-faq-link');
+  const claimLoggedIn = document.getElementById('claim-logged-in');
+  const claimLoggedInStatus = document.getElementById('claim-logged-in-status');
+  const claimAnonymous = document.getElementById('claim-anonymous');
   const claimForm = document.getElementById('claim-form');
   const claimEmailInput = document.getElementById('claim-email');
   const claimBtn = document.getElementById('claim-btn');
@@ -184,11 +194,26 @@
     ? 'http://localhost:3000'
     : 'https://api.watobot.xyz';
 
+  // Published FAQ pages always live on the real production domain regardless
+  // of where this tool itself is running (dev or prod) — GitHub Pages has no
+  // localhost equivalent. Only faqSlug is ever stored/passed around; this is
+  // the one place that turns a slug into an actual URL.
+  const PUBLISHED_FAQ_BASE = 'https://watobot.xyz/whatsapp-group-faq/';
+  function buildFaqUrl(faqSlug) {
+    return `${PUBLISHED_FAQ_BASE}${faqSlug}.html`;
+  }
+
+  // Same origin as dashboard.html in production, so a token stored there by
+  // an earlier login is already sitting in this page's localStorage too —
+  // no need to route an already-logged-in user through the email flow at
+  // all, we can just claim the FAQ directly with their existing token.
+  const existingAuthToken = localStorage.getItem('authToken');
+
   let pollTimer = null;
   let publishPollTimer = null;
   let currentFaq = null; // live-edited copy of the generated FAQ, kept in sync with the contenteditable fields
   let currentJobId = null; // stable identity of this FAQ project once one exists, reused across regenerate/edit/publish
-  let lastPublishedFaqUrl = null;
+  let lastPublishedFaqSlug = null;
   let turnstileToken = null;
   let turnstileRendered = false;
 
@@ -370,7 +395,7 @@
       if (!res.ok) throw new Error(data.error || 'Publish failed');
 
       setPublishBusy(true, 'Published — waiting for the site to update…');
-      pollPublishStatus(data.commitSha, data.faqUrl);
+      pollPublishStatus(data.commitSha, data.faqSlug);
     } catch (err) {
       setPublishBusy(false);
       publishBtn.disabled = false;
@@ -378,7 +403,7 @@
     }
   });
 
-  function pollPublishStatus(commitSha, faqUrl) {
+  function pollPublishStatus(commitSha, faqSlug) {
     let attempts = 0;
     const maxAttempts = 40; // ~40 * 4s = ~160s, generous for a GitHub Pages build+deploy
     publishPollTimer = setInterval(async () => {
@@ -392,9 +417,16 @@
           clearInterval(publishPollTimer);
           publishPollTimer = null;
           setPublishBusy(false);
-          lastPublishedFaqUrl = faqUrl;
-          publishedFaqLink.href = faqUrl;
+          lastPublishedFaqSlug = faqSlug;
+          publishedFaqLink.href = buildFaqUrl(faqSlug);
           publishSuccess.classList.remove('hidden');
+          if (existingAuthToken) {
+            claimAnonymous.classList.add('hidden');
+            claimLoggedInAutomatically(faqSlug);
+          } else {
+            claimLoggedIn.classList.add('hidden');
+            claimAnonymous.classList.remove('hidden');
+          }
         } else if (data.state === 'failure') {
           clearInterval(publishPollTimer);
           publishPollTimer = null;
@@ -406,7 +438,7 @@
           publishPollTimer = null;
           setPublishBusy(false);
           publishBtn.disabled = false;
-          showPublishError(`Taking longer than expected — your FAQ should appear shortly at ${faqUrl}`);
+          showPublishError(`Taking longer than expected — your FAQ should appear shortly at ${buildFaqUrl(faqSlug)}`);
         }
         // 'pending' / 'running' -> keep polling
       } catch (err) {
@@ -557,6 +589,28 @@
     localStorage.setItem('pendingFaqClaims', JSON.stringify(claims));
   }
 
+  // Already-logged-in path: claim immediately with the existing token rather
+  // than routing through the email/localStorage flow at all.
+  async function claimLoggedInAutomatically(faqSlug) {
+    claimLoggedIn.classList.remove('hidden');
+    claimLoggedInStatus.textContent = 'Saving to your account…';
+
+    try {
+      const res = await fetch(`${API_BASE}/api/faq/claim`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${existingAuthToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ claims: [{ jobId: currentJobId, faqSlug, groupName: groupNameInput.value.trim() }] })
+      });
+      if (!res.ok) throw new Error();
+      claimLoggedInStatus.textContent = 'Saved to your account — you can edit this FAQ anytime from your dashboard.';
+    } catch (err) {
+      // Most likely an expired/invalid stored token — fall back to the
+      // normal email flow rather than leaving the user stuck.
+      claimLoggedIn.classList.add('hidden');
+      claimAnonymous.classList.remove('hidden');
+    }
+  }
+
   claimForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     claimError.classList.add('hidden');
@@ -575,7 +629,7 @@
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Could not send the login link.');
 
-      pushPendingFaqClaim({ jobId: currentJobId, faqUrl: lastPublishedFaqUrl, groupName: groupNameInput.value.trim() });
+      pushPendingFaqClaim({ jobId: currentJobId, faqSlug: lastPublishedFaqSlug, groupName: groupNameInput.value.trim() });
 
       claimStatus.textContent = `Check your email (${email}) and click the verification link on THIS SAME device/browser — that's what saves this FAQ to your account.`;
       claimStatus.classList.remove('hidden');

@@ -17,7 +17,7 @@ async function readFaqs(userDir, token) {
   }
 }
 
-// Just the reference (jobId/faqUrl/groupName), not the FAQ content itself —
+// Just the reference (jobId/faqSlug/groupName), not the FAQ content itself —
 // Firestore (and the published static page) are the source of truth for
 // that; duplicating it here would just be another thing to go stale.
 async function addFaqs(userDir, token, entries) {
