@@ -2,6 +2,7 @@ const userService = require('../services/userService');
 const emailService = require('../services/emailService');
 const mudslideService = require('../services/mudslideService');
 const scheduleService = require('../services/scheduleService');
+const faqService = require('../services/faqService');
 
 async function routes(fastify, options) {
 
@@ -29,6 +30,22 @@ async function routes(fastify, options) {
     }
   };
 
+  // Only the 2 routes that actually touch mudslide need this (schedules
+  // don't — they're only ever executed later by the cron job, not at
+  // creation time). Without it, calling these unconnected throws an ENOENT
+  // reading the (nonexistent) .mudslide.enc file, surfacing as a raw 500.
+  const requireWhatsapp = async (request, reply) => {
+    try {
+      const status = await mudslideService.confirmWhatsappLogin(request.user.userDir, request.user.token);
+      if (!status.loggedIn) {
+        return reply.code(409).send({ error: 'WhatsApp is not connected yet.', reason: 'whatsapp_not_connected' });
+      }
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Failed to check WhatsApp connection' });
+    }
+  };
+
   fastify.get('/api/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
 
   fastify.get('/api/config', async () => ({
@@ -37,12 +54,12 @@ async function routes(fastify, options) {
 
   fastify.post('/api/register', async (request, reply) => {
     try {
-      const { email } = request.body;
+      const { email, skipWhatsappConnect } = request.body;
       if (!email || !email.includes('@')) {
         return reply.code(400).send({ error: 'Valid email is required' });
       }
       const { token, userDir } = await userService.registerUser(email);
-      await emailService.sendRegistrationEmail(email, token);
+      await emailService.sendRegistrationEmail(email, token, { skipWhatsappConnect: !!skipWhatsappConnect });
       emailService.sendOwnerNotification('new_registration', { userDir }).catch(() => {});
       return { success: true, message: 'Registration email sent. Please check your inbox.' };
     } catch (error) {
@@ -228,7 +245,7 @@ async function routes(fastify, options) {
     }
   });
 
-  fastify.get('/api/whatsapp/groups', { preHandler: authenticateUser }, async (request, reply) => {
+  fastify.get('/api/whatsapp/groups', { preHandler: [authenticateUser, requireWhatsapp] }, async (request, reply) => {
     try {
       const groups = await mudslideService.getGroups(request.user.userDir, request.user.token);
       return { groups };
@@ -356,7 +373,7 @@ async function routes(fastify, options) {
     }
   });
 
-  fastify.post('/api/message', { preHandler: authenticateUser }, async (request, reply) => {
+  fastify.post('/api/message', { preHandler: [authenticateUser, requireWhatsapp] }, async (request, reply) => {
     try {
       const { to, message, media } = request.body;
       if (!to || !message) {
@@ -369,6 +386,33 @@ async function routes(fastify, options) {
     } catch (error) {
       fastify.log.error(error);
       return reply.code(500).send({ error: 'Failed to send message' });
+    }
+  });
+
+  fastify.get('/api/faq', { preHandler: authenticateUser }, async (request, reply) => {
+    try {
+      const faqs = await faqService.readFaqs(request.user.userDir, request.user.token);
+      return { faqs };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Failed to get FAQs' });
+    }
+  });
+
+  // Called by dashboard.html on load with whatever's sitting in localStorage
+  // from an anonymous FAQ-tool publish — this is what actually attaches a
+  // jobId to the now-logged-in account.
+  fastify.post('/api/faq/claim', { preHandler: authenticateUser }, async (request, reply) => {
+    try {
+      const { claims } = request.body || {};
+      if (!Array.isArray(claims) || !claims.length) {
+        return reply.code(400).send({ error: 'claims array is required' });
+      }
+      const faqs = await faqService.addFaqs(request.user.userDir, request.user.token, claims);
+      return { success: true, faqs };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Failed to claim FAQs' });
     }
   });
 }

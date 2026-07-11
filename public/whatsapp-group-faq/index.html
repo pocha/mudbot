@@ -53,7 +53,14 @@
             WhatsApp exports as a .zip. Unzip it first, then select the <code>_chat.txt</code> file inside — we only need the text, not the media.
           </p>
         </div>
-        <button id="submit-btn" type="submit"
+        <div>
+          <!-- Rendered explicitly via JS at page load (not Turnstile's
+               auto-render) so the same widget instance can be reset and
+               reused for both this form and the Publish button below. -->
+          <div id="turnstile-widget"></div>
+          <p class="mt-1 text-xs text-on-surface-variant">You'll need to solve this once now, and again before publishing.</p>
+        </div>
+        <button id="submit-btn" type="submit" disabled
           class="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary-container text-on-primary-container px-4 py-3 font-label-md text-label-md font-bold hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
           Generate FAQ
         </button>
@@ -77,13 +84,14 @@
     <div id="faq-content" class="p-6"></div>
 
     <div class="p-6 pt-0 flex flex-col gap-3">
-      <div id="publish-error" class="hidden rounded-lg bg-error-container border border-error text-on-error-container font-body-md text-sm p-4"></div>
+      <div class="flex items-center justify-between gap-3">
+        <button id="add-question-btn" type="button"
+          class="inline-flex items-center gap-1 text-primary font-label-md text-label-md font-bold hover:underline">
+          <span class="material-symbols-outlined text-[18px]">add</span> Add question
+        </button>
+      </div>
 
-      <!-- Rendered explicitly via JS once this section becomes visible (see
-           renderTurnstileWidget) rather than Turnstile's auto-render, since
-           auto-render runs at page load while this container is still
-           display:none and won't pick it up once unhidden later. -->
-      <div id="turnstile-widget"></div>
+      <div id="publish-error" class="hidden rounded-lg bg-error-container border border-error text-on-error-container font-body-md text-sm p-4"></div>
 
       <button id="publish-btn" type="button" disabled
         class="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-on-primary px-4 py-3 font-label-md text-label-md font-bold hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
@@ -93,6 +101,37 @@
       <div id="publish-status-box" class="hidden flex items-center gap-3 text-on-surface-variant font-body-md text-sm">
         <span class="w-4 h-4 border-2 border-outline-variant border-t-primary rounded-full animate-spin block"></span>
         <span id="publish-status-text">Publishing…</span>
+      </div>
+    </div>
+
+    <div id="publish-success" class="hidden p-6 pt-0 flex flex-col gap-4 border-t border-outline-variant">
+      <!-- Hidden until the deploy poll actually confirms success — shown as
+           soon as the initial publish request succeeds is the claim section
+           below, not this, since the page isn't live yet at that point. -->
+      <div id="publish-live-banner" class="hidden rounded-lg bg-secondary-container/30 border border-secondary text-on-surface font-body-md text-sm p-4 flex items-center justify-between gap-4 flex-wrap">
+        <span>Your FAQ is live!</span>
+        <a id="published-faq-link" href="#" target="_blank" rel="noopener" class="font-bold text-primary hover:underline whitespace-nowrap">View it &rarr;</a>
+      </div>
+
+      <div id="claim-logged-in" class="hidden flex-col gap-2">
+        <div id="claim-logged-in-status" class="font-body-md text-sm text-on-surface-variant"></div>
+        <a href="/dashboard.html" class="inline-flex items-center gap-2 w-fit rounded-xl bg-primary-container text-on-primary-container px-4 py-3 font-label-md text-label-md font-bold hover:opacity-90 active:scale-95 transition-all">
+          Go to your dashboard
+        </a>
+      </div>
+
+      <div id="claim-anonymous" class="flex flex-col gap-2">
+        <p class="font-label-md text-label-md text-on-surface-variant">Want to come back and edit this FAQ later? Save it to your account.</p>
+        <form id="claim-form" class="flex flex-col sm:flex-row gap-2">
+          <input id="claim-email" type="email" placeholder="you@example.com" required
+            class="flex-1 bg-surface-container-low border-b-2 border-transparent focus:border-primary focus:ring-0 rounded-lg p-3 transition-all outline-none font-body-md" />
+          <button id="claim-btn" type="submit"
+            class="inline-flex items-center justify-center gap-2 rounded-xl bg-primary-container text-on-primary-container px-4 py-3 font-label-md text-label-md font-bold hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap">
+            Email me a login link
+          </button>
+        </form>
+        <div id="claim-status" class="hidden font-body-md text-sm text-on-surface-variant"></div>
+        <div id="claim-error" class="hidden rounded-lg bg-error-container border border-error text-on-error-container font-body-md text-sm p-4"></div>
       </div>
     </div>
   </div>
@@ -136,37 +175,96 @@
   const faqContent = document.getElementById('faq-content');
   const faqSubtitle = document.getElementById('faq-subtitle');
   const groupNameInput = document.getElementById('group-name');
+  const addQuestionBtn = document.getElementById('add-question-btn');
   const publishBtn = document.getElementById('publish-btn');
   const publishError = document.getElementById('publish-error');
   const publishStatusBox = document.getElementById('publish-status-box');
   const publishStatusText = document.getElementById('publish-status-text');
+  const publishSuccess = document.getElementById('publish-success');
+  const publishLiveBanner = document.getElementById('publish-live-banner');
+  const publishedFaqLink = document.getElementById('published-faq-link');
+  const claimLoggedIn = document.getElementById('claim-logged-in');
+  const claimLoggedInStatus = document.getElementById('claim-logged-in-status');
+  const claimAnonymous = document.getElementById('claim-anonymous');
+  const claimForm = document.getElementById('claim-form');
+  const claimEmailInput = document.getElementById('claim-email');
+  const claimBtn = document.getElementById('claim-btn');
+  const claimStatus = document.getElementById('claim-status');
+  const claimError = document.getElementById('claim-error');
+
+  // localhost vs the split-off API domain — same pattern already used in
+  // dashboard.html/index.html/verify.html.
+  const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+    ? 'http://localhost:3000'
+    : 'https://api.watobot.xyz';
+
+  // Published FAQ pages always live on the real production domain regardless
+  // of where this tool itself is running (dev or prod) — GitHub Pages has no
+  // localhost equivalent. Only faqSlug is ever stored/passed around; this is
+  // the one place that turns a slug into an actual URL.
+  const PUBLISHED_FAQ_BASE = 'https://watobot.xyz/whatsapp-group-faq/';
+  function buildFaqUrl(faqSlug) {
+    return `${PUBLISHED_FAQ_BASE}${faqSlug}.html`;
+  }
+
+  // Same origin as dashboard.html in production, so a token stored there by
+  // an earlier login is already sitting in this page's localStorage too —
+  // no need to route an already-logged-in user through the email flow at
+  // all, we can just claim the FAQ directly with their existing token.
+  const existingAuthToken = localStorage.getItem('authToken');
 
   let pollTimer = null;
   let publishPollTimer = null;
   let currentFaq = null; // live-edited copy of the generated FAQ, kept in sync with the contenteditable fields
+  let currentJobId = null; // stable identity of this FAQ project once one exists, reused across regenerate/edit/publish
+  let lastPublishedFaqSlug = null;
   let turnstileToken = null;
   let turnstileRendered = false;
 
+  // Always the real site key, even on localhost — Turnstile cryptographically
+  // pairs a site key with a specific secret key, and there's only one
+  // deployed backend (no separate dev/prod split) holding one secret key. A
+  // test site key would only pass server-side verification if the server
+  // also accepted Cloudflare's public, documented test secret key — which
+  // would let anyone bypass Turnstile in production too, since that pairing
+  // is deliberately public. So this has to stay the real key everywhere;
+  // local testing needs the real widget to actually work (see Hostname
+  // Management on the Cloudflare Turnstile dashboard).
   const TURNSTILE_SITE_KEY = '0x4AAAAAADyyPhijs7U9dZz3';
 
+  // Enables both actions — Generate and Publish share one widget/token, since
+  // it's now visible from page load rather than gated behind the (previously
+  // hidden-until-generated) result section.
   function onTurnstileSuccess(token) {
     turnstileToken = token;
+    submitBtn.disabled = false;
     publishBtn.disabled = false;
   }
 
-  // Called once the FAQ result section is revealed (widget must be visible
-  // to render correctly). Guarded so re-generating doesn't double-render.
   function renderTurnstileWidget() {
     if (turnstileRendered) return;
     if (typeof turnstile === 'undefined') {
-      // Turnstile's script loads async/defer — in the rare case it hasn't
-      // finished by the time generation completes, retry briefly rather than
-      // silently leaving the widget (and Publish button) unusable.
+      // Turnstile's script loads async/defer — retry briefly rather than
+      // silently leaving the widget (and both gated buttons) unusable.
       setTimeout(renderTurnstileWidget, 200);
       return;
     }
     turnstile.render('#turnstile-widget', { sitekey: TURNSTILE_SITE_KEY, callback: onTurnstileSuccess });
     turnstileRendered = true;
+  }
+  renderTurnstileWidget();
+
+  // Turnstile tokens are single-use — call this right before using a token
+  // for a request, to capture it and immediately invalidate/reset so a
+  // second click can't replay the same (already-spent) token. Returns the
+  // token to use for the in-flight request.
+  function invalidateTurnstile() {
+    const token = turnstileToken;
+    turnstileToken = null;
+    submitBtn.disabled = true;
+    publishBtn.disabled = true;
+    if (turnstileRendered && typeof turnstile !== 'undefined') turnstile.reset('#turnstile-widget');
+    return token;
   }
 
   function showError(message) {
@@ -177,6 +275,7 @@
   function resetUi() {
     errorBox.classList.add('hidden');
     faqResult.classList.add('hidden');
+    publishSuccess.classList.add('hidden');
     if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
     if (publishPollTimer) { clearInterval(publishPollTimer); publishPollTimer = null; }
     publishError.classList.add('hidden');
@@ -184,8 +283,7 @@
     publishBtn.disabled = true;
     publishBtn.textContent = 'Publish FAQ';
     currentFaq = null;
-    turnstileToken = null;
-    if (turnstileRendered && typeof turnstile !== 'undefined') turnstile.reset('#turnstile-widget');
+    // currentJobId is deliberately NOT reset here — a regenerate reuses it.
   }
 
   function escapeHtml(str) {
@@ -197,11 +295,31 @@
       .replace(/'/g, '&#39;');
   }
 
-  // Same visual layout as the server-rendered faqHtml fragment, but with the
+  // Best-effort only — WhatsApp export date formats vary and aren't reliably
+  // parseable. Mirrors the same helper in functions/src/faqRender.js, used
+  // purely as a secondary tie-break under count.
+  function looseDateValue(str) {
+    const t = Date.parse(str);
+    return Number.isNaN(t) ? 0 : t;
+  }
+
+  // Same visual layout (and same count-desc sort, matching the server-
+  // rendered faqHtml fragment this replaced) as before, but with the
   // question and each answer's text made contenteditable, and wired to keep
   // currentFaq (what actually gets published) in sync as the user types.
+  // Sorting is display-only — data-entry-index always points at the entry's
+  // real position in currentFaq, not its sorted position, so editing/adding/
+  // deleting still mutates the right array element regardless of sort order.
   function renderEditableFaq(faq) {
-    faqContent.innerHTML = faq.map((entry, entryIndex) => {
+    const sorted = faq
+      .map((entry, entryIndex) => ({ entry, entryIndex }))
+      .sort((a, b) => {
+        const countDiff = (b.entry.count || 0) - (a.entry.count || 0);
+        if (countDiff !== 0) return countDiff;
+        return looseDateValue(b.entry.mostRecentDate) - looseDateValue(a.entry.mostRecentDate);
+      });
+
+    faqContent.innerHTML = sorted.map(({ entry, entryIndex }) => {
       const answers = entry.answers || [];
       const [latest, ...older] = answers;
       const olderHtml = older.length
@@ -216,10 +334,14 @@
 
       return `
 <div class="pb-5 mb-5 border-b border-outline-variant last:border-b-0 last:mb-0 last:pb-0">
-  <h3 class="flex gap-2 font-headline-md text-body-lg font-bold text-on-surface">
-    <span class="text-primary shrink-0">Q.</span>
-    <span contenteditable="true" class="outline-none focus:bg-surface-container-low rounded px-1 -mx-1" data-field="question" data-entry-index="${entryIndex}">${escapeHtml(entry.question)}</span>
-  </h3>
+  <div class="flex items-start justify-between gap-2">
+    <h3 class="flex gap-2 font-headline-md text-body-lg font-bold text-on-surface">
+      <span class="text-primary shrink-0">Q.</span>
+      <span contenteditable="true" class="outline-none focus:bg-surface-container-low rounded px-1 -mx-1" data-field="question" data-entry-index="${entryIndex}">${escapeHtml(entry.question)}</span>
+    </h3>
+    <button type="button" data-action="delete-entry" data-entry-index="${entryIndex}" title="Delete this question"
+      class="shrink-0 text-on-surface-variant hover:text-error transition-colors"><span class="material-symbols-outlined text-[18px]">delete</span></button>
+  </div>
   <p class="mt-2 pl-6 font-body-md text-on-surface-variant">
     <span contenteditable="true" class="outline-none focus:bg-surface-container-low rounded px-1 -mx-1" data-field="answer" data-entry-index="${entryIndex}" data-answer-index="0">${escapeHtml(latest ? latest.text : '')}</span>
   </p>
@@ -238,6 +360,26 @@
       const answerIndex = Number(el.dataset.answerIndex);
       currentFaq[entryIndex].answers[answerIndex].text = el.textContent.trim();
     }
+  });
+
+  faqContent.addEventListener('click', (e) => {
+    const el = e.target.closest('[data-action="delete-entry"]');
+    if (!el || !currentFaq) return;
+    if (currentFaq.length <= 1) {
+      showPublishError('At least one FAQ entry is required.');
+      return;
+    }
+    currentFaq.splice(Number(el.dataset.entryIndex), 1);
+    renderEditableFaq(currentFaq); // full re-render: a splice shifts every later entry's data-entry-index
+  });
+
+  addQuestionBtn.addEventListener('click', () => {
+    if (!currentFaq) return;
+    const today = new Date().toLocaleDateString('en-GB'); // DD/MM/YYYY, matches the format Gemini's entries already use
+    currentFaq.push({ question: '', count: 1, mostRecentDate: today, answers: [{ text: '', date: today }] });
+    renderEditableFaq(currentFaq);
+    const newQuestion = faqContent.querySelector(`[data-field="question"][data-entry-index="${currentFaq.length - 1}"]`);
+    if (newQuestion) newQuestion.focus();
   });
 
   function showPublishError(message) {
@@ -268,20 +410,42 @@
       showPublishError('No FAQ content to publish.');
       return;
     }
+    if (!currentJobId) {
+      showPublishError('Something went wrong — please regenerate before publishing.');
+      return;
+    }
 
+    const tokenForThisPublish = invalidateTurnstile();
     setPublishBusy(true, 'Publishing…');
 
     try {
       const res = await fetch(`${FUNCTIONS_BASE}/publishFaq`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ groupName, faq: currentFaq, turnstileToken })
+        body: JSON.stringify({ groupName, faq: currentFaq, jobId: currentJobId, turnstileToken: tokenForThisPublish })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Publish failed');
 
-      setPublishBusy(true, 'Published — waiting for the site to update…');
-      pollPublishStatus(data.commitSha, data.faqUrl);
+      // The commit itself is done at this point — jobId/faqSlug are final,
+      // so there's no need to wait for the GitHub Pages deploy (which is
+      // what's slow, up to a minute) before letting the user claim edit
+      // access. Show that immediately so they can fill in their email while
+      // the deploy finishes in the background; the "live" banner below is
+      // the only part still gated on the deploy actually completing.
+      lastPublishedFaqSlug = data.faqSlug;
+      publishLiveBanner.classList.add('hidden'); // re-hide in case this is a republish — only this cycle's deploy should light it back up
+      publishSuccess.classList.remove('hidden');
+      if (existingAuthToken) {
+        claimAnonymous.classList.add('hidden');
+        claimLoggedInAutomatically(data.faqSlug);
+      } else {
+        claimLoggedIn.classList.add('hidden');
+        claimAnonymous.classList.remove('hidden');
+      }
+
+      setPublishBusy(true, 'Publishing — this can take up to a minute…');
+      pollPublishStatus(data.commitSha, data.faqSlug);
     } catch (err) {
       setPublishBusy(false);
       publishBtn.disabled = false;
@@ -289,7 +453,7 @@
     }
   });
 
-  function pollPublishStatus(commitSha, faqUrl) {
+  function pollPublishStatus(commitSha, faqSlug) {
     let attempts = 0;
     const maxAttempts = 40; // ~40 * 4s = ~160s, generous for a GitHub Pages build+deploy
     publishPollTimer = setInterval(async () => {
@@ -302,7 +466,9 @@
         if (data.state === 'success') {
           clearInterval(publishPollTimer);
           publishPollTimer = null;
-          window.location.href = faqUrl;
+          setPublishBusy(false);
+          publishedFaqLink.href = buildFaqUrl(faqSlug);
+          publishLiveBanner.classList.remove('hidden');
         } else if (data.state === 'failure') {
           clearInterval(publishPollTimer);
           publishPollTimer = null;
@@ -314,7 +480,7 @@
           publishPollTimer = null;
           setPublishBusy(false);
           publishBtn.disabled = false;
-          showPublishError(`Taking longer than expected — your FAQ should appear shortly at ${faqUrl}`);
+          showPublishError(`Taking longer than expected — your FAQ should appear shortly at ${buildFaqUrl(faqSlug)}`);
         }
         // 'pending' / 'running' -> keep polling
       } catch (err) {
@@ -346,13 +512,15 @@
           clearInterval(pollTimer);
           pollTimer = null;
           setBusy(false);
+          currentJobId = jobId;
+          history.replaceState(null, '', '?jobId=' + encodeURIComponent(jobId));
+          submitBtn.textContent = 'Regenerate from a new export';
           currentFaq = JSON.parse(JSON.stringify(data.faq));
           renderEditableFaq(currentFaq);
           faqSubtitle.textContent = data.messageCount
             ? `Based on the most recent ${data.messageCount} messages. Connect your WhatsApp account to keep this FAQ updated automatically every night.`
             : 'Connect your WhatsApp account to keep this FAQ updated automatically every night.';
           faqResult.classList.remove('hidden');
-          renderTurnstileWidget();
         } else if (data.state === 'failed') {
           clearInterval(pollTimer);
           pollTimer = null;
@@ -377,10 +545,17 @@
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    resetUi();
 
     const fileInput = document.getElementById('chat-file');
     if (!fileInput.files.length) return;
+
+    if (!turnstileToken) {
+      showError('Please complete the captcha above, then try again.');
+      return;
+    }
+
+    const tokenForThisSubmit = invalidateTurnstile();
+    resetUi();
 
     const groupName = document.getElementById('group-name').value;
 
@@ -399,7 +574,7 @@
       const res = await fetch(`${FUNCTIONS_BASE}/submitFaqUpload`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ groupName, messages })
+        body: JSON.stringify({ groupName, messages, jobId: currentJobId, turnstileToken: tokenForThisSubmit })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Upload failed');
@@ -409,6 +584,103 @@
     } catch (err) {
       setBusy(false);
       showError(err.message || 'Upload failed.');
+    }
+  });
+
+  // Resumes an existing FAQ project from ?jobId= in the URL — lets a user
+  // come back and keep editing/regenerating/publishing the same FAQ rather
+  // than always starting from a blank form.
+  async function loadExistingJob(jobId) {
+    try {
+      const res = await fetch(`${FUNCTIONS_BASE}/getFaqStatus?jobId=${encodeURIComponent(jobId)}`);
+      const data = await res.json();
+      if (!res.ok) return; // stale/invalid jobId — fall back to the normal empty-form state
+
+      currentJobId = jobId;
+      if (data.groupName) groupNameInput.value = data.groupName;
+
+      if (data.state === 'done' && data.faq) {
+        currentFaq = JSON.parse(JSON.stringify(data.faq));
+        renderEditableFaq(currentFaq);
+        faqSubtitle.textContent = data.messageCount
+          ? `Based on the most recent ${data.messageCount} messages. Connect your WhatsApp account to keep this FAQ updated automatically every night.`
+          : 'Connect your WhatsApp account to keep this FAQ updated automatically every night.';
+        faqResult.classList.remove('hidden');
+        submitBtn.textContent = 'Regenerate from a new export';
+      } else if (data.state === 'generating' || data.state === 'queued') {
+        setBusy(true, 'Generating FAQ with Gemini…');
+        pollStatus(jobId);
+      } else if (data.state === 'failed') {
+        showError(data.error || 'FAQ generation failed. You can try uploading again.');
+        submitBtn.textContent = 'Try again';
+      }
+    } catch (err) {
+      // network error resolving the existing job — leave the form in its
+      // normal empty state rather than blocking the page on it
+    }
+  }
+
+  const initialJobId = new URLSearchParams(location.search).get('jobId');
+  if (initialJobId) loadExistingJob(initialJobId);
+
+  function pushPendingFaqClaim(entry) {
+    let claims = [];
+    try { claims = JSON.parse(localStorage.getItem('pendingFaqClaims') || '[]'); } catch { claims = []; }
+    claims = claims.filter(c => c.jobId !== entry.jobId);
+    claims.push(entry);
+    localStorage.setItem('pendingFaqClaims', JSON.stringify(claims));
+  }
+
+  // Already-logged-in path: claim immediately with the existing token rather
+  // than routing through the email/localStorage flow at all.
+  async function claimLoggedInAutomatically(faqSlug) {
+    claimLoggedIn.classList.remove('hidden');
+    claimLoggedInStatus.textContent = 'Saving to your account…';
+
+    try {
+      const res = await fetch(`${API_BASE}/api/faq/claim`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${existingAuthToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ claims: [{ jobId: currentJobId, faqSlug, groupName: groupNameInput.value.trim() }] })
+      });
+      if (!res.ok) throw new Error();
+      claimLoggedInStatus.textContent = 'Saved to your account — you can edit this FAQ anytime from your dashboard.';
+    } catch (err) {
+      // Most likely an expired/invalid stored token — fall back to the
+      // normal email flow rather than leaving the user stuck.
+      claimLoggedIn.classList.add('hidden');
+      claimAnonymous.classList.remove('hidden');
+    }
+  }
+
+  claimForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    claimError.classList.add('hidden');
+    claimStatus.classList.add('hidden');
+
+    const email = claimEmailInput.value.trim();
+    if (!email) return;
+
+    claimBtn.disabled = true;
+    try {
+      const res = await fetch(`${API_BASE}/api/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, skipWhatsappConnect: true })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not send the login link.');
+
+      pushPendingFaqClaim({ jobId: currentJobId, faqSlug: lastPublishedFaqSlug, groupName: groupNameInput.value.trim() });
+
+      claimStatus.textContent = `Check your email (${email}) and click the verification link on THIS SAME device/browser — that's what saves this FAQ to your account.`;
+      claimStatus.classList.remove('hidden');
+      claimForm.reset();
+    } catch (err) {
+      claimError.textContent = err.message || 'Something went wrong. Please try again.';
+      claimError.classList.remove('hidden');
+    } finally {
+      claimBtn.disabled = false;
     }
   });
 

@@ -1,551 +1,1032 @@
-<!DOCTYPE html>
+<!doctype html>
 
-<html class="light" lang="en"><head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>WatoBot | Dashboard</title>
-<!-- Google Fonts -->
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700;800&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;family=Plus+Jakarta+Sans:wght@100..900&amp;display=swap" rel="stylesheet"/>
-<!-- Tailwind CSS -->
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<!-- Style Guidance Implementation -->
-<script src="/assets/theme.js"></script>
-<link rel="stylesheet" href="/assets/theme.css"/>
-</head>
-<body class="bg-surface text-on-surface font-body-md overflow-hidden">
-<!-- Top Navigation -->
-<header class="flex justify-between items-center w-full px-gutter py-2 sticky top-0 z-50 bg-surface dark:bg-inverse-surface border-b border-outline-variant dark:border-on-surface-variant shadow-sm h-16">
-<div class="flex items-center gap-4">
-<span class="font-headline-md text-headline-md font-bold"><span class="text-primary">Wato</span><span class="text-on-surface">Bot</span></span>
-</div>
-<div class="flex items-center gap-4">
-<button onclick="openSupport()" class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors">Support</button>
-<button id="logout-btn" class="flex items-center gap-2 text-error hover:bg-error/10 px-3 py-2 rounded-xl transition-all font-label-md">
-<span class="material-symbols-outlined text-[20px]">logout</span>
-<span class="hidden md:inline">Logout</span>
-</button>
-</div>
-</header>
-<div class="flex h-[calc(100vh-64px)] overflow-hidden justify-center">
-<!-- Main Workspace -->
-<main class="flex-1 overflow-y-auto custom-scrollbar p-6 bg-background">
-<div class="max-w-6xl mx-auto space-y-stack-gap">
-<!-- Onboarding Bento Grid -->
-<div class="grid grid-cols-1 md:grid-cols-12 gap-stack-gap">
-<!-- Step 1: WhatsApp Connect -->
-<section class="md:col-span-7 bg-surface-container-lowest p-6 rounded-xl border border-outline-variant shadow-sm transition-all duration-500" id="step-1">
-  <!-- Loading skeleton -->
-  <div id="wa-loading" class="space-y-4">
-    <div class="flex items-center gap-2"><div class="w-8 h-8 rounded-full bg-outline-variant/40 animate-pulse"></div><div class="h-5 w-48 bg-outline-variant/40 rounded animate-pulse"></div></div>
-    <div class="h-4 w-3/4 bg-outline-variant/30 rounded animate-pulse"></div>
-    <div class="h-4 w-1/2 bg-outline-variant/30 rounded animate-pulse"></div>
-  </div>
-  <!-- Not connected -->
-  <div id="wa-not-connected" class="hidden flex-col md:flex-row gap-6">
-    <div class="flex-1 space-y-4">
-      <div class="flex items-center gap-2">
-        <span class="bg-primary text-on-primary w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">1</span>
-        <h3 class="font-headline-md text-headline-md">Connect your WhatsApp</h3>
+<html class="light" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>WatoBot | Dashboard</title>
+    <!-- Google Fonts -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700;800&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;family=Plus+Jakarta+Sans:wght@100..900&amp;display=swap"
+      rel="stylesheet"
+    />
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <!-- Style Guidance Implementation -->
+    <script src="/assets/theme.js"></script>
+    <link rel="stylesheet" href="/assets/theme.css" />
+  </head>
+  <body class="bg-surface text-on-surface font-body-md overflow-hidden">
+    <!-- Top Navigation -->
+    <header
+      class="flex justify-between items-center w-full px-gutter py-2 sticky top-0 z-50 bg-surface dark:bg-inverse-surface border-b border-outline-variant dark:border-on-surface-variant shadow-sm h-16"
+    >
+      <div class="flex items-center gap-4">
+        <span class="font-headline-md text-headline-md font-bold"
+          ><span class="text-primary">Wato</span
+          ><span class="text-on-surface">Bot</span></span
+        >
       </div>
-      <p class="text-on-surface-variant text-body-md">Scan this QR code with your WhatsApp mobile app to authorize WatoBot and begin automating your messaging workflows.</p>
-      <ul class="space-y-2 text-on-surface-variant text-body-md">
-        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-[18px]">check_circle</span> Open WhatsApp on your phone</li>
-        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-[18px]">check_circle</span> Tap Menu or Settings and select Linked Devices</li>
-        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-[18px]">check_circle</span> Point your phone to this screen to capture the code</li>
-      </ul>
+      <div class="flex items-center gap-4">
+        <button
+          onclick="openSupport()"
+          class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors"
+        >
+          Support
+        </button>
+        <button
+          id="logout-btn"
+          class="flex items-center gap-2 text-error hover:bg-error/10 px-3 py-2 rounded-xl transition-all font-label-md"
+        >
+          <span class="material-symbols-outlined text-[20px]">logout</span>
+          <span class="hidden md:inline">Logout</span>
+        </button>
+      </div>
+    </header>
+    <div class="flex h-[calc(100vh-64px)] overflow-hidden justify-center">
+      <!-- Main Workspace -->
+      <main class="flex-1 overflow-y-auto custom-scrollbar p-6 bg-background">
+        <div class="max-w-6xl mx-auto space-y-stack-gap">
+          <!-- Onboarding Bento Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-stack-gap">
+            <!-- Step 1: WhatsApp Connect -->
+            <section
+              class="md:col-span-7 bg-surface-container-lowest p-6 rounded-xl border border-outline-variant shadow-sm transition-all duration-500"
+              id="step-1"
+            >
+              <!-- Loading skeleton -->
+              <div id="wa-loading" class="space-y-4">
+                <div class="flex items-center gap-2">
+                  <div
+                    class="w-8 h-8 rounded-full bg-outline-variant/40 animate-pulse"
+                  ></div>
+                  <div
+                    class="h-5 w-48 bg-outline-variant/40 rounded animate-pulse"
+                  ></div>
+                </div>
+                <div
+                  class="h-4 w-3/4 bg-outline-variant/30 rounded animate-pulse"
+                ></div>
+                <div
+                  class="h-4 w-1/2 bg-outline-variant/30 rounded animate-pulse"
+                ></div>
+              </div>
+              <!-- Not connected -->
+              <div
+                id="wa-not-connected"
+                class="hidden flex-col md:flex-row gap-6"
+              >
+                <div class="flex-1 space-y-4">
+                  <div class="flex items-center gap-2">
+                    <span
+                      class="bg-primary text-on-primary w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm"
+                      >1</span
+                    >
+                    <h3 class="font-headline-md text-headline-md">
+                      Connect your WhatsApp
+                    </h3>
+                  </div>
+                  <p class="text-on-surface-variant text-body-md">
+                    Scan this QR code with your WhatsApp mobile app to authorize
+                    WatoBot and begin automating your messaging workflows.
+                  </p>
+                  <ul class="space-y-2 text-on-surface-variant text-body-md">
+                    <li class="flex items-center gap-2">
+                      <span
+                        class="material-symbols-outlined text-primary text-[18px]"
+                        >check_circle</span
+                      >
+                      Open WhatsApp on your phone
+                    </li>
+                    <li class="flex items-center gap-2">
+                      <span
+                        class="material-symbols-outlined text-primary text-[18px]"
+                        >check_circle</span
+                      >
+                      Tap Menu or Settings and select Linked Devices
+                    </li>
+                    <li class="flex items-center gap-2">
+                      <span
+                        class="material-symbols-outlined text-primary text-[18px]"
+                        >check_circle</span
+                      >
+                      Point your phone to this screen to capture the code
+                    </li>
+                  </ul>
+                  <a
+                    id="wa-connect-btn"
+                    href="#"
+                    class="inline-flex items-center gap-2 bg-primary-container text-on-primary-container font-bold px-4 py-2 rounded-xl hover:opacity-90 transition-all"
+                  >
+                    <span class="material-symbols-outlined text-[20px]"
+                      >qr_code_scanner</span
+                    >
+                    Connect WhatsApp
+                  </a>
+                </div>
+                <div
+                  class="w-48 h-48 bg-surface-container mx-auto p-4 rounded-xl border-2 border-dashed border-primary/30 flex items-center justify-center relative overflow-hidden"
+                >
+                  <div
+                    class="absolute inset-0 bg-primary/5 flex items-center justify-center pointer-events-none"
+                  >
+                    <span
+                      class="material-symbols-outlined text-primary text-4xl animate-pulse"
+                      >qr_code_scanner</span
+                    >
+                  </div>
+                </div>
+              </div>
+              <!-- Connected -->
+              <div id="wa-connected" class="hidden flex-col gap-4">
+                <div class="flex items-center gap-3">
+                  <span
+                    class="material-symbols-outlined text-primary text-3xl"
+                    style="font-variation-settings: &quot;FILL&quot; 1"
+                    >check_circle</span
+                  >
+                  <h3 class="font-headline-md text-headline-md text-primary">
+                    WhatsApp Connected
+                  </h3>
+                </div>
+                <p
+                  id="wa-connection-line"
+                  class="text-body-md text-on-surface font-semibold"
+                >
+                  WhatsApp is connected and ready to send messages.
+                </p>
+                <p
+                  id="wa-proxy-line"
+                  class="hidden text-body-md text-on-surface-variant"
+                ></p>
+                <div
+                  class="bg-surface-container p-4 rounded-xl border border-outline-variant space-y-2 text-body-md text-on-surface-variant"
+                >
+                  <p class="font-semibold text-on-surface">
+                    Want to connect a different account?
+                  </p>
+                  <p>1. Click <strong>Disconnect</strong> below.</p>
+                  <p>
+                    2. On your phone go to WhatsApp →
+                    <strong>Linked Devices</strong> and remove the entry
+                    labelled <strong>"Google Chrome"</strong>.
+                  </p>
+                </div>
+                <div>
+                  <button
+                    id="disconnect-btn"
+                    class="flex items-center gap-2 text-error border border-error/50 px-4 py-2 rounded-xl font-label-md hover:bg-error/10 transition-colors"
+                  >
+                    <span class="material-symbols-outlined text-[18px]"
+                      >link_off</span
+                    >
+                    Disconnect
+                  </button>
+                </div>
+              </div>
+            </section>
+            <!-- Step 2: API Key -->
+            <section
+              class="md:col-span-5 bg-surface-container-lowest p-6 rounded-xl border border-outline-variant shadow-sm flex flex-col gap-4 step-disabled transition-all duration-500"
+              id="step-2"
+            >
+              <div class="flex items-center gap-2">
+                <span
+                  class="bg-outline text-on-primary w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm"
+                  >2</span
+                >
+                <h3 class="font-headline-md text-headline-md">API Access</h3>
+              </div>
+              <p class="text-on-surface-variant text-body-md">
+                Use the API key to send WhatsApp messages from your app or
+                scripts.
+              </p>
+
+              <!-- Loading skeleton -->
+              <div id="apikey-loading" class="space-y-3">
+                <div
+                  class="h-4 w-3/4 bg-outline-variant/40 rounded animate-pulse"
+                ></div>
+                <div
+                  class="h-10 w-full bg-outline-variant/30 rounded-xl animate-pulse"
+                ></div>
+              </div>
+              <!-- State: no key / expired — show generate button -->
+              <div id="apikey-generate-view" class="hidden">
+                <button
+                  onclick="generateApiKey()"
+                  id="apikey-generate-btn"
+                  class="w-full bg-primary-container text-on-primary-container font-bold py-3 rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-2"
+                >
+                  <span class="material-symbols-outlined text-[20px]">key</span>
+                  Generate API Key
+                </button>
+                <p
+                  id="apikey-expired-notice"
+                  class="hidden text-error font-body-md text-sm mt-2 text-center"
+                >
+                  Your previous key has expired. Generate a new one.
+                </p>
+              </div>
+
+              <!-- State: key just generated — show once -->
+              <div id="apikey-new-view" class="hidden space-y-3">
+                <div
+                  class="bg-amber-50 border border-amber-200 rounded-lg p-3 flex gap-2"
+                >
+                  <span
+                    class="material-symbols-outlined text-amber-500 flex-shrink-0 text-[18px] mt-0.5"
+                    >warning</span
+                  >
+                  <p class="text-on-surface font-body-md text-sm">
+                    Save this key — it won't be shown again after you leave this
+                    page.
+                  </p>
+                </div>
+                <div
+                  class="bg-surface-variant p-3 rounded-lg flex items-center justify-between gap-2 overflow-hidden"
+                >
+                  <code
+                    id="apikey-value"
+                    class="font-code-sm text-code-sm truncate text-on-surface-variant text-xs"
+                  ></code>
+                  <button
+                    onclick="copyApiKey()"
+                    class="material-symbols-outlined text-primary hover:bg-white p-1 rounded transition-colors flex-shrink-0"
+                    id="apikey-copy-btn"
+                  >
+                    content_copy
+                  </button>
+                </div>
+                <p
+                  id="apikey-expiry-new"
+                  class="text-on-surface-variant font-body-md text-sm"
+                ></p>
+              </div>
+
+              <!-- State: active key (status loaded, key not shown) -->
+              <div id="apikey-active-view" class="hidden space-y-3">
+                <div
+                  class="bg-surface-variant p-3 rounded-lg flex items-center justify-between gap-2"
+                >
+                  <span
+                    class="text-on-surface-variant font-body-md text-sm"
+                    id="apikey-expiry-label"
+                  ></span>
+                  <button
+                    onclick="generateApiKey()"
+                    class="text-primary font-label-md text-sm hover:underline flex-shrink-0"
+                  >
+                    Regenerate
+                  </button>
+                </div>
+              </div>
+
+              <!-- Permanent key CTA (shown when key is temporary) -->
+              <div
+                id="apikey-permanent-cta"
+                class="hidden border border-outline-variant rounded-lg p-3 space-y-2"
+              >
+                <p class="text-on-surface font-label-md font-bold text-sm">
+                  Need a permanent key?
+                </p>
+                <p class="text-on-surface-variant font-body-md text-sm">
+                  Drop an email to
+                  <a
+                    id="apikey-contact-email"
+                    href="#"
+                    class="text-primary underline"
+                  ></a>
+                  with your name and use case — we'll make it permanent.
+                </p>
+                <p class="text-on-surface-variant font-body-md text-sm">
+                  Include your User ID:
+                  <code
+                    id="apikey-user-id"
+                    class="bg-surface-variant px-1 rounded text-xs font-mono text-on-surface"
+                  ></code>
+                </p>
+              </div>
+
+              <a
+                href="https://github.com/pocha/mudbot?tab=readme-ov-file#api"
+                target="_blank"
+                rel="noopener"
+                class="text-secondary font-label-md flex items-center gap-1 hover:underline mt-auto"
+              >
+                <span class="material-symbols-outlined text-[18px]"
+                  >description</span
+                >
+                View API Documentation
+              </a>
+            </section>
+          </div>
+          <!-- Main Automation Area -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-stack-gap">
+            <!-- Scheduled Messages Builder -->
+            <section class="lg:col-span-2 space-y-stack-gap">
+              <div
+                class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden flex flex-col"
+              >
+                <div
+                  class="p-6 border-b border-outline-variant flex justify-between items-center"
+                >
+                  <div>
+                    <h3 class="font-headline-md text-headline-md">
+                      Schedule a Message
+                    </h3>
+                    <p class="text-on-surface-variant text-body-md">
+                      Configure automated messaging triggers
+                    </p>
+                  </div>
+                </div>
+                <div class="p-6 space-y-gutter">
+                  <!-- Form Area -->
+                  <div
+                    class="whatsapp-border bg-surface-container-low p-5 rounded-xl space-y-4"
+                  >
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div class="space-y-2">
+                        <div class="flex items-center gap-1">
+                          <label class="font-label-md text-on-surface-variant"
+                            >Recipient (User/Group)</label
+                          >
+                          <div class="relative group">
+                            <span
+                              class="material-symbols-outlined text-[16px] text-on-surface-variant opacity-50 cursor-default select-none"
+                              >info</span
+                            >
+                            <div
+                              class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-on-surface text-inverse-on-surface text-[12px] leading-relaxed rounded-lg px-3 py-2 shadow-lg hidden group-hover:block z-30 pointer-events-none"
+                            >
+                              Groups are fetched live from WhatsApp each time —
+                              we don't store any of your contacts or group
+                              information. This may take up to a minute via the
+                              residential proxy.<br />If it says 'No groups
+                              found', try again.
+                              <span
+                                class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-on-surface"
+                              ></span>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="relative" id="recipient-combobox">
+                          <span
+                            class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60 z-10"
+                            >search</span
+                          >
+                          <input
+                            id="recipient-input"
+                            class="w-full pl-10 pr-10 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                            placeholder="Tap to load .. takes a minute to load data"
+                            type="text"
+                            autocomplete="off"
+                          />
+                          <span
+                            id="recipient-spinner"
+                            class="hidden absolute right-3 top-0 bottom-0 flex items-center"
+                            ><span
+                              class="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin block"
+                            ></span
+                          ></span>
+                          <input type="hidden" id="recipient-value" />
+                          <div
+                            id="recipient-dropdown"
+                            class="hidden absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-outline-variant rounded-lg shadow-lg max-h-48 overflow-y-auto"
+                          ></div>
+                        </div>
+                      </div>
+                      <div class="space-y-2">
+                        <label class="font-label-md text-on-surface-variant"
+                          >Frequency</label
+                        >
+                        <select
+                          id="frequency-select"
+                          class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all appearance-none"
+                        >
+                          <option>Once</option>
+                          <option>Daily</option>
+                          <option>Weekly</option>
+                          <option>Monthly</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div class="space-y-2">
+                        <label class="font-label-md text-on-surface-variant"
+                          >Date &amp; Time</label
+                        >
+                        <div class="flex gap-2">
+                          <input
+                            id="schedule-date"
+                            class="flex-1 px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 outline-none"
+                            type="date"
+                          />
+                          <input
+                            id="schedule-time"
+                            class="w-32 px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 outline-none"
+                            type="time"
+                          />
+                        </div>
+                      </div>
+                      <div class="space-y-2">
+                        <label class="font-label-md text-on-surface-variant"
+                          >Timezone</label
+                        >
+                        <select
+                          id="schedule-timezone"
+                          class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all appearance-none"
+                        >
+                          <option value="Asia/Kolkata">
+                            Asia/Kolkata — IST (UTC+5:30)
+                          </option>
+                          <option value="Asia/Dubai">
+                            Asia/Dubai — GST (UTC+4)
+                          </option>
+                          <option value="Asia/Singapore">
+                            Asia/Singapore — SGT (UTC+8)
+                          </option>
+                          <option value="Asia/Tokyo">
+                            Asia/Tokyo — JST (UTC+9)
+                          </option>
+                          <option value="Asia/Shanghai">
+                            Asia/Shanghai — CST (UTC+8)
+                          </option>
+                          <option value="Europe/London">
+                            Europe/London — GMT/BST
+                          </option>
+                          <option value="Europe/Paris">
+                            Europe/Paris — CET/CEST
+                          </option>
+                          <option value="America/New_York">
+                            America/New_York — EST/EDT
+                          </option>
+                          <option value="America/Chicago">
+                            America/Chicago — CST/CDT
+                          </option>
+                          <option value="America/Los_Angeles">
+                            America/Los_Angeles — PST/PDT
+                          </option>
+                          <option value="Australia/Sydney">
+                            Australia/Sydney — AEST/AEDT
+                          </option>
+                          <option value="UTC">UTC</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="space-y-2">
+                      <label class="font-label-md text-on-surface-variant"
+                        >Message Content</label
+                      >
+                      <textarea
+                        id="schedule-message"
+                        class="w-full px-4 py-3 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all resize-none"
+                        placeholder="Type your message here..."
+                        rows="3"
+                      ></textarea>
+                    </div>
+                    <div class="pt-2 space-y-2">
+                      <div class="flex gap-3">
+                        <button
+                          id="test-send-btn"
+                          class="flex-1 h-[46px] bg-secondary-container text-on-secondary-container rounded-xl font-label-md hover:opacity-90 transition-all flex items-center justify-center gap-2"
+                        >
+                          <span class="material-symbols-outlined text-[20px]"
+                            >send_time_extension</span
+                          >
+                          Test Sending
+                        </button>
+                        <button
+                          id="create-schedule-btn"
+                          class="flex-1 bg-primary text-on-primary py-3 rounded-xl font-label-md flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-md"
+                        >
+                          <span class="material-symbols-outlined"
+                            >add_task</span
+                          >
+                          Create Schedule
+                        </button>
+                      </div>
+                      <button
+                        id="cancel-edit-btn"
+                        onclick="cancelEdit()"
+                        class="hidden w-full text-on-surface-variant border border-outline-variant py-2 rounded-xl font-label-md hover:bg-surface-container transition-all"
+                      >
+                        Cancel Edit
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <!-- Active Schedules Section -->
+              <div
+                class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden flex flex-col"
+              >
+                <div class="p-6 border-b border-outline-variant">
+                  <h3 class="font-headline-md text-headline-md">
+                    Active Schedules
+                  </h3>
+                </div>
+                <div id="schedules-loading" class="p-6 space-y-3">
+                  <div
+                    class="h-4 w-2/3 bg-outline-variant/40 rounded animate-pulse"
+                  ></div>
+                  <div
+                    class="h-4 w-1/2 bg-outline-variant/30 rounded animate-pulse"
+                  ></div>
+                  <div
+                    class="h-4 w-3/4 bg-outline-variant/30 rounded animate-pulse"
+                  ></div>
+                </div>
+                <div
+                  id="schedules-tbody"
+                  class="hidden divide-y divide-outline-variant"
+                ></div>
+                <div
+                  id="schedules-empty"
+                  class="hidden p-6 text-center text-on-surface-variant opacity-50 italic text-body-md"
+                >
+                  <span class="material-symbols-outlined text-4xl mb-2 block"
+                    >event_busy</span
+                  >
+                  No active schedules yet. Use the form above to get started.
+                </div>
+              </div>
+              <!-- WhatsApp Groups (FAQ) Section -->
+              <div
+                class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden flex flex-col"
+              >
+                <div
+                  class="p-6 border-b border-outline-variant flex justify-between items-center"
+                >
+                  <div>
+                    <h3 class="font-headline-md text-headline-md">
+                      WhatsApp Groups
+                    </h3>
+                    <p class="text-on-surface-variant text-body-md">
+                      FAQ pages generated from your WhatsApp groups
+                    </p>
+                  </div>
+                  <a
+                    href="/whatsapp-group-faq"
+                    class="inline-flex items-center gap-1 bg-primary-container text-on-primary-container font-bold text-sm px-3 py-2 rounded-xl hover:opacity-90 transition-all flex-shrink-0"
+                  >
+                    <span class="material-symbols-outlined text-[18px]"
+                      >add</span
+                    >
+                    Add FAQ
+                  </a>
+                </div>
+                <div id="faqs-loading" class="p-6 space-y-3">
+                  <div
+                    class="h-4 w-2/3 bg-outline-variant/40 rounded animate-pulse"
+                  ></div>
+                  <div
+                    class="h-4 w-1/2 bg-outline-variant/30 rounded animate-pulse"
+                  ></div>
+                </div>
+                <div
+                  id="faqs-tbody"
+                  class="hidden divide-y divide-outline-variant"
+                ></div>
+                <div
+                  id="faqs-empty"
+                  class="hidden p-6 text-center text-on-surface-variant opacity-50 italic text-body-md"
+                >
+                  <span class="material-symbols-outlined text-4xl mb-2 block"
+                    >quiz</span
+                  >
+                  No FAQs yet. Create one from a WhatsApp group chat export.
+                </div>
+              </div>
+            </section>
+            <!-- Logs Accordion -->
+            <section class="lg:col-span-1 space-y-4">
+              <div
+                class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden h-full flex flex-col"
+              >
+                <div
+                  class="p-6 border-b border-outline-variant flex items-center justify-between"
+                >
+                  <div>
+                    <h3 class="font-headline-md text-headline-md">Logs</h3>
+                    <p class="text-on-surface-variant text-body-md">
+                      Showing 50 most recent logs
+                    </p>
+                  </div>
+                  <div class="relative group">
+                    <span
+                      id="logs-total-count"
+                      class="hidden text-xs font-label-md bg-primary/10 text-primary px-2 py-1 rounded-full cursor-default select-none"
+                    ></span>
+                    <div
+                      class="absolute right-0 top-7 z-10 hidden group-hover:block w-52 bg-surface-container-high text-on-surface text-xs rounded-lg p-2 shadow-md border border-outline-variant pointer-events-none"
+                    >
+                      Total log entries across all direct API calls and
+                      scheduled messages
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  id="logs-container"
+                  class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-outline-variant"
+                >
+                  <div id="logs-loading" class="p-6 space-y-3">
+                    <div
+                      class="h-4 w-3/4 bg-outline-variant/40 rounded animate-pulse"
+                    ></div>
+                    <div
+                      class="h-4 w-1/2 bg-outline-variant/30 rounded animate-pulse"
+                    ></div>
+                    <div
+                      class="h-4 w-2/3 bg-outline-variant/30 rounded animate-pulse"
+                    ></div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+        <!-- Footer: -mx-6 cancels main's own p-6 padding so it spans edge-to-edge -->
+        <div id="site-footer" class="-mx-6 -mb-6"></div>
+        <script src="/assets/footer.js"></script>
+      </main>
     </div>
-    <div class="w-48 h-48 bg-surface-container mx-auto p-4 rounded-xl border-2 border-dashed border-primary/30 flex items-center justify-center relative overflow-hidden">
-      <div class="absolute inset-0 bg-primary/5 flex items-center justify-center pointer-events-none">
-        <span class="material-symbols-outlined text-primary text-4xl animate-pulse">qr_code_scanner</span>
+    <!-- Support Modal -->
+    <div
+      id="supportModal"
+      class="fixed inset-0 z-[100] hidden flex items-center justify-center px-4"
+    >
+      <div
+        class="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onclick="closeSupport()"
+      ></div>
+      <div
+        class="bg-surface-container-lowest w-full max-w-sm rounded-xl p-8 shadow-xl relative z-10 border border-outline-variant flex flex-col gap-4"
+      >
+        <div class="flex justify-between items-center">
+          <h3 class="font-headline-md text-headline-md text-on-surface">
+            Support
+          </h3>
+          <button
+            onclick="closeSupport()"
+            class="text-on-surface-variant hover:text-error transition-colors"
+          >
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+        <p class="text-on-surface-variant font-body-md">
+          Support is available on WhatsApp between
+          <strong class="text-on-surface">9 AM – 7 PM IST</strong> (Mon–Sat).
+        </p>
+        <div id="support-available" class="hidden">
+          <a
+            href="https://wa.me/919538384545"
+            target="_blank"
+            rel="noopener"
+            class="flex items-center justify-center gap-2 bg-primary-container text-on-primary-container font-bold py-3 rounded-xl hover:opacity-90 transition-all w-full"
+          >
+            <span class="material-symbols-outlined text-[20px]">chat</span>
+            Contact Dev on WhatsApp
+          </a>
+        </div>
+        <div id="support-unavailable" class="hidden">
+          <p class="text-on-surface-variant font-body-md text-sm text-center">
+            Developer is currently offline. Please try again during support
+            hours.
+          </p>
+        </div>
       </div>
     </div>
-  </div>
-  <!-- Connected -->
-  <div id="wa-connected" class="hidden flex-col gap-4">
-    <div class="flex items-center gap-3">
-      <span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings:'FILL' 1">check_circle</span>
-      <h3 class="font-headline-md text-headline-md text-primary">WhatsApp Connected</h3>
-    </div>
-    <p id="wa-connection-line" class="text-body-md text-on-surface font-semibold">WhatsApp is connected and ready to send messages.</p>
-    <p id="wa-proxy-line" class="hidden text-body-md text-on-surface-variant"></p>
-    <div class="bg-surface-container p-4 rounded-xl border border-outline-variant space-y-2 text-body-md text-on-surface-variant">
-      <p class="font-semibold text-on-surface">Want to connect a different account?</p>
-      <p>1. Click <strong>Disconnect</strong> below.</p>
-      <p>2. On your phone go to WhatsApp → <strong>Linked Devices</strong> and remove the entry labelled <strong>"Google Chrome"</strong>.</p>
-    </div>
-    <div>
-      <button id="disconnect-btn" class="flex items-center gap-2 text-error border border-error/50 px-4 py-2 rounded-xl font-label-md hover:bg-error/10 transition-colors">
-        <span class="material-symbols-outlined text-[18px]">link_off</span> Disconnect
-      </button>
-    </div>
-  </div>
-</section>
-<!-- Step 2: API Key -->
-<section class="md:col-span-5 bg-surface-container-lowest p-6 rounded-xl border border-outline-variant shadow-sm flex flex-col gap-4 step-disabled transition-all duration-500" id="step-2">
-<div class="flex items-center gap-2">
-  <span class="bg-outline text-on-primary w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">2</span>
-  <h3 class="font-headline-md text-headline-md">API Access</h3>
-</div>
-<p class="text-on-surface-variant text-body-md">Use the API key to send WhatsApp messages from your app or scripts.</p>
+    <!-- Backend Integration Script -->
+    <script>
+      // Same origin locally (server.js serves public/ + /api together);
+      // split into a dedicated API subdomain once served from GitHub Pages.
+      const API_BASE =
+        location.hostname === "localhost" || location.hostname === "127.0.0.1"
+          ? window.location.origin
+          : "https://api.watobot.xyz";
 
-<!-- Loading skeleton -->
-<div id="apikey-loading" class="space-y-3">
-  <div class="h-4 w-3/4 bg-outline-variant/40 rounded animate-pulse"></div>
-  <div class="h-10 w-full bg-outline-variant/30 rounded-xl animate-pulse"></div>
-</div>
-<!-- State: no key / expired — show generate button -->
-<div id="apikey-generate-view" class="hidden">
-  <button onclick="generateApiKey()" id="apikey-generate-btn"
-    class="w-full bg-primary-container text-on-primary-container font-bold py-3 rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-2">
-    <span class="material-symbols-outlined text-[20px]">key</span> Generate API Key
-  </button>
-  <p id="apikey-expired-notice" class="hidden text-error font-body-md text-sm mt-2 text-center">Your previous key has expired. Generate a new one.</p>
-</div>
+      // Published FAQ pages always live on the real production domain,
+      // regardless of where the dashboard itself is running. Only faqSlug is
+      // ever stored (in faq.json via /api/faq); this is the one place that
+      // turns a slug into an actual URL.
+      const PUBLISHED_FAQ_BASE = "https://watobot.xyz/whatsapp-group-faq/";
+      function buildFaqUrl(faqSlug) {
+        return `${PUBLISHED_FAQ_BASE}${faqSlug}.html`;
+      }
 
-<!-- State: key just generated — show once -->
-<div id="apikey-new-view" class="hidden space-y-3">
-  <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 flex gap-2">
-    <span class="material-symbols-outlined text-amber-500 flex-shrink-0 text-[18px] mt-0.5">warning</span>
-    <p class="text-on-surface font-body-md text-sm">Save this key — it won't be shown again after you leave this page.</p>
-  </div>
-  <div class="bg-surface-variant p-3 rounded-lg flex items-center justify-between gap-2 overflow-hidden">
-    <code id="apikey-value" class="font-code-sm text-code-sm truncate text-on-surface-variant text-xs"></code>
-    <button onclick="copyApiKey()" class="material-symbols-outlined text-primary hover:bg-white p-1 rounded transition-colors flex-shrink-0" id="apikey-copy-btn">content_copy</button>
-  </div>
-  <p id="apikey-expiry-new" class="text-on-surface-variant font-body-md text-sm"></p>
-</div>
+      let authToken = null;
+      let schedules = [];
+      let allGroups = [];
+      let editingScheduleId = null;
 
-<!-- State: active key (status loaded, key not shown) -->
-<div id="apikey-active-view" class="hidden space-y-3">
-  <div class="bg-surface-variant p-3 rounded-lg flex items-center justify-between gap-2">
-    <span class="text-on-surface-variant font-body-md text-sm" id="apikey-expiry-label"></span>
-    <button onclick="generateApiKey()" class="text-primary font-label-md text-sm hover:underline flex-shrink-0">Regenerate</button>
-  </div>
-</div>
+      function cronToFrequency(cron) {
+        if (!cron) return "Once";
+        const p = cron.trim().split(/\s+/);
+        if (p.length !== 5) return "Once";
+        const [, , dom, month, dow] = p;
+        if (dom !== "*" && month !== "*") return "Once";
+        if (dow !== "*") return "Weekly";
+        if (dom === "1") return "Monthly";
+        return "Daily";
+      }
 
-<!-- Permanent key CTA (shown when key is temporary) -->
-<div id="apikey-permanent-cta" class="hidden border border-outline-variant rounded-lg p-3 space-y-2">
-  <p class="text-on-surface font-label-md font-bold text-sm">Need a permanent key?</p>
-  <p class="text-on-surface-variant font-body-md text-sm">Drop an email to <a id="apikey-contact-email" href="#" class="text-primary underline"></a> with your name and use case — we'll make it permanent.</p>
-  <p class="text-on-surface-variant font-body-md text-sm">Include your User ID: <code id="apikey-user-id" class="bg-surface-variant px-1 rounded text-xs font-mono text-on-surface"></code></p>
-</div>
+      function getTzAbbr(timezone) {
+        try {
+          return (
+            new Intl.DateTimeFormat("en", {
+              timeZone: timezone,
+              timeZoneName: "short",
+            })
+              .formatToParts(new Date())
+              .find((p) => p.type === "timeZoneName")?.value || timezone
+          );
+        } catch {
+          return timezone;
+        }
+      }
 
-<a href="https://github.com/pocha/mudbot?tab=readme-ov-file#api" target="_blank" rel="noopener"
-  class="text-secondary font-label-md flex items-center gap-1 hover:underline mt-auto">
-  <span class="material-symbols-outlined text-[18px]">description</span> View API Documentation
-</a>
-</section>
-</div>
-<!-- Main Automation Area -->
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-stack-gap">
-<!-- Scheduled Messages Builder -->
-<section class="lg:col-span-2 space-y-stack-gap">
-<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden flex flex-col">
-<div class="p-6 border-b border-outline-variant flex justify-between items-center">
-<div>
-<h3 class="font-headline-md text-headline-md">Schedule a Message</h3>
-<p class="text-on-surface-variant text-body-md">Configure automated messaging triggers</p>
-</div>
-</div>
-<div class="p-6 space-y-gutter">
-<!-- Form Area -->
-<div class="whatsapp-border bg-surface-container-low p-5 rounded-xl space-y-4">
-<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-<div class="space-y-2">
-<div class="flex items-center gap-1">
-  <label class="font-label-md text-on-surface-variant">Recipient (User/Group)</label>
-  <div class="relative group">
-    <span class="material-symbols-outlined text-[16px] text-on-surface-variant opacity-50 cursor-default select-none">info</span>
-    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-on-surface text-inverse-on-surface text-[12px] leading-relaxed rounded-lg px-3 py-2 shadow-lg hidden group-hover:block z-30 pointer-events-none">
-      Groups are fetched live from WhatsApp each time — we don't store any of your contacts or group information. This may take up to a minute via the residential proxy.<br/>If it says 'No groups found', try again.
-      <span class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-on-surface"></span>
-    </div>
-  </div>
-</div>
-<div class="relative" id="recipient-combobox">
-  <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60 z-10">search</span>
-  <input id="recipient-input" class="w-full pl-10 pr-10 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" placeholder="Tap to load .. takes a minute to load data" type="text" autocomplete="off"/>
-  <span id="recipient-spinner" class="hidden absolute right-3 top-0 bottom-0 flex items-center"><span class="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin block"></span></span>
-  <input type="hidden" id="recipient-value"/>
-  <div id="recipient-dropdown" class="hidden absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-outline-variant rounded-lg shadow-lg max-h-48 overflow-y-auto"></div>
-</div>
-</div>
-<div class="space-y-2">
-<label class="font-label-md text-on-surface-variant">Frequency</label>
-<select id="frequency-select" class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all appearance-none">
-<option>Once</option>
-<option>Daily</option>
-<option>Weekly</option>
-<option>Monthly</option>
-</select>
-</div>
-</div>
-<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-<div class="space-y-2">
-<label class="font-label-md text-on-surface-variant">Date &amp; Time</label>
-<div class="flex gap-2">
-<input id="schedule-date" class="flex-1 px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 outline-none" type="date"/>
-<input id="schedule-time" class="w-32 px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 outline-none" type="time"/>
-</div>
-</div>
-<div class="space-y-2">
-<label class="font-label-md text-on-surface-variant">Timezone</label>
-<select id="schedule-timezone" class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all appearance-none">
-  <option value="Asia/Kolkata">Asia/Kolkata — IST (UTC+5:30)</option>
-  <option value="Asia/Dubai">Asia/Dubai — GST (UTC+4)</option>
-  <option value="Asia/Singapore">Asia/Singapore — SGT (UTC+8)</option>
-  <option value="Asia/Tokyo">Asia/Tokyo — JST (UTC+9)</option>
-  <option value="Asia/Shanghai">Asia/Shanghai — CST (UTC+8)</option>
-  <option value="Europe/London">Europe/London — GMT/BST</option>
-  <option value="Europe/Paris">Europe/Paris — CET/CEST</option>
-  <option value="America/New_York">America/New_York — EST/EDT</option>
-  <option value="America/Chicago">America/Chicago — CST/CDT</option>
-  <option value="America/Los_Angeles">America/Los_Angeles — PST/PDT</option>
-  <option value="Australia/Sydney">Australia/Sydney — AEST/AEDT</option>
-  <option value="UTC">UTC</option>
-</select>
-</div>
-</div>
-<div class="space-y-2">
-<label class="font-label-md text-on-surface-variant">Message Content</label>
-<textarea id="schedule-message" class="w-full px-4 py-3 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all resize-none" placeholder="Type your message here..." rows="3"></textarea>
-</div>
-<div class="pt-2 space-y-2">
-<div class="flex gap-3">
-<button id="test-send-btn" class="flex-1 h-[46px] bg-secondary-container text-on-secondary-container rounded-xl font-label-md hover:opacity-90 transition-all flex items-center justify-center gap-2">
-<span class="material-symbols-outlined text-[20px]">send_time_extension</span> Test Sending
-</button>
-<button id="create-schedule-btn" class="flex-1 bg-primary text-on-primary py-3 rounded-xl font-label-md flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-md">
-<span class="material-symbols-outlined">add_task</span> Create Schedule
-</button>
-</div>
-<button id="cancel-edit-btn" onclick="cancelEdit()" class="hidden w-full text-on-surface-variant border border-outline-variant py-2 rounded-xl font-label-md hover:bg-surface-container transition-all">
-Cancel Edit
-</button>
-</div>
-</div>
-</div>
-</div>
-<!-- Active Schedules Section -->
-<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden flex flex-col">
-<div class="p-6 border-b border-outline-variant">
-<h3 class="font-headline-md text-headline-md">Active Schedules</h3>
-</div>
-<div id="schedules-loading" class="p-6 space-y-3">
-  <div class="h-4 w-2/3 bg-outline-variant/40 rounded animate-pulse"></div>
-  <div class="h-4 w-1/2 bg-outline-variant/30 rounded animate-pulse"></div>
-  <div class="h-4 w-3/4 bg-outline-variant/30 rounded animate-pulse"></div>
-</div>
-<div id="schedules-tbody" class="hidden divide-y divide-outline-variant"></div>
-<div id="schedules-empty" class="hidden p-6 text-center text-on-surface-variant opacity-50 italic text-body-md">
-<span class="material-symbols-outlined text-4xl mb-2 block">event_busy</span>
-No active schedules yet. Use the form above to get started.
-</div>
-</div>
-</section>
-<!-- Logs Accordion -->
-<section class="lg:col-span-1 space-y-4">
-<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden h-full flex flex-col">
-<div class="p-6 border-b border-outline-variant flex items-center justify-between">
-    <div>
-        <h3 class="font-headline-md text-headline-md">Logs</h3>
-        <p class="text-on-surface-variant text-body-md">Showing 50 most recent logs</p>
-    </div>
-  <div class="relative group">
-    <span id="logs-total-count" class="hidden text-xs font-label-md bg-primary/10 text-primary px-2 py-1 rounded-full cursor-default select-none"></span>
-    <div class="absolute right-0 top-7 z-10 hidden group-hover:block w-52 bg-surface-container-high text-on-surface text-xs rounded-lg p-2 shadow-md border border-outline-variant pointer-events-none">
-      Total log entries across all direct API calls and scheduled messages
-    </div>
-  </div>
-</div>
+      function setTimezoneSelect(tz) {
+        const sel = document.getElementById("schedule-timezone");
+        if (!sel) return;
+        // If the timezone isn't in the list, add it dynamically then select it
+        if (tz && ![...sel.options].some((o) => o.value === tz)) {
+          const opt = document.createElement("option");
+          opt.value = tz;
+          opt.textContent = `${tz} — ${getTzAbbr(tz)}`;
+          sel.insertBefore(opt, sel.firstChild);
+        }
+        if (tz) sel.value = tz;
+      }
 
-<div id="logs-container" class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-outline-variant">
-  <div id="logs-loading" class="p-6 space-y-3">
-    <div class="h-4 w-3/4 bg-outline-variant/40 rounded animate-pulse"></div>
-    <div class="h-4 w-1/2 bg-outline-variant/30 rounded animate-pulse"></div>
-    <div class="h-4 w-2/3 bg-outline-variant/30 rounded animate-pulse"></div>
-  </div>
-</div>
-</div>
-</section>
-</div>
-</div>
-<!-- Footer: -mx-6 cancels main's own p-6 padding so it spans edge-to-edge -->
-<div id="site-footer" class="-mx-6 -mb-6"></div>
-<script src="/assets/footer.js"></script>
-</main>
-</div>
-<!-- Support Modal -->
-<div id="supportModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center px-4">
-  <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="closeSupport()"></div>
-  <div class="bg-surface-container-lowest w-full max-w-sm rounded-xl p-8 shadow-xl relative z-10 border border-outline-variant flex flex-col gap-4">
-    <div class="flex justify-between items-center">
-      <h3 class="font-headline-md text-headline-md text-on-surface">Support</h3>
-      <button onclick="closeSupport()" class="text-on-surface-variant hover:text-error transition-colors"><span class="material-symbols-outlined">close</span></button>
-    </div>
-    <p class="text-on-surface-variant font-body-md">Support is available on WhatsApp between <strong class="text-on-surface">9 AM – 7 PM IST</strong> (Mon–Sat).</p>
-    <div id="support-available" class="hidden">
-      <a href="https://wa.me/919538384545" target="_blank" rel="noopener"
-        class="flex items-center justify-center gap-2 bg-primary-container text-on-primary-container font-bold py-3 rounded-xl hover:opacity-90 transition-all w-full">
-        <span class="material-symbols-outlined text-[20px]">chat</span> Contact Dev on WhatsApp
-      </a>
-    </div>
-    <div id="support-unavailable" class="hidden">
-      <p class="text-on-surface-variant font-body-md text-sm text-center">Developer is currently offline. Please try again during support hours.</p>
-    </div>
-  </div>
-</div>
-<!-- Backend Integration Script -->
-<script>
-// Same origin locally (server.js serves public/ + /api together);
-// split into a dedicated API subdomain once served from GitHub Pages.
-const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
-    ? window.location.origin
-    : 'https://api.watobot.xyz';
-let authToken = null;
-let schedules = [];
-let allGroups = [];
-let editingScheduleId = null;
+      document.addEventListener("DOMContentLoaded", async () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        authToken = urlParams.get("token") || localStorage.getItem("authToken");
 
-function cronToFrequency(cron) {
-    if (!cron) return 'Once';
-    const p = cron.trim().split(/\s+/);
-    if (p.length !== 5) return 'Once';
-    const [, , dom, month, dow] = p;
-    if (dom !== '*' && month !== '*') return 'Once';
-    if (dow !== '*') return 'Weekly';
-    if (dom === '1') return 'Monthly';
-    return 'Daily';
-}
+        // Pre-populate timezone with browser's detected timezone
+        setTimezoneSelect(Intl.DateTimeFormat().resolvedOptions().timeZone);
 
-function getTzAbbr(timezone) {
-    try {
-        return new Intl.DateTimeFormat('en', { timeZone: timezone, timeZoneName: 'short' })
-            .formatToParts(new Date()).find(p => p.type === 'timeZoneName')?.value || timezone;
-    } catch { return timezone; }
-}
+        if (!authToken) {
+          alert("Authentication required. Redirecting to home page...");
+          window.location.href = "/";
+          return;
+        }
 
-function setTimezoneSelect(tz) {
-    const sel = document.getElementById('schedule-timezone');
-    if (!sel) return;
-    // If the timezone isn't in the list, add it dynamically then select it
-    if (tz && ![...sel.options].some(o => o.value === tz)) {
-        const opt = document.createElement('option');
-        opt.value = tz;
-        opt.textContent = `${tz} — ${getTzAbbr(tz)}`;
-        sel.insertBefore(opt, sel.firstChild);
-    }
-    if (tz) sel.value = tz;
-}
+        localStorage.setItem("authToken", authToken);
 
-document.addEventListener('DOMContentLoaded', async () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    authToken = urlParams.get('token') || localStorage.getItem('authToken');
+        const waConnectBtn = document.getElementById("wa-connect-btn");
+        if (waConnectBtn) waConnectBtn.href = `/verify.html?token=${authToken}`;
 
-    // Pre-populate timezone with browser's detected timezone
-    setTimezoneSelect(Intl.DateTimeFormat().resolvedOptions().timeZone);
+        await checkConnectionStatus();
+        await claimPendingFaqs();
+        await loadSchedules();
+        await loadFaqEntries();
 
-    if (!authToken) {
-        alert('Authentication required. Redirecting to home page...');
-        window.location.href = '/';
-        return;
-    }
+        setupEventListeners();
+        setupRecipientCombobox();
+      });
 
-    localStorage.setItem('authToken', authToken);
+      async function checkConnectionStatus() {
+        try {
+          const response = await fetch(`${API_BASE}/api/whatsapp/status`, {
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
 
-    await checkConnectionStatus();
-    await loadSchedules();
-
-    setupEventListeners();
-    setupRecipientCombobox();
-});
-
-async function checkConnectionStatus() {
-    try {
-        const response = await fetch(`${API_BASE}/api/whatsapp/status`, {
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-
-        if (response.ok) {
+          if (response.ok) {
             const status = await response.json();
             updateConnectionUI(status.loggedIn, status.proxyIp);
-        } else if (response.status === 401) {
-            alert('Session expired. Please login again.');
-            localStorage.removeItem('authToken');
-            window.location.href = '/';
+          } else if (response.status === 401) {
+            alert("Session expired. Please login again.");
+            localStorage.removeItem("authToken");
+            window.location.href = "/";
+          }
+        } catch (error) {
+          console.error("Error checking connection:", error);
         }
-    } catch (error) {
-        console.error('Error checking connection:', error);
-    }
-}
+      }
 
-function updateConnectionUI(loggedIn, proxyIp) {
-    document.getElementById('wa-loading')?.classList.add('hidden');
-    const notConnected = document.getElementById('wa-not-connected');
-    const connected = document.getElementById('wa-connected');
-    const step2 = document.getElementById('step-2');
+      function updateConnectionUI(loggedIn, proxyIp) {
+        document.getElementById("wa-loading")?.classList.add("hidden");
+        const notConnected = document.getElementById("wa-not-connected");
+        const connected = document.getElementById("wa-connected");
+        const step2 = document.getElementById("step-2");
 
-    if (loggedIn) {
-        notConnected.classList.add('hidden');
-        connected.classList.remove('hidden');
-        connected.classList.add('flex');
-        if (step2) { step2.classList.remove('step-disabled'); loadApiKeyStatus(); }
-        if (proxyIp) {
-            document.getElementById('wa-connection-line').textContent = `IP Address ${proxyIp.ip} (location - ${proxyIp.city}, ${proxyIp.country})`;
-            const proxyLine = document.getElementById('wa-proxy-line');
+        if (loggedIn) {
+          notConnected.classList.add("hidden");
+          connected.classList.remove("hidden");
+          connected.classList.add("flex");
+          if (step2) {
+            step2.classList.remove("step-disabled");
+            loadApiKeyStatus();
+          }
+          if (proxyIp) {
+            document.getElementById("wa-connection-line").textContent =
+              `IP Address ${proxyIp.ip} (location - ${proxyIp.city}, ${proxyIp.country})`;
+            const proxyLine = document.getElementById("wa-proxy-line");
             proxyLine.textContent = `Watobot is routing your messages through this IP, which belongs to ${proxyIp.city}, ${proxyIp.country}, to make sure the device looks authentic to WhatsApp.`;
-            proxyLine.classList.remove('hidden');
+            proxyLine.classList.remove("hidden");
+          }
+        } else {
+          // Previously a hard redirect to verify.html — now shows this inline
+          // state instead, with its own "Connect WhatsApp" link, so a user who
+          // signed up without connecting (or chose "connect later") can still
+          // use the rest of the dashboard (schedules, FAQs) without being
+          // forced through the QR flow first.
+          connected.classList.add("hidden");
+          connected.classList.remove("flex");
+          notConnected.classList.remove("hidden");
+          notConnected.classList.add("flex");
         }
-    } else {
-        alert('WhatsApp not connected. Please scan QR code first.');
-        window.location.href = `/verify.html?token=${authToken}`;
-    }
-}
+      }
 
-async function loadApiKeyStatus() {
-    try {
-        document.getElementById('apikey-loading')?.classList.remove('hidden');
-        const [statusRes, configRes] = await Promise.all([
-            fetch(`${API_BASE}/api/apikey/status`, { headers: { 'Authorization': `Bearer ${authToken}` } }),
-            fetch(`${API_BASE}/api/config`)
-        ]);
-        const status = await statusRes.json();
-        const config = configRes.ok ? await configRes.json() : {};
+      async function loadApiKeyStatus() {
+        try {
+          document.getElementById("apikey-loading")?.classList.remove("hidden");
+          const [statusRes, configRes] = await Promise.all([
+            fetch(`${API_BASE}/api/apikey/status`, {
+              headers: { Authorization: `Bearer ${authToken}` },
+            }),
+            fetch(`${API_BASE}/api/config`),
+          ]);
+          const status = await statusRes.json();
+          const config = configRes.ok ? await configRes.json() : {};
 
-        const contactEmail = config.contactEmail || '';
-        const emailEl = document.getElementById('apikey-contact-email');
-        if (emailEl && contactEmail) {
+          const contactEmail = config.contactEmail || "";
+          const emailEl = document.getElementById("apikey-contact-email");
+          if (emailEl && contactEmail) {
             emailEl.textContent = contactEmail;
             emailEl.href = `mailto:${contactEmail}?subject=Permanent API Key Request`;
-        }
-        const userIdEl = document.getElementById('apikey-user-id');
-        if (userIdEl && authToken) userIdEl.textContent = authToken.slice(0, 10);
+          }
+          const userIdEl = document.getElementById("apikey-user-id");
+          if (userIdEl && authToken)
+            userIdEl.textContent = authToken.slice(0, 10);
 
-        document.getElementById('apikey-loading')?.classList.add('hidden');
-        if (!status.exists || status.expired) {
-            document.getElementById('apikey-generate-view').classList.remove('hidden');
-            document.getElementById('apikey-active-view').classList.add('hidden');
-            if (status.expired) document.getElementById('apikey-expired-notice').classList.remove('hidden');
-        } else {
-            document.getElementById('apikey-generate-view').classList.add('hidden');
-            document.getElementById('apikey-active-view').classList.remove('hidden');
-            const label = document.getElementById('apikey-expiry-label');
+          document.getElementById("apikey-loading")?.classList.add("hidden");
+          if (!status.exists || status.expired) {
+            document
+              .getElementById("apikey-generate-view")
+              .classList.remove("hidden");
+            document
+              .getElementById("apikey-active-view")
+              .classList.add("hidden");
+            if (status.expired)
+              document
+                .getElementById("apikey-expired-notice")
+                .classList.remove("hidden");
+          } else {
+            document
+              .getElementById("apikey-generate-view")
+              .classList.add("hidden");
+            document
+              .getElementById("apikey-active-view")
+              .classList.remove("hidden");
+            const label = document.getElementById("apikey-expiry-label");
             if (status.permanent) {
-                label.textContent = 'Key is permanent';
-                document.getElementById('apikey-permanent-cta').classList.add('hidden');
+              label.textContent = "Key is permanent";
+              document
+                .getElementById("apikey-permanent-cta")
+                .classList.add("hidden");
             } else {
-                const exp = new Date(status.expiresAt);
-                label.textContent = `Expires at ${exp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} today`;
-                document.getElementById('apikey-permanent-cta').classList.remove('hidden');
+              const exp = new Date(status.expiresAt);
+              label.textContent = `Expires at ${exp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} today`;
+              document
+                .getElementById("apikey-permanent-cta")
+                .classList.remove("hidden");
             }
+          }
+        } catch (e) {
+          console.error("Failed to load API key status", e);
         }
-    } catch (e) {
-        console.error('Failed to load API key status', e);
-    }
-}
+      }
 
-async function generateApiKey() {
-    const btn = document.getElementById('apikey-generate-btn');
-    if (btn) { btn.disabled = true; btn.textContent = 'Generating…'; }
-    try {
-        const res = await fetch(`${API_BASE}/api/apikey/generate`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-        const data = await res.json();
-        if (!data.apiKey) throw new Error('No key returned');
+      async function generateApiKey() {
+        const btn = document.getElementById("apikey-generate-btn");
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = "Generating…";
+        }
+        try {
+          const res = await fetch(`${API_BASE}/api/apikey/generate`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+          const data = await res.json();
+          if (!data.apiKey) throw new Error("No key returned");
 
-        document.getElementById('apikey-generate-view').classList.add('hidden');
-        document.getElementById('apikey-active-view').classList.add('hidden');
-        document.getElementById('apikey-new-view').classList.remove('hidden');
-        document.getElementById('apikey-value').textContent = data.apiKey;
-        const exp = new Date(data.expiresAt);
-        document.getElementById('apikey-expiry-new').textContent =
-            `Valid for 1 hour · expires at ${exp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-        document.getElementById('apikey-permanent-cta').classList.remove('hidden');
-        const userIdEl2 = document.getElementById('apikey-user-id');
-        if (userIdEl2 && authToken) userIdEl2.textContent = authToken.slice(0, 10);
+          document
+            .getElementById("apikey-generate-view")
+            .classList.add("hidden");
+          document.getElementById("apikey-active-view").classList.add("hidden");
+          document.getElementById("apikey-new-view").classList.remove("hidden");
+          document.getElementById("apikey-value").textContent = data.apiKey;
+          const exp = new Date(data.expiresAt);
+          document.getElementById("apikey-expiry-new").textContent =
+            `Valid for 1 hour · expires at ${exp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+          document
+            .getElementById("apikey-permanent-cta")
+            .classList.remove("hidden");
+          const userIdEl2 = document.getElementById("apikey-user-id");
+          if (userIdEl2 && authToken)
+            userIdEl2.textContent = authToken.slice(0, 10);
 
-        const configRes = await fetch(`${API_BASE}/api/config`);
-        if (configRes.ok) {
+          const configRes = await fetch(`${API_BASE}/api/config`);
+          if (configRes.ok) {
             const config = await configRes.json();
-            const emailEl = document.getElementById('apikey-contact-email');
+            const emailEl = document.getElementById("apikey-contact-email");
             if (emailEl && config.contactEmail) {
-                emailEl.textContent = config.contactEmail;
-                emailEl.href = `mailto:${config.contactEmail}?subject=Permanent API Key Request`;
+              emailEl.textContent = config.contactEmail;
+              emailEl.href = `mailto:${config.contactEmail}?subject=Permanent API Key Request`;
             }
+          }
+        } catch (e) {
+          console.error("Failed to generate API key", e);
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML =
+              '<span class="material-symbols-outlined text-[20px]">key</span> Generate API Key';
+          }
         }
-    } catch (e) {
-        console.error('Failed to generate API key', e);
-        if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined text-[20px]">key</span> Generate API Key'; }
-    }
-}
+      }
 
-function copyApiKey() {
-    const key = document.getElementById('apikey-value').textContent;
-    navigator.clipboard.writeText(key).then(() => {
-        const btn = document.getElementById('apikey-copy-btn');
-        btn.textContent = 'check';
-        setTimeout(() => { btn.textContent = 'content_copy'; }, 2000);
-    });
-}
-
-async function loadSchedules() {
-    try {
-        const response = await fetch(`${API_BASE}/api/schedules`, {
-            headers: { 'Authorization': `Bearer ${authToken}` }
+      function copyApiKey() {
+        const key = document.getElementById("apikey-value").textContent;
+        navigator.clipboard.writeText(key).then(() => {
+          const btn = document.getElementById("apikey-copy-btn");
+          btn.textContent = "check";
+          setTimeout(() => {
+            btn.textContent = "content_copy";
+          }, 2000);
         });
+      }
 
-        if (response.ok) {
+      async function loadSchedules() {
+        try {
+          const response = await fetch(`${API_BASE}/api/schedules`, {
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+
+          if (response.ok) {
             schedules = (await response.json()).schedules || [];
             renderSchedules();
             await renderLogs();
+          }
+        } catch (error) {
+          console.error("Error loading schedules:", error);
         }
-    } catch (error) {
-        console.error('Error loading schedules:', error);
-    }
-}
+      }
 
-function renderSchedules() {
-    const tbody = document.getElementById('schedules-tbody');
-    const emptyState = document.getElementById('schedules-empty');
-    const loading = document.getElementById('schedules-loading');
-    if (!tbody) return;
+      function renderSchedules() {
+        const tbody = document.getElementById("schedules-tbody");
+        const emptyState = document.getElementById("schedules-empty");
+        const loading = document.getElementById("schedules-loading");
+        if (!tbody) return;
 
-    if (loading) loading.classList.add('hidden');
+        if (loading) loading.classList.add("hidden");
 
-    if (schedules.length === 0) {
-        tbody.classList.add('hidden');
-        if (emptyState) emptyState.classList.remove('hidden');
-        return;
-    }
+        if (schedules.length === 0) {
+          tbody.classList.add("hidden");
+          if (emptyState) emptyState.classList.remove("hidden");
+          return;
+        }
 
-    if (emptyState) emptyState.classList.add('hidden');
-    tbody.classList.remove('hidden');
+        if (emptyState) emptyState.classList.add("hidden");
+        tbody.classList.remove("hidden");
 
-    tbody.innerHTML = schedules.map(schedule => {
-        const name = (schedule.name || 'Untitled');
-        const truncatedName = name.length > 20 ? name.slice(0, 20) + '…' : name;
-        const frequency = schedule.frequency || cronToFrequency(schedule.cronExpression);
+        tbody.innerHTML = schedules
+          .map((schedule) => {
+            const name = schedule.name || "Untitled";
+            const truncatedName =
+              name.length > 20 ? name.slice(0, 20) + "…" : name;
+            const frequency =
+              schedule.frequency || cronToFrequency(schedule.cronExpression);
 
-        // Prefer stored localTime + tz abbr; fall back to UTC from cron for old schedules
-        let timeStr = '';
-        if (schedule.localTime) {
-            const tzAbbr = schedule.timezone ? getTzAbbr(schedule.timezone) : '';
-            timeStr = schedule.localTime + (tzAbbr ? ' ' + tzAbbr : '');
-        } else {
-            const parts = (schedule.cronExpression || '').trim().split(/\s+/);
-            if (parts.length === 5 && parts[1] !== '*' && parts[0] !== '*') {
-                timeStr = `${String(parts[1]).padStart(2,'0')}:${String(parts[0]).padStart(2,'0')} UTC`;
+            // Prefer stored localTime + tz abbr; fall back to UTC from cron for old schedules
+            let timeStr = "";
+            if (schedule.localTime) {
+              const tzAbbr = schedule.timezone
+                ? getTzAbbr(schedule.timezone)
+                : "";
+              timeStr = schedule.localTime + (tzAbbr ? " " + tzAbbr : "");
+            } else {
+              const parts = (schedule.cronExpression || "").trim().split(/\s+/);
+              if (parts.length === 5 && parts[1] !== "*" && parts[0] !== "*") {
+                timeStr = `${String(parts[1]).padStart(2, "0")}:${String(parts[0]).padStart(2, "0")} UTC`;
+              }
             }
-        }
 
-        const sid = escapeHtml(schedule.id);
-        const msg = escapeHtml(schedule.message || '');
+            const sid = escapeHtml(schedule.id);
+            const msg = escapeHtml(schedule.message || "");
 
-        return `
+            return `
             <div class="flex items-start gap-3 px-5 py-4 hover:bg-surface-container-low/50 transition-colors">
                 <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary flex-shrink-0 mt-0.5">
                     <span class="material-symbols-outlined text-[18px]">group</span>
@@ -553,7 +1034,7 @@ function renderSchedules() {
                 <div class="flex-1 min-w-0">
                     <div class="flex items-baseline gap-2">
                         <span class="font-label-md text-on-surface">${escapeHtml(truncatedName)}</span>
-                        <span class="text-xs text-on-surface-variant">${escapeHtml(frequency)}${timeStr ? ' · ' + timeStr : ''}</span>
+                        <span class="text-xs text-on-surface-variant">${escapeHtml(frequency)}${timeStr ? " · " + timeStr : ""}</span>
                     </div>
                     <p class="text-xs text-on-surface-variant mt-0.5 line-clamp-2 leading-relaxed">${msg}</p>
                 </div>
@@ -567,45 +1048,135 @@ function renderSchedules() {
                 </div>
             </div>
         `;
-    }).join('');
-}
+          })
+          .join("");
+      }
 
-async function renderLogs() {
-    const container = document.getElementById('logs-container');
-    const countBadge = document.getElementById('logs-total-count');
-    if (!container) return;
-    document.getElementById('logs-loading')?.classList.add('hidden');
+      let faqs = [];
 
-    const ACTION_LABELS = {
-        sendMessage: 'Send Message',
-        sendMedia: 'Send Media',
-        getGroups: 'Get Groups',
-        logout: 'Disconnect',
-        unknown: 'API Call'
-    };
-
-    const usageData = await fetch(`${API_BASE}/api/usage/logs?limit=50`, {
-        headers: { 'Authorization': `Bearer ${authToken}` }
-    }).then(r => r.ok ? r.json() : { count: 0, logs: [] }).catch(() => ({ count: 0, logs: [] }));
-
-    const usageLogs = usageData.logs || [];
-
-    if (countBadge) {
-        if (usageData.count > 0) {
-            countBadge.textContent = usageData.count;
-            countBadge.classList.remove('hidden');
-        } else {
-            countBadge.classList.add('hidden');
+      async function loadFaqEntries() {
+        try {
+          const response = await fetch(`${API_BASE}/api/faq`, {
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+          if (response.ok) {
+            faqs = (await response.json()).faqs || [];
+            renderFaqEntries();
+          }
+        } catch (error) {
+          console.error("Error loading FAQs:", error);
         }
-    }
+      }
 
-    if (usageLogs.length === 0) {
-        container.innerHTML = '<p class="p-6 text-center text-on-surface-variant text-body-md opacity-50">No logs yet.</p>';
-        return;
-    }
+      function renderFaqEntries() {
+        const tbody = document.getElementById("faqs-tbody");
+        const emptyState = document.getElementById("faqs-empty");
+        const loading = document.getElementById("faqs-loading");
+        if (!tbody) return;
 
-    function makeSection(dotColor, title, subtitle, logLines) {
-        return `
+        if (loading) loading.classList.add("hidden");
+
+        if (faqs.length === 0) {
+          tbody.classList.add("hidden");
+          if (emptyState) emptyState.classList.remove("hidden");
+          return;
+        }
+
+        if (emptyState) emptyState.classList.add("hidden");
+        tbody.classList.remove("hidden");
+
+        tbody.innerHTML = faqs
+          .map((faq) => {
+            const name = faq.groupName || "Untitled group";
+            const editUrl = `/whatsapp-group-faq/?jobId=${encodeURIComponent(faq.jobId)}`;
+            const viewLink = faq.faqSlug
+              ? `<a href="${escapeHtml(buildFaqUrl(faq.faqSlug))}" target="_blank" rel="noopener" class="text-primary font-label-md text-sm hover:underline">View</a>`
+              : "";
+            return `
+            <div class="flex items-center gap-3 px-5 py-4 hover:bg-surface-container-low/50 transition-colors">
+                <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+                    <span class="material-symbols-outlined text-[18px]">quiz</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <span class="font-label-md text-on-surface">${escapeHtml(name)}</span>
+                </div>
+                <div class="flex gap-3 flex-shrink-0">
+                    ${viewLink}
+                    <a href="${escapeHtml(editUrl)}" class="text-primary font-label-md text-sm hover:underline">Edit</a>
+                </div>
+            </div>
+        `;
+          })
+          .join("");
+      }
+
+      // Consumes whatever the FAQ tool (whatsapp-group-faq/index.html) stashed in
+      // localStorage after an anonymous publish + "email me a login link" — this
+      // is the step that actually attaches those FAQs to the now-logged-in
+      // account. No-ops if there's nothing pending (the normal case).
+      async function claimPendingFaqs() {
+        let claims = [];
+        try {
+          claims = JSON.parse(localStorage.getItem("pendingFaqClaims") || "[]");
+        } catch {
+          claims = [];
+        }
+        if (!claims.length) return;
+
+        try {
+          const res = await fetch(`${API_BASE}/api/faq/claim`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ claims }),
+          });
+          if (res.ok) localStorage.removeItem("pendingFaqClaims");
+        } catch (error) {
+          console.error("Error claiming pending FAQs:", error);
+        }
+      }
+
+      async function renderLogs() {
+        const container = document.getElementById("logs-container");
+        const countBadge = document.getElementById("logs-total-count");
+        if (!container) return;
+        document.getElementById("logs-loading")?.classList.add("hidden");
+
+        const ACTION_LABELS = {
+          sendMessage: "Send Message",
+          sendMedia: "Send Media",
+          getGroups: "Get Groups",
+          logout: "Disconnect",
+          unknown: "API Call",
+        };
+
+        const usageData = await fetch(`${API_BASE}/api/usage/logs?limit=50`, {
+          headers: { Authorization: `Bearer ${authToken}` },
+        })
+          .then((r) => (r.ok ? r.json() : { count: 0, logs: [] }))
+          .catch(() => ({ count: 0, logs: [] }));
+
+        const usageLogs = usageData.logs || [];
+
+        if (countBadge) {
+          if (usageData.count > 0) {
+            countBadge.textContent = usageData.count;
+            countBadge.classList.remove("hidden");
+          } else {
+            countBadge.classList.add("hidden");
+          }
+        }
+
+        if (usageLogs.length === 0) {
+          container.innerHTML =
+            '<p class="p-6 text-center text-on-surface-variant text-body-md opacity-50">No logs yet.</p>';
+          return;
+        }
+
+        function makeSection(dotColor, title, subtitle, logLines) {
+          return `
         <details class="group">
           <summary class="list-none cursor-pointer p-4 hover:bg-surface-container transition-colors flex items-center justify-between">
             <div class="flex items-center gap-3">
@@ -621,327 +1192,401 @@ async function renderLogs() {
             <div class="bg-white p-3 rounded border border-outline-variant/30 text-xs font-code-sm space-y-1">${logLines}</div>
           </div>
         </details>`;
-    }
+        }
 
-    // Group usage logs by action
-    const usageByAction = {};
-    for (const log of usageLogs) {
-        const a = log.action || 'unknown';
-        if (!usageByAction[a]) usageByAction[a] = [];
-        usageByAction[a].push(log);
-    }
+        // Group usage logs by action
+        const usageByAction = {};
+        for (const log of usageLogs) {
+          const a = log.action || "unknown";
+          if (!usageByAction[a]) usageByAction[a] = [];
+          usageByAction[a].push(log);
+        }
 
-    const usageSections = Object.entries(usageByAction).map(([action, logs]) => {
-        const latest = logs[logs.length - 1];
-        const dotColor = latest && latest.success ? 'bg-primary' : 'bg-error';
-        const latestTime = latest ? new Date(latest.ts).toLocaleString() : '';
-        const subtitle = `${latestTime} · ${logs.length} call${logs.length !== 1 ? 's' : ''}`;
-        const logLines = logs.slice().reverse().map(log => {
-            const status = log.success
-                ? `<span class="text-primary font-bold">SUCCESS</span>`
-                : `<span class="text-error font-bold">FAILED</span>${log.error ? ': ' + escapeHtml(log.error) : ''}`;
-            const parts = [status];
-            if (log.to) parts.push(`→ <span class="text-on-surface">${escapeHtml(log.to)}</span>`);
-            if (log.message) parts.push(`<span class="text-on-surface-variant italic">"${escapeHtml(log.message)}"</span>`);
-            if (log.caption) parts.push(`<span class="text-on-surface-variant italic">"${escapeHtml(log.caption)}"</span>`);
-            parts.push(`<span class="text-on-surface-variant opacity-70">(${new Date(log.ts).toLocaleString()})</span>`);
-            return `<p>${parts.join(' ')}</p>`;
-        }).join('');
-        return makeSection(dotColor, ACTION_LABELS[action] || action, subtitle, logLines);
-    });
+        const usageSections = Object.entries(usageByAction).map(
+          ([action, logs]) => {
+            const latest = logs[logs.length - 1];
+            const dotColor =
+              latest && latest.success ? "bg-primary" : "bg-error";
+            const latestTime = latest
+              ? new Date(latest.ts).toLocaleString()
+              : "";
+            const subtitle = `${latestTime} · ${logs.length} call${logs.length !== 1 ? "s" : ""}`;
+            const logLines = logs
+              .slice()
+              .reverse()
+              .map((log) => {
+                const status = log.success
+                  ? `<span class="text-primary font-bold">SUCCESS</span>`
+                  : `<span class="text-error font-bold">FAILED</span>${log.error ? ": " + escapeHtml(log.error) : ""}`;
+                const parts = [status];
+                if (log.to)
+                  parts.push(
+                    `→ <span class="text-on-surface">${escapeHtml(log.to)}</span>`,
+                  );
+                if (log.message)
+                  parts.push(
+                    `<span class="text-on-surface-variant italic">"${escapeHtml(log.message)}"</span>`,
+                  );
+                if (log.caption)
+                  parts.push(
+                    `<span class="text-on-surface-variant italic">"${escapeHtml(log.caption)}"</span>`,
+                  );
+                parts.push(
+                  `<span class="text-on-surface-variant opacity-70">(${new Date(log.ts).toLocaleString()})</span>`,
+                );
+                return `<p>${parts.join(" ")}</p>`;
+              })
+              .join("");
+            return makeSection(
+              dotColor,
+              ACTION_LABELS[action] || action,
+              subtitle,
+              logLines,
+            );
+          },
+        );
 
-    const separator = '<div class="border-t border-outline-variant"></div>';
-    container.innerHTML = usageSections.join(separator);
-}
+        const separator = '<div class="border-t border-outline-variant"></div>';
+        container.innerHTML = usageSections.join(separator);
+      }
 
-function setupEventListeners() {
-    document.getElementById('create-schedule-btn').addEventListener('click', handleCreateSchedule);
-    document.getElementById('test-send-btn').addEventListener('click', handleTestMessage);
-    document.getElementById('cancel-edit-btn')?.addEventListener('click', cancelEdit);
+      function setupEventListeners() {
+        document
+          .getElementById("create-schedule-btn")
+          .addEventListener("click", handleCreateSchedule);
+        document
+          .getElementById("test-send-btn")
+          .addEventListener("click", handleTestMessage);
+        document
+          .getElementById("cancel-edit-btn")
+          ?.addEventListener("click", cancelEdit);
 
-    document.getElementById('disconnect-btn')?.addEventListener('click', () => {
-        showLogoutModal({ isFullLogout: false });
-    });
+        document
+          .getElementById("disconnect-btn")
+          ?.addEventListener("click", () => {
+            showLogoutModal({ isFullLogout: false });
+          });
 
-    document.getElementById('logout-btn').addEventListener('click', () => {
-        showLogoutModal({ isFullLogout: true });
-    });
-}
+        document.getElementById("logout-btn").addEventListener("click", () => {
+          showLogoutModal({ isFullLogout: true });
+        });
+      }
 
-function setupRecipientCombobox() {
-    const input = document.getElementById('recipient-input');
-    const dropdown = document.getElementById('recipient-dropdown');
-    const spinner = document.getElementById('recipient-spinner');
+      function setupRecipientCombobox() {
+        const input = document.getElementById("recipient-input");
+        const dropdown = document.getElementById("recipient-dropdown");
+        const spinner = document.getElementById("recipient-spinner");
 
-    input.addEventListener('focus', async () => {
-        if (allGroups.length > 0) {
+        input.addEventListener("focus", async () => {
+          if (allGroups.length > 0) {
             showDropdown(allGroups.slice(0, 10));
             return;
-        }
-        spinner.classList.remove('hidden');
-        try {
+          }
+          spinner.classList.remove("hidden");
+          try {
             const res = await fetch(`${API_BASE}/api/whatsapp/groups`, {
-                headers: { 'Authorization': `Bearer ${authToken}` }
+              headers: { Authorization: `Bearer ${authToken}` },
             });
             if (res.ok) {
-                const data = await res.json();
-                allGroups = data.groups || [];
+              const data = await res.json();
+              allGroups = data.groups || [];
             }
-        } catch (e) {
-            console.error('Failed to fetch groups', e);
-        } finally {
-            spinner.classList.add('hidden');
-        }
-        showDropdown(allGroups.slice(0, 10));
-    });
-
-    input.addEventListener('input', () => {
-        const q = input.value.toLowerCase();
-        const filtered = allGroups.filter(g => g.name.toLowerCase().includes(q)).slice(0, 10);
-        showDropdown(filtered);
-    });
-
-    document.addEventListener('click', (e) => {
-        if (!document.getElementById('recipient-combobox').contains(e.target)) {
-            dropdown.classList.add('hidden');
-        }
-    });
-
-    function showDropdown(groups) {
-        if (groups.length === 0) {
-            dropdown.innerHTML = '<p class="px-4 py-3 text-body-md text-on-surface-variant">An error occured. Try again please.</p>';
-        } else {
-            dropdown.innerHTML = groups.map(g =>
-                `<div class="px-4 py-2 hover:bg-surface-container cursor-pointer text-body-md text-on-surface" data-id="${escapeHtml(g.id)}" data-name="${escapeHtml(g.name)}">${escapeHtml(g.name)}</div>`
-            ).join('');
-            dropdown.querySelectorAll('[data-id]').forEach(el => {
-                el.addEventListener('click', () => {
-                    input.value = el.dataset.name;
-                    document.getElementById('recipient-value').value = el.dataset.id;
-                    dropdown.classList.add('hidden');
-                });
-            });
-        }
-        dropdown.classList.remove('hidden');
-    }
-}
-
-function loadScheduleIntoForm(scheduleId) {
-    const schedule = schedules.find(s => s.id === scheduleId);
-    if (!schedule) return;
-
-    editingScheduleId = scheduleId;
-
-    // Recipient — show stored id as display text; user can re-pick from dropdown if needed
-    const recipientId = (schedule.recipients && schedule.recipients[0]) || '';
-    document.getElementById('recipient-value').value = recipientId;
-    document.getElementById('recipient-input').value = schedule.name || recipientId;
-
-    // Frequency — use stored value, fall back to inferring from cron for old schedules
-    const freq = schedule.frequency || cronToFrequency(schedule.cronExpression);
-    document.getElementById('frequency-select').value = freq;
-
-    // Time — use stored localTime; fall back to reading UTC from cron for old schedules
-    if (schedule.localTime) {
-        document.getElementById('schedule-time').value = schedule.localTime;
-    } else {
-        const parts = (schedule.cronExpression || '').trim().split(/\s+/);
-        if (parts.length === 5) {
-            const [min, hour] = parts;
-            if (hour !== '*' && min !== '*') {
-                document.getElementById('schedule-time').value =
-                    `${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
-            }
-        }
-    }
-
-    // Date — use stored localDate; fall back to cron for old schedules
-    if (schedule.localDate) {
-        document.getElementById('schedule-date').value = schedule.localDate;
-    } else {
-        const parts = (schedule.cronExpression || '').trim().split(/\s+/);
-        if (parts.length === 5) {
-            const [, , dom, month] = parts;
-            if (dom !== '*' && month !== '*') {
-                const year = new Date().getFullYear();
-                document.getElementById('schedule-date').value =
-                    `${year}-${String(month).padStart(2, '0')}-${String(dom).padStart(2, '0')}`;
-            }
-        }
-    }
-
-    // Timezone
-    setTimezoneSelect(schedule.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
-
-    document.getElementById('schedule-message').value = schedule.message || '';
-
-    // Update button label and show cancel link
-    document.getElementById('create-schedule-btn').innerHTML =
-        '<span class="material-symbols-outlined">save</span> Update Schedule';
-    document.getElementById('cancel-edit-btn').classList.remove('hidden');
-
-    // Scroll form into view
-    document.getElementById('create-schedule-btn').scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-
-function cancelEdit() {
-    editingScheduleId = null;
-    document.getElementById('recipient-input').value = '';
-    document.getElementById('recipient-value').value = '';
-    document.getElementById('frequency-select').value = 'Once';
-    document.getElementById('schedule-date').value = '';
-    document.getElementById('schedule-time').value = '';
-    document.getElementById('schedule-message').value = '';
-    setTimezoneSelect(Intl.DateTimeFormat().resolvedOptions().timeZone);
-    document.getElementById('create-schedule-btn').innerHTML =
-        '<span class="material-symbols-outlined">add_task</span> Create Schedule';
-    document.getElementById('cancel-edit-btn').classList.add('hidden');
-}
-
-async function handleCreateSchedule() {
-    const recipientId   = document.getElementById('recipient-value').value;
-    const recipientName = document.getElementById('recipient-input').value.trim();
-    const frequency     = document.getElementById('frequency-select').value;
-    const date          = document.getElementById('schedule-date').value;
-    const time          = document.getElementById('schedule-time').value || '09:00';
-    const timezone      = document.getElementById('schedule-timezone').value;
-    const message       = document.getElementById('schedule-message').value.trim();
-
-    if (!recipientId || !message) {
-        alert('Please select a recipient from the dropdown and enter a message');
-        return;
-    }
-
-    // Send raw local values — backend converts to UTC cron expression.
-    const payload = {
-        name: recipientName,
-        recipients: [recipientId],
-        message,
-        timezone,
-        localTime: time,
-        localDate: date || null,
-        frequency
-    };
-    const isEdit = !!editingScheduleId;
-    const url = isEdit ? `${API_BASE}/api/schedules/${editingScheduleId}` : `${API_BASE}/api/schedules`;
-    const method = isEdit ? 'PUT' : 'POST';
-
-    try {
-        const response = await fetch(url, {
-            method,
-            headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+          } catch (e) {
+            console.error("Failed to fetch groups", e);
+          } finally {
+            spinner.classList.add("hidden");
+          }
+          showDropdown(allGroups.slice(0, 10));
         });
 
-        if (response.ok) {
+        input.addEventListener("input", () => {
+          const q = input.value.toLowerCase();
+          const filtered = allGroups
+            .filter((g) => g.name.toLowerCase().includes(q))
+            .slice(0, 10);
+          showDropdown(filtered);
+        });
+
+        document.addEventListener("click", (e) => {
+          if (
+            !document.getElementById("recipient-combobox").contains(e.target)
+          ) {
+            dropdown.classList.add("hidden");
+          }
+        });
+
+        function showDropdown(groups) {
+          if (groups.length === 0) {
+            dropdown.innerHTML =
+              '<p class="px-4 py-3 text-body-md text-on-surface-variant">An error occured. Try again please.</p>';
+          } else {
+            dropdown.innerHTML = groups
+              .map(
+                (g) =>
+                  `<div class="px-4 py-2 hover:bg-surface-container cursor-pointer text-body-md text-on-surface" data-id="${escapeHtml(g.id)}" data-name="${escapeHtml(g.name)}">${escapeHtml(g.name)}</div>`,
+              )
+              .join("");
+            dropdown.querySelectorAll("[data-id]").forEach((el) => {
+              el.addEventListener("click", () => {
+                input.value = el.dataset.name;
+                document.getElementById("recipient-value").value =
+                  el.dataset.id;
+                dropdown.classList.add("hidden");
+              });
+            });
+          }
+          dropdown.classList.remove("hidden");
+        }
+      }
+
+      function loadScheduleIntoForm(scheduleId) {
+        const schedule = schedules.find((s) => s.id === scheduleId);
+        if (!schedule) return;
+
+        editingScheduleId = scheduleId;
+
+        // Recipient — show stored id as display text; user can re-pick from dropdown if needed
+        const recipientId =
+          (schedule.recipients && schedule.recipients[0]) || "";
+        document.getElementById("recipient-value").value = recipientId;
+        document.getElementById("recipient-input").value =
+          schedule.name || recipientId;
+
+        // Frequency — use stored value, fall back to inferring from cron for old schedules
+        const freq =
+          schedule.frequency || cronToFrequency(schedule.cronExpression);
+        document.getElementById("frequency-select").value = freq;
+
+        // Time — use stored localTime; fall back to reading UTC from cron for old schedules
+        if (schedule.localTime) {
+          document.getElementById("schedule-time").value = schedule.localTime;
+        } else {
+          const parts = (schedule.cronExpression || "").trim().split(/\s+/);
+          if (parts.length === 5) {
+            const [min, hour] = parts;
+            if (hour !== "*" && min !== "*") {
+              document.getElementById("schedule-time").value =
+                `${String(hour).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+            }
+          }
+        }
+
+        // Date — use stored localDate; fall back to cron for old schedules
+        if (schedule.localDate) {
+          document.getElementById("schedule-date").value = schedule.localDate;
+        } else {
+          const parts = (schedule.cronExpression || "").trim().split(/\s+/);
+          if (parts.length === 5) {
+            const [, , dom, month] = parts;
+            if (dom !== "*" && month !== "*") {
+              const year = new Date().getFullYear();
+              document.getElementById("schedule-date").value =
+                `${year}-${String(month).padStart(2, "0")}-${String(dom).padStart(2, "0")}`;
+            }
+          }
+        }
+
+        // Timezone
+        setTimezoneSelect(
+          schedule.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+        );
+
+        document.getElementById("schedule-message").value =
+          schedule.message || "";
+
+        // Update button label and show cancel link
+        document.getElementById("create-schedule-btn").innerHTML =
+          '<span class="material-symbols-outlined">save</span> Update Schedule';
+        document.getElementById("cancel-edit-btn").classList.remove("hidden");
+
+        // Scroll form into view
+        document
+          .getElementById("create-schedule-btn")
+          .scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+
+      function cancelEdit() {
+        editingScheduleId = null;
+        document.getElementById("recipient-input").value = "";
+        document.getElementById("recipient-value").value = "";
+        document.getElementById("frequency-select").value = "Once";
+        document.getElementById("schedule-date").value = "";
+        document.getElementById("schedule-time").value = "";
+        document.getElementById("schedule-message").value = "";
+        setTimezoneSelect(Intl.DateTimeFormat().resolvedOptions().timeZone);
+        document.getElementById("create-schedule-btn").innerHTML =
+          '<span class="material-symbols-outlined">add_task</span> Create Schedule';
+        document.getElementById("cancel-edit-btn").classList.add("hidden");
+      }
+
+      async function handleCreateSchedule() {
+        const recipientId = document.getElementById("recipient-value").value;
+        const recipientName = document
+          .getElementById("recipient-input")
+          .value.trim();
+        const frequency = document.getElementById("frequency-select").value;
+        const date = document.getElementById("schedule-date").value;
+        const time = document.getElementById("schedule-time").value || "09:00";
+        const timezone = document.getElementById("schedule-timezone").value;
+        const message = document
+          .getElementById("schedule-message")
+          .value.trim();
+
+        if (!recipientId || !message) {
+          alert(
+            "Please select a recipient from the dropdown and enter a message",
+          );
+          return;
+        }
+
+        // Send raw local values — backend converts to UTC cron expression.
+        const payload = {
+          name: recipientName,
+          recipients: [recipientId],
+          message,
+          timezone,
+          localTime: time,
+          localDate: date || null,
+          frequency,
+        };
+        const isEdit = !!editingScheduleId;
+        const url = isEdit
+          ? `${API_BASE}/api/schedules/${editingScheduleId}`
+          : `${API_BASE}/api/schedules`;
+        const method = isEdit ? "PUT" : "POST";
+
+        try {
+          const response = await fetch(url, {
+            method,
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+          });
+
+          if (response.ok) {
             cancelEdit();
             await loadSchedules();
-        } else {
+          } else {
             const err = await response.json();
-            alert(`Error: ${err.error || 'Failed to save schedule'}`);
+            alert(`Error: ${err.error || "Failed to save schedule"}`);
+          }
+        } catch (error) {
+          console.error("Error saving schedule:", error);
+          alert("Failed to save schedule");
         }
-    } catch (error) {
-        console.error('Error saving schedule:', error);
-        alert('Failed to save schedule');
-    }
-}
+      }
 
+      async function deleteSchedule(scheduleId) {
+        if (!confirm("Are you sure you want to delete this schedule?")) return;
 
-async function deleteSchedule(scheduleId) {
-    if (!confirm('Are you sure you want to delete this schedule?')) return;
+        try {
+          const response = await fetch(
+            `${API_BASE}/api/schedules/${scheduleId}`,
+            {
+              method: "DELETE",
+              headers: { Authorization: `Bearer ${authToken}` },
+            },
+          );
 
-    try {
-        const response = await fetch(`${API_BASE}/api/schedules/${scheduleId}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-
-        if (response.ok) {
+          if (response.ok) {
             await loadSchedules();
-        } else {
-            alert('Failed to delete schedule');
+          } else {
+            alert("Failed to delete schedule");
+          }
+        } catch (error) {
+          console.error("Error deleting schedule:", error);
+          alert("Failed to delete schedule");
         }
-    } catch (error) {
-        console.error('Error deleting schedule:', error);
-        alert('Failed to delete schedule');
-    }
-}
+      }
 
-async function handleTestMessage() {
-    const to      = document.getElementById('recipient-value').value;
-    const message = document.getElementById('schedule-message').value.trim();
+      async function handleTestMessage() {
+        const to = document.getElementById("recipient-value").value;
+        const message = document
+          .getElementById("schedule-message")
+          .value.trim();
 
-    if (!to || !message) {
-        alert('Please select a recipient and enter a message before test sending.');
-        return;
-    }
+        if (!to || !message) {
+          alert(
+            "Please select a recipient and enter a message before test sending.",
+          );
+          return;
+        }
 
-    const btn = document.getElementById('test-send-btn');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="material-symbols-outlined text-[20px] animate-spin">progress_activity</span> Sending…';
+        const btn = document.getElementById("test-send-btn");
+        btn.disabled = true;
+        btn.innerHTML =
+          '<span class="material-symbols-outlined text-[20px] animate-spin">progress_activity</span> Sending…';
 
-    try {
-        const response = await fetch(`${API_BASE}/api/message`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ to, message })
-        });
+        try {
+          const response = await fetch(`${API_BASE}/api/message`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ to, message }),
+          });
 
-        if (response.ok) {
-            alert('Test message sent successfully!');
-        } else {
+          if (response.ok) {
+            alert("Test message sent successfully!");
+          } else {
             const err = await response.json();
-            alert(`Error: ${err.error || 'Failed to send message'}`);
+            alert(`Error: ${err.error || "Failed to send message"}`);
+          }
+        } catch (error) {
+          console.error("Error sending test message:", error);
+          alert("Failed to send test message. Check your connection.");
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML =
+            '<span class="material-symbols-outlined text-[20px]">send_time_extension</span> Test Sending';
         }
-    } catch (error) {
-        console.error('Error sending test message:', error);
-        alert('Failed to send test message. Check your connection.');
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<span class="material-symbols-outlined text-[20px]">send_time_extension</span> Test Sending';
-    }
-}
+      }
 
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = String(text || '');
-    return div.innerHTML;
-}
+      function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = String(text || "");
+        return div.innerHTML;
+      }
 
-// ── Logout / Disconnect modal (two-phase) ───────────────────────────────────
+      // ── Logout / Disconnect modal (two-phase) ───────────────────────────────────
 
-function showLogoutModal({ isFullLogout }) {
-    const modal      = document.getElementById('logoutModal');
-    const title      = document.getElementById('logoutModalTitle');
-    const body       = document.getElementById('logoutModalBody');
-    const confirmBtn = document.getElementById('logoutModalConfirm');
-    const cancelBtn  = document.getElementById('logoutModalCancel');
+      function showLogoutModal({ isFullLogout }) {
+        const modal = document.getElementById("logoutModal");
+        const title = document.getElementById("logoutModalTitle");
+        const body = document.getElementById("logoutModalBody");
+        const confirmBtn = document.getElementById("logoutModalConfirm");
+        const cancelBtn = document.getElementById("logoutModalCancel");
 
-    title.textContent = isFullLogout ? 'Log out of WatoBot' : 'Disconnect WhatsApp';
-    confirmBtn.dataset.isFullLogout = isFullLogout ? '1' : '0';
+        title.textContent = isFullLogout
+          ? "Log out of WatoBot"
+          : "Disconnect WhatsApp";
+        confirmBtn.dataset.isFullLogout = isFullLogout ? "1" : "0";
 
-    // Phase 1 — asking WhatsApp to disconnect
-    body.innerHTML = `
+        // Phase 1 — asking WhatsApp to disconnect
+        body.innerHTML = `
         <div class="flex items-center gap-3 text-on-surface-variant">
             <div class="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
             <p class="text-body-md">Asking WhatsApp to remove this device… please wait.</p>
         </div>
         <p id="logoutModalError" class="hidden mt-3 text-sm text-error">Something went wrong. Please try again.</p>
     `;
-    confirmBtn.textContent = 'Continue — device is removed';
-    confirmBtn.disabled = true;
-    cancelBtn.disabled = false;
-    modal.classList.remove('hidden');
+        confirmBtn.textContent = "Continue — device is removed";
+        confirmBtn.disabled = true;
+        cancelBtn.disabled = false;
+        modal.classList.remove("hidden");
 
-    // Await mudslide logout — when done (or timed out after 30 s) switch to phase 2
-    fetch(`${API_BASE}/api/whatsapp/logout`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${authToken}` }
-    })
-    .catch(() => {})
-    .finally(() => {
-        // Phase 2 — mudslide done, ask user to verify manually
-        body.innerHTML = `
+        // Await mudslide logout — when done (or timed out after 30 s) switch to phase 2
+        fetch(`${API_BASE}/api/whatsapp/logout`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${authToken}` },
+        })
+          .catch(() => {})
+          .finally(() => {
+            // Phase 2 — mudslide done, ask user to verify manually
+            body.innerHTML = `
             <p class="text-on-surface-variant text-body-md mb-3">
                 We've asked WhatsApp to remove this device. Please verify on your phone:
             </p>
@@ -952,69 +1597,89 @@ function showLogoutModal({ isFullLogout }) {
             </ol>
             <p id="logoutModalError" class="hidden mt-3 text-sm text-error">Something went wrong. Please try again.</p>
         `;
-        confirmBtn.disabled = false;
-    });
-}
+            confirmBtn.disabled = false;
+          });
+      }
 
-async function handleLogoutConfirm() {
-    const confirmBtn = document.getElementById('logoutModalConfirm');
-    const errMsg     = document.getElementById('logoutModalError');
-    const isFullLogout = confirmBtn.dataset.isFullLogout === '1';
+      async function handleLogoutConfirm() {
+        const confirmBtn = document.getElementById("logoutModalConfirm");
+        const errMsg = document.getElementById("logoutModalError");
+        const isFullLogout = confirmBtn.dataset.isFullLogout === "1";
 
-    confirmBtn.disabled = true;
-    confirmBtn.textContent = 'Cleaning up…';
-    errMsg?.classList.add('hidden');
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = "Cleaning up…";
+        errMsg?.classList.add("hidden");
 
-    try {
-        const res = await fetch(`${API_BASE}/api/whatsapp/logout/confirm`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-        if (!res.ok) throw new Error('confirm failed');
+        try {
+          const res = await fetch(`${API_BASE}/api/whatsapp/logout/confirm`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+          if (!res.ok) throw new Error("confirm failed");
 
-        if (isFullLogout) {
-            localStorage.removeItem('authToken');
-            window.location.href = '/';
-        } else {
+          if (isFullLogout) {
+            localStorage.removeItem("authToken");
+            window.location.href = "/";
+          } else {
             window.location.href = `/verify.html?token=${authToken}`;
+          }
+        } catch {
+          errMsg?.classList.remove("hidden");
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = "Continue — device is removed";
         }
-    } catch {
-        errMsg?.classList.remove('hidden');
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = 'Continue — device is removed';
-    }
-}
+      }
 
-// Modal buttons are rendered after this script tag, so use event delegation.
-document.addEventListener('click', (e) => {
-    if (e.target.id === 'logoutModalConfirm') handleLogoutConfirm();
-    if (e.target.id === 'logoutModalCancel') document.getElementById('logoutModal').classList.add('hidden');
-});
+      // Modal buttons are rendered after this script tag, so use event delegation.
+      document.addEventListener("click", (e) => {
+        if (e.target.id === "logoutModalConfirm") handleLogoutConfirm();
+        if (e.target.id === "logoutModalCancel")
+          document.getElementById("logoutModal").classList.add("hidden");
+      });
 
-function openSupport() {
-    const modal = document.getElementById('supportModal');
-    const now = new Date();
-    const istHour = (now.getUTCHours() * 60 + now.getUTCMinutes() + 330) / 60 % 24;
-    const available = istHour >= 9 && istHour < 19;
-    document.getElementById('support-available').classList.toggle('hidden', !available);
-    document.getElementById('support-unavailable').classList.toggle('hidden', available);
-    modal.classList.remove('hidden');
-}
-function closeSupport() {
-    document.getElementById('supportModal').classList.add('hidden');
-}
-</script>
+      function openSupport() {
+        const modal = document.getElementById("supportModal");
+        const now = new Date();
+        const istHour =
+          ((now.getUTCHours() * 60 + now.getUTCMinutes() + 330) / 60) % 24;
+        const available = istHour >= 9 && istHour < 19;
+        document
+          .getElementById("support-available")
+          .classList.toggle("hidden", !available);
+        document
+          .getElementById("support-unavailable")
+          .classList.toggle("hidden", available);
+        modal.classList.remove("hidden");
+      }
+      function closeSupport() {
+        document.getElementById("supportModal").classList.add("hidden");
+      }
+    </script>
 
-<!-- Logout / Disconnect modal -->
-<div id="logoutModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-    <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
-        <h2 id="logoutModalTitle" class="font-headline-md text-headline-md text-on-surface"></h2>
+    <!-- Logout / Disconnect modal -->
+    <div
+      id="logoutModal"
+      class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+    >
+      <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+        <h2
+          id="logoutModalTitle"
+          class="font-headline-md text-headline-md text-on-surface"
+        ></h2>
         <div id="logoutModalBody"></div>
         <div class="flex gap-3 justify-end pt-2">
-            <button id="logoutModalCancel" class="px-4 py-2 rounded-xl border border-outline-variant text-on-surface-variant font-label-md hover:bg-surface-container transition">Cancel</button>
-            <button id="logoutModalConfirm" class="px-4 py-2 rounded-xl bg-error text-white font-label-md hover:bg-error/90 transition disabled:opacity-50 disabled:cursor-not-allowed"></button>
+          <button
+            id="logoutModalCancel"
+            class="px-4 py-2 rounded-xl border border-outline-variant text-on-surface-variant font-label-md hover:bg-surface-container transition"
+          >
+            Cancel
+          </button>
+          <button
+            id="logoutModalConfirm"
+            class="px-4 py-2 rounded-xl bg-error text-white font-label-md hover:bg-error/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          ></button>
         </div>
+      </div>
     </div>
-</div>
-
-</body></html>
+  </body>
+</html>

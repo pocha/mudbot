@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const { onRequest } = require('firebase-functions/v2/https');
-const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+const { onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
 
@@ -11,11 +11,19 @@ const { publishFile } = require('./src/githubPublish');
 const { getDeployStatusForCommit } = require('./src/githubDeployStatus');
 const { verifyTurnstileToken } = require('./src/turnstile');
 
-// Deterministic on the group name alone (not a job/session id) so publishing
-// the same-named group again always overwrites the same file rather than
-// minting a new one each time — matches the "Publish" button's create-or-
-// update semantics.
-function slugifyGroupName(groupName) {
+// Random, not derived from the group name — two unrelated groups that happen
+// to share a display name (e.g. two different "Residents Group"s) would
+// otherwise collide and overwrite each other's file, since a name-derived
+// hash is identical for identical names. The random suffix is generated once
+// per jobId (see publishFaq) and stored in the job doc, so it stays stable
+// across every subsequent republish of the same FAQ regardless of later
+// group-name edits — the published URL never moves once assigned.
+//
+// Only the slug is persisted/returned anywhere (Firestore, API responses,
+// faq.json) — never a full URL. Callers reconstruct the URL from the slug
+// using their own base-URL constant, so there's exactly one place (per
+// caller) that knows the actual published domain/path.
+function generateFaqSlug(groupName) {
   const slug = groupName
     .trim()
     .toLowerCase()
@@ -23,8 +31,8 @@ function slugifyGroupName(groupName) {
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
-  const hash = crypto.createHash('sha256').update(groupName.trim().toLowerCase()).digest('hex').slice(0, 5);
-  return `${slug || 'group'}-${hash}`;
+  const suffix = crypto.randomBytes(3).toString('hex').slice(0, 5);
+  return `${slug || 'group'}-${suffix}`;
 }
 
 // Mumbai — GCP's only Functions/Firestore region in India (there's no Hyderabad
@@ -63,8 +71,11 @@ function capMessagesBySize(messages, maxChars) {
 }
 
 // Unauthenticated: accepts a pre-parsed, pre-capped message array (JSON body)
-// and creates a Firestore job doc. processFaqJob (below) picks it up and does
-// the Gemini call.
+// and creates (or, given an existing jobId, overwrites/resets) a Firestore
+// job doc. processFaqJob (below) picks it up and does the Gemini call. Gated
+// by Turnstile — this is the expensive-to-abuse step (a real Gemini call
+// against a rate-limited quota), unlike getFaqStatus which just reads
+// Firestore.
 exports.submitFaqUpload = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, res) => {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -72,16 +83,28 @@ exports.submitFaqUpload = onRequest({ cors: true, timeoutSeconds: 60 }, async (r
   }
 
   try {
-    const { groupName, messages } = req.body || {};
+    const { groupName, messages, jobId, turnstileToken } = req.body || {};
 
     if (!Array.isArray(messages) || !messages.length) {
       res.status(400).json({ error: 'No messages provided.' });
       return;
     }
 
+    const verified = await verifyTurnstileToken(turnstileToken, process.env.TURNSTILE_SECRET_KEY, req.ip);
+    if (!verified) {
+      res.status(400).json({ error: 'Captcha verification failed — please retry.' });
+      return;
+    }
+
     const capped = capMessagesBySize(messages, MAX_MESSAGES_CHARS);
 
-    const jobRef = db.collection('faqJobs').doc();
+    // Reuses the given jobId when present (a regenerate against an existing
+    // FAQ project) so the same doc — and the same edit URL — carries forward,
+    // rather than minting a new jobId on every resubmit. Firestore only
+    // auto-generates an id when .doc() is called with zero arguments —
+    // passing an explicit `undefined` (e.g. via `.doc(jobId || undefined)`)
+    // still counts as an argument and fails path validation instead.
+    const jobRef = jobId ? db.collection('faqJobs').doc(jobId) : db.collection('faqJobs').doc();
     await jobRef.set({
       groupName: groupName || 'WhatsApp Group',
       source: 'upload',
@@ -104,10 +127,18 @@ exports.submitFaqUpload = onRequest({ cors: true, timeoutSeconds: 60 }, async (r
 // timeoutSeconds raised from the 60s default: callGeminiForFaq can now wait
 // out a 429's retry delay (commonly ~15s) before retrying, on top of the
 // generation call itself.
-exports.processFaqJob = onDocumentCreated({ document: 'faqJobs/{jobId}', timeoutSeconds: 120 }, async (event) => {
-  const snap = event.data;
-  if (!snap) return;
+//
+// onDocumentWritten (not onDocumentCreated) — submitFaqUpload now reuses an
+// existing jobId for regenerate requests, which is an *update* to an existing
+// doc, not a creation. onDocumentCreated only fires on creation, so it would
+// silently never re-trigger on a regenerate. The state === 'queued' guard
+// below is what keeps this from re-processing the worker's own subsequent
+// writes (generating/done/failed), which would otherwise also match.
+exports.processFaqJob = onDocumentWritten({ document: 'faqJobs/{jobId}', timeoutSeconds: 120 }, async (event) => {
+  const snap = event.data && event.data.after;
+  if (!snap || !snap.exists) return;
   const job = snap.data();
+  if (job.state !== 'queued') return;
   const ref = snap.ref;
 
   try {
@@ -147,10 +178,11 @@ exports.getFaqStatus = onRequest({ cors: true }, async (req, res) => {
     return;
   }
 
-  const { state, faq, error, groupName, messageCount } = doc.data();
+  const { state, faq, error, groupName, messageCount, faqSlug } = doc.data();
   res.json({
     jobId, state, groupName, messageCount: messageCount || null,
-    faq: faq || null, faqHtml: faq ? renderFaqEntriesHtml(faq) : null, error: error || null
+    faq: faq || null, faqHtml: faq ? renderFaqEntriesHtml(faq) : null, error: error || null,
+    faqSlug: faqSlug || null
   });
 });
 
@@ -167,8 +199,12 @@ exports.publishFaq = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, r
   }
 
   try {
-    const { groupName, faq, turnstileToken } = req.body || {};
+    const { groupName, faq, jobId, turnstileToken } = req.body || {};
 
+    if (!jobId) {
+      res.status(400).json({ error: 'jobId is required to publish.' });
+      return;
+    }
     if (!groupName || !groupName.trim()) {
       res.status(400).json({ error: 'Group name is required to publish.' });
       return;
@@ -184,8 +220,33 @@ exports.publishFaq = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, r
       return;
     }
 
-    const fileSlug = slugifyGroupName(groupName);
-    const repoPath = `public/whatsapp-group-faq/${fileSlug}.html`;
+    const jobRef = db.collection('faqJobs').doc(jobId);
+    const jobSnap = await jobRef.get();
+    if (!jobSnap.exists) {
+      res.status(404).json({ error: 'FAQ job not found.' });
+      return;
+    }
+
+    // Assigned once per jobId and reused on every subsequent publish of the
+    // same FAQ, so the URL stays stable even if the group name is edited
+    // later (see generateFaqSlug for why it's random rather than
+    // name-derived).
+    const faqSlug = jobSnap.data().faqSlug || generateFaqSlug(groupName);
+
+    // Persist the (possibly edited) FAQ + the assigned faqSlug back to the
+    // job doc before publishing, so both survive a reload / a later visit via
+    // ?jobId= — without this, edits made in the browser only ever exist in
+    // currentFaq client-side and would silently revert next time
+    // getFaqStatus is read. Done before the GitHub commit so a GitHub
+    // failure still leaves the edit (and the assigned slug) saved and
+    // retriable rather than lost.
+    await jobRef.update({
+      faq,
+      faqSlug,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    const repoPath = `public/whatsapp-group-faq/${faqSlug}.html`;
     const html = renderFaqPage(groupName, faq);
 
     const { commitSha } = await publishFile({
@@ -195,7 +256,7 @@ exports.publishFaq = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, r
       token: process.env.GITHUB_TOKEN
     });
 
-    res.json({ commitSha, faqUrl: `https://watobot.xyz/whatsapp-group-faq/${fileSlug}.html` });
+    res.json({ commitSha, faqSlug });
   } catch (err) {
     console.error('publishFaq failed:', err);
     res.status(500).json({ error: err.message || 'Publish failed' });
