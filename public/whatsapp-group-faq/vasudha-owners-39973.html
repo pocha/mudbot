@@ -11,22 +11,37 @@
 </head>
 <body class="bg-surface text-on-surface font-body-md min-h-screen flex flex-col">
 
-<header class="flex justify-between items-center w-full px-gutter py-2 sticky top-0 z-50 bg-surface dark:bg-inverse-surface border-b border-outline-variant dark:border-on-surface-variant shadow-sm h-16">
-  <div class="flex items-center gap-4">
-    <a href="/" class="font-headline-md text-headline-md font-bold"><span class="text-primary">Wato</span><span class="text-on-surface">Bot</span></a>
+<!-- Single sticky header (was two stacked sticky bars before — that made
+     scrollIntoView's centering land shared-link targets partially behind the
+     combined chrome, since it has no awareness of sticky elements eating
+     into the visible viewport). Search now lives in the nav itself: a
+     permanently visible input on wider screens, a takeover (icon -> full-
+     width input) on narrow ones where there isn't room for everything at once. -->
+<header class="flex items-center w-full px-gutter py-2 sticky top-0 z-50 bg-surface dark:bg-inverse-surface border-b border-outline-variant dark:border-on-surface-variant shadow-sm h-16">
+  <div id="nav-normal" class="flex items-center justify-between w-full gap-3">
+    <div class="flex items-center gap-2 shrink-0">
+      <button id="nav-search-toggle" type="button" class="md:hidden text-on-surface-variant hover:text-primary transition-colors" title="Search FAQs" aria-label="Search FAQs">
+        <span class="material-symbols-outlined">search</span>
+      </button>
+      <a href="/" class="font-headline-md text-headline-md font-bold whitespace-nowrap"><span class="text-primary">Wato</span><span class="text-on-surface">Bot</span></a>
+    </div>
+
+    <div class="hidden md:block relative flex-1 max-w-sm">
+      <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60 pointer-events-none text-[20px]">search</span>
+      <input type="text" placeholder="Search FAQs…" class="faq-search-input w-full pl-9 pr-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm" />
+    </div>
+
+    <a href="/whatsapp-group-faq" class="font-label-md text-label-md bg-primary-container text-on-primary-container px-4 py-2 rounded-xl font-bold hover:opacity-90 active:scale-95 transition-all whitespace-nowrap shrink-0">Create your own FAQ</a>
   </div>
-  <div class="flex items-center gap-4">
-    <a href="/whatsapp-group-faq" class="font-label-md text-label-md bg-primary-container text-on-primary-container px-4 py-2 rounded-xl font-bold hover:opacity-90 active:scale-95 transition-all">Create your own FAQ</a>
+
+  <div id="nav-search-mobile" class="hidden items-center gap-2 w-full">
+    <span class="material-symbols-outlined text-on-surface-variant text-[20px] shrink-0">search</span>
+    <input type="text" placeholder="Search FAQs…" class="faq-search-input flex-1 min-w-0 bg-transparent outline-none text-sm" />
+    <button id="nav-search-close" type="button" class="text-on-surface-variant hover:text-error transition-colors shrink-0" title="Close search" aria-label="Close search">
+      <span class="material-symbols-outlined">close</span>
+    </button>
   </div>
 </header>
-
-<div class="sticky top-16 z-40 bg-surface/95 backdrop-blur-sm border-b border-outline-variant px-gutter py-3">
-  <div class="max-w-2xl mx-auto relative">
-    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60 pointer-events-none">search</span>
-    <input id="faq-search" type="text" placeholder="Search FAQs…"
-      class="w-full pl-10 pr-4 py-2 bg-surface-container-low border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" />
-  </div>
-</div>
 
 <main class="flex-1 w-full max-w-2xl mx-auto px-gutter py-12">
   <div class="mb-8">
@@ -490,12 +505,15 @@ For installation and setup support, you can contact: contact Manju &amp; Team</p
 <script src="/assets/footer.js"></script>
 <script>
 (function () {
-  const searchInput = document.getElementById('faq-search');
   const entries = Array.from(document.querySelectorAll('.faq-entry'));
   const noResults = document.getElementById('faq-no-results');
+  // Two inputs (desktop-permanent, mobile-takeover) — only one is ever
+  // visible at a time, but kept in sync regardless so a resize mid-search
+  // (or just generally) doesn't lose or fork what was typed.
+  const searchInputs = Array.from(document.querySelectorAll('.faq-search-input'));
 
-  searchInput.addEventListener('input', () => {
-    const q = searchInput.value.trim().toLowerCase();
+  function applyFilter(query) {
+    const q = query.trim().toLowerCase();
     let visibleCount = 0;
     entries.forEach(el => {
       const matches = !q || (el.dataset.search || '').includes(q);
@@ -503,6 +521,38 @@ For installation and setup support, you can contact: contact Manju &amp; Team</p
       if (matches) visibleCount++;
     });
     noResults.classList.toggle('hidden', visibleCount > 0);
+  }
+
+  searchInputs.forEach(input => {
+    input.addEventListener('input', () => {
+      searchInputs.forEach(other => { if (other !== input) other.value = input.value; });
+      applyFilter(input.value);
+    });
+  });
+
+  const navNormal = document.getElementById('nav-normal');
+  const navSearchMobile = document.getElementById('nav-search-mobile');
+  const searchToggle = document.getElementById('nav-search-toggle');
+  const searchClose = document.getElementById('nav-search-close');
+  const mobileInput = navSearchMobile.querySelector('.faq-search-input');
+
+  searchToggle.addEventListener('click', () => {
+    navNormal.classList.add('hidden');
+    navSearchMobile.classList.remove('hidden');
+    navSearchMobile.classList.add('flex');
+    mobileInput.focus();
+  });
+
+  searchClose.addEventListener('click', () => {
+    navSearchMobile.classList.add('hidden');
+    navSearchMobile.classList.remove('flex');
+    navNormal.classList.remove('hidden');
+    navNormal.classList.add('flex');
+    if (mobileInput.value) {
+      mobileInput.value = '';
+      searchInputs.forEach(other => { other.value = ''; });
+      applyFilter('');
+    }
   });
 
   document.querySelectorAll('.faq-share-btn').forEach(btn => {
