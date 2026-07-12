@@ -33,7 +33,11 @@ if (baseUrl.startsWith('https://')) {
 
 const fastify = require('fastify')(fastifyOptions);
 
-fastify.register(require('@fastify/cors'), { origin: true });
+// @fastify/cors defaults to methods: 'GET,HEAD,POST' when not specified —
+// routes/api.js also uses PUT (update schedule) and DELETE (delete
+// schedule), which would otherwise silently fail CORS preflight from any
+// cross-origin frontend (e.g. watobot.xyz calling api.watobot.xyz).
+fastify.register(require('@fastify/cors'), { origin: true, methods: ['GET', 'HEAD', 'POST', 'PUT', 'DELETE'] });
 
 fastify.register(require('@fastify/static'), {
   root: path.join(__dirname, 'public'),
