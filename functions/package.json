@@ -9,7 +9,8 @@
     "serve": "firebase emulators:start --only functions,firestore",
     "shell": "firebase functions:shell",
     "deploy": "firebase deploy --only functions",
-    "test": "node test/test-prompt.js"
+    "test": "node test/test-prompt.js",
+    "regenerate-faqs": "node scripts/regenerate-faqs.js"
   },
   "dependencies": {
     "firebase-admin": "^12.6.0",
