@@ -2,6 +2,7 @@ node_modules/
 package-lock.json
 .env
 .env.*
+users/.proxy_port_counter
 users/**/.mudslide
 users/**/logs.txt
 users/**/usage.log
