@@ -127,6 +127,10 @@ else
 fi
 PROXYCHAINS_BIN=$(which proxychains4 2>/dev/null || echo "")
 
+if [ -n "$PROXYCHAINS_BIN" ]; then
+  info "Residential-proxy targeting (country + city) runs through an in-process relay the app starts automatically per user — no separate service to install or supervise."
+fi
+
 # --- Install SSL certificate via Let's Encrypt ---
 if [ "$OS_NAME" = "linux" ]; then
   echo ""
@@ -193,6 +197,7 @@ NODE_ENV=production
 # Residential proxy (optional — leave blank to disable)
 DATAIMPULSE_USERNAME=
 DATAIMPULSE_PASSWORD=
+DATAIMPULSE_HTTP_GATEWAY=gw.dataimpulse.com
 DATAIMPULSE_GATEWAY=74.81.81.81
 DATAIMPULSE_PORT=10000
 EOF

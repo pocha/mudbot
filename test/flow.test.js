@@ -171,6 +171,62 @@ test('verify token', async () => {
   assert.equal(typeof body.user.whatsappConnected, 'boolean');
 });
 
+test('GET /api/countries returns the static country list', async () => {
+  const { status, body } = await get(`${BASE_URL}/api/countries`);
+  assert.equal(status, 200);
+  assert.ok(Array.isArray(body));
+  assert.ok(body.length > 100);
+  const india = body.find(c => c.code === 'in');
+  assert.deepEqual(india, { code: 'in', name: 'India' });
+});
+
+test('POST /api/user/location auto-detects from IP with empty body', async () => {
+  const { status, body } = await post(`${BASE_URL}/api/user/location`, {}, authHeader(token));
+  assert.equal(status, 200);
+  assert.equal(body.valid, true);
+  assert.match(body.country, /^[a-z]{2}$/);
+  assert.equal(typeof body.countryName, 'string');
+});
+
+test('POST /api/user/location rejects an invalid country code', async () => {
+  const { status, body } = await post(
+    `${BASE_URL}/api/user/location`,
+    { country: 'zz', city: 'Nowhereville' },
+    authHeader(token)
+  );
+  assert.equal(status, 400);
+  assert.equal(body.valid, false);
+  assert.equal(body.reason, 'invalid_country');
+});
+
+test('POST /api/user/location rejects a city that cannot be found', async () => {
+  const { status, body } = await post(
+    `${BASE_URL}/api/user/location`,
+    { country: 'in', city: 'Zzzznotarealcityxyz123' },
+    authHeader(token)
+  );
+  assert.equal(status, 400);
+  assert.equal(body.valid, false);
+  assert.equal(body.reason, 'city_not_found');
+});
+
+test('POST /api/user/location accepts and persists a valid manual override', async () => {
+  const { status, body } = await post(
+    `${BASE_URL}/api/user/location`,
+    { country: 'in', city: 'Bengaluru' },
+    authHeader(token)
+  );
+  assert.equal(status, 200);
+  assert.equal(body.valid, true);
+  assert.equal(body.country, 'in');
+  assert.equal(body.countryName, 'India');
+  assert.equal(body.city, 'Bengaluru');
+
+  const userDir = getUserDir(TEST_EMAIL);
+  const raw = await fs.readFile(path.join(USERS_DIR, userDir, 'proxy.json'), 'utf8');
+  assert.match(raw, /^[a-f0-9]+:[a-f0-9]+$/); // encrypted on disk
+});
+
 test('user directory and token_hash created', async () => {
   const userDir = getUserDir(TEST_EMAIL);
   const stat = await fs.stat(path.join(USERS_DIR, userDir));

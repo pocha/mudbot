@@ -46,6 +46,19 @@ fastify.register(require('@fastify/static'), {
 
 fastify.register(require('./routes/api'));
 
+const proxyRelayManager = require('./services/proxyRelayManager');
+
+// Closes any active per-user relay listeners (services/proxyRelayManager.js)
+// so a restart doesn't leave orphaned sockets bound. Relay state is
+// in-memory only — each relay is re-acquired lazily the next time that
+// user's mudslide session needs one, so nothing here needs to persist.
+for (const signal of ['SIGTERM', 'SIGINT']) {
+  process.on(signal, async () => {
+    await proxyRelayManager.closeAllRelays().catch(() => {});
+    process.exit(0);
+  });
+}
+
 function ensureDailyReportCron() {
   const scriptPath = path.join(__dirname, 'scripts', 'daily-report.js');
   const label = '# mudbot-daily-report';
@@ -71,6 +84,9 @@ const start = async () => {
   try {
     await fastify.listen({ port: process.env.PORT, host: '0.0.0.0' });
     ensureDailyReportCron();
+    if (process.env.DATAIMPULSE_USERNAME) {
+      console.log('[proxy] Residential-proxy relay active — DataImpulse country/city targeting via per-user local relays.');
+    }
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);

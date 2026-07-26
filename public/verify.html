@@ -55,27 +55,46 @@
                     </div>
                 </div>
 
-                <!-- PIN input section (shown first) -->
-                <div id="setupSection" class="space-y-3">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Your PIN / Postal Code</label>
-                        <p class="text-xs text-gray-500 mb-2">Watobot uses this to route your WhatsApp connection through a residential IP near your location, making the device look genuine to WhatsApp.</p>
-                        <input id="pincodeInput" type="text" inputmode="numeric" pattern="\d*" maxlength="10"
-                            placeholder="e.g. 400001"
-                            class="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-800 text-lg tracking-widest focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+                <!-- Location detection section (shown first) -->
+                <div id="locationSection" class="space-y-3">
+                    <div id="locationDetecting" class="flex items-center gap-3 text-sm text-gray-600">
+                        <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+                        Detecting your region…
                     </div>
 
-                    <p id="pincodeError" class="hidden text-sm text-red-600"></p>
-
-                    <div id="pincodeWarning" class="hidden bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm">
-                        <p id="pincodeWarningText" class="text-yellow-800 mb-2"></p>
-                        <button id="useAnyway" class="text-yellow-700 font-semibold underline text-xs">Continue anyway →</button>
+                    <div id="locationDetected" class="hidden space-y-3">
+                        <p class="text-sm text-gray-700">
+                            We'll connect through a residential IP near <strong id="locationDisplay"></strong> so WhatsApp doesn't flag this as a new device.
+                        </p>
+                        <p id="locationDetectError" class="hidden text-sm text-yellow-700"></p>
+                        <button id="locationContinue"
+                            class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition">
+                            Continue →
+                        </button>
+                        <button id="locationChangeLink" class="text-sm text-gray-500 hover:text-gray-700 underline">
+                            Not right? Change it
+                        </button>
                     </div>
 
-                    <button id="pincodeSubmit"
-                        class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
-                        Fetch IP close to me →
-                    </button>
+                    <div id="locationOverride" class="hidden space-y-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                            <select id="countrySelect"
+                                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                <option value="">Select a country…</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">City</label>
+                            <input id="cityInput" type="text" placeholder="e.g. Bengaluru"
+                                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+                        </div>
+                        <p id="locationError" class="hidden text-sm text-red-600"></p>
+                        <button id="locationSave"
+                            class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                            Save →
+                        </button>
+                    </div>
                 </div>
 
                 <!-- QR section (shown after PIN confirmed) -->
@@ -209,76 +228,101 @@
             }
         }
 
-        async function handlePincodeSubmit(force = false) {
-            const pincode = document.getElementById('pincodeInput').value.trim();
-            const btn = document.getElementById('pincodeSubmit');
-            const errEl = document.getElementById('pincodeError');
-            const warnEl = document.getElementById('pincodeWarning');
+        let countriesLoaded = false;
+
+        function showDetected(country, countryName, city) {
+            document.getElementById('locationDetecting').classList.add('hidden');
+            document.getElementById('locationOverride').classList.add('hidden');
+            document.getElementById('locationDisplay').textContent =
+                city ? `${city}, ${countryName || country.toUpperCase()}` : (countryName || country.toUpperCase());
+            document.getElementById('locationDetected').classList.remove('hidden');
+        }
+
+        async function detectLocation() {
+            try {
+                const response = await fetch(`${API_BASE}/api/user/location`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                const data = await response.json();
+
+                if (data.valid !== true) {
+                    document.getElementById('locationDetectError').textContent =
+                        'Could not detect your location automatically — please set it manually.';
+                    document.getElementById('locationDetectError').classList.remove('hidden');
+                    showDetected('in', 'India', null);
+                    return;
+                }
+                showDetected(data.country, data.countryName, data.city);
+            } catch (err) {
+                console.error('Location detect error:', err);
+                document.getElementById('locationDetectError').textContent =
+                    'Could not detect your location automatically — please set it manually.';
+                document.getElementById('locationDetectError').classList.remove('hidden');
+                showDetected('in', 'India', null);
+            }
+        }
+
+        async function loadCountries() {
+            if (countriesLoaded) return;
+            try {
+                const response = await fetch(`${API_BASE}/api/countries`);
+                const countries = await response.json();
+                const select = document.getElementById('countrySelect');
+                for (const c of countries) {
+                    const opt = document.createElement('option');
+                    opt.value = c.code;
+                    opt.textContent = c.name;
+                    select.appendChild(opt);
+                }
+                countriesLoaded = true;
+            } catch (err) {
+                console.error('Failed to load countries:', err);
+            }
+        }
+
+        async function handleLocationSave() {
+            const country = document.getElementById('countrySelect').value;
+            const city = document.getElementById('cityInput').value.trim();
+            const btn = document.getElementById('locationSave');
+            const errEl = document.getElementById('locationError');
 
             errEl.classList.add('hidden');
-            warnEl.classList.add('hidden');
 
-            if (!pincode) {
-                errEl.textContent = 'Please enter your PIN code.';
-                errEl.classList.remove('hidden');
-                return;
-            }
-
-            if (!/^\d{3,10}$/.test(pincode)) {
-                errEl.textContent = 'PIN code must be digits only (3–10 digits).';
+            if (!country || !city) {
+                errEl.textContent = 'Please select a country and enter a city.';
                 errEl.classList.remove('hidden');
                 return;
             }
 
             btn.disabled = true;
-            btn.textContent = 'Verifying…';
+            btn.textContent = 'Saving…';
 
             try {
-                const body = force ? { zipcode: pincode, force: true } : { zipcode: pincode };
                 const response = await fetch(`${API_BASE}/api/user/location`, {
                     method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(body)
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ country, city })
                 });
                 const data = await response.json();
 
+                btn.disabled = false;
+                btn.textContent = 'Save →';
+
                 if (data.valid !== true) {
-                    btn.disabled = false;
-                    btn.textContent = 'Fetch IP close to me →';
-                    const blockingReasons = ['invalid_format', 'invalid_zipcode', 'api_error', 'error'];
-                    if (blockingReasons.includes(data.reason)) {
-                        errEl.textContent = data.message || 'Invalid PIN code.';
-                        errEl.classList.remove('hidden');
-                    } else if (data.reason === 'country_mismatch' || data.reason === 'confirm_country') {
-                        const fromPlace = data.zipcodeCity
-                            ? `${data.zipcodeCity}, ${data.zipcodeCountryName || data.zipcodeCountry}`
-                            : (data.zipcodeCountryName || data.zipcodeCountry);
-                        const extra = data.reason === 'country_mismatch' ? ' If you\'re on a VPN, you can proceed anyway.' : '';
-                        document.getElementById('pincodeWarningText').textContent =
-                            `${data.message} (PIN resolves to: ${fromPlace}).${extra}`;
-                        warnEl.classList.remove('hidden');
-                    }
-                    return;
-                }
-
-                if (data.warning === 'pin_validation_unavailable') {
-                    errEl.style.color = '#2563eb';
-                    errEl.textContent = data.message;
+                    errEl.textContent = data.message || 'Could not verify that location.';
                     errEl.classList.remove('hidden');
-                    setTimeout(() => showQRSection(), 2000);
                     return;
                 }
 
-                showQRSection();
+                showDetected(data.country, data.countryName, data.city);
             } catch (err) {
-                console.error('Pincode error:', err);
+                console.error('Location save error:', err);
+                btn.disabled = false;
+                btn.textContent = 'Save →';
                 errEl.textContent = 'Something went wrong. Please try again.';
                 errEl.classList.remove('hidden');
-                btn.disabled = false;
-                btn.textContent = 'Fetch IP close to me →';
             }
         }
 
@@ -364,10 +408,11 @@
         function showSetup() {
             document.getElementById('loading').classList.add('hidden');
             document.getElementById('qrCode').classList.remove('hidden');
+            detectLocation();
         }
 
         function showQRSection() {
-            document.getElementById('setupSection').classList.add('hidden');
+            document.getElementById('locationSection').classList.add('hidden');
             document.getElementById('qrSection').classList.remove('hidden');
             document.getElementById('qrDisplay').innerHTML =
                 '<div class="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>';
@@ -387,13 +432,15 @@
             return div.innerHTML;
         }
 
-        document.getElementById('pincodeSubmit')?.addEventListener('click', () => handlePincodeSubmit(false));
-        document.getElementById('useAnyway')?.addEventListener('click', () => {
-            document.getElementById('pincodeWarning').classList.add('hidden');
-            handlePincodeSubmit(true);
+        document.getElementById('locationContinue')?.addEventListener('click', showQRSection);
+        document.getElementById('locationChangeLink')?.addEventListener('click', () => {
+            document.getElementById('locationDetected').classList.add('hidden');
+            document.getElementById('locationOverride').classList.remove('hidden');
+            loadCountries();
         });
-        document.getElementById('pincodeInput')?.addEventListener('keydown', e => {
-            if (e.key === 'Enter') handlePincodeSubmit(false);
+        document.getElementById('locationSave')?.addEventListener('click', handleLocationSave);
+        document.getElementById('cityInput')?.addEventListener('keydown', e => {
+            if (e.key === 'Enter') handleLocationSave();
         });
 
         document.getElementById('refreshQR')?.addEventListener('click', () => {

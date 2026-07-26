@@ -3,6 +3,7 @@ const emailService = require('../services/emailService');
 const mudslideService = require('../services/mudslideService');
 const scheduleService = require('../services/scheduleService');
 const faqService = require('../services/faqService');
+const countries = require('../services/countries.json');
 
 async function routes(fastify, options) {
 
@@ -111,119 +112,62 @@ async function routes(fastify, options) {
     }
   });
 
+  fastify.get('/api/countries', async () => countries);
+
   fastify.post('/api/user/location', { preHandler: authenticateUser }, async (request, reply) => {
     try {
-      const { zipcode, force } = request.body || {};
+      const { country, city } = request.body || {};
 
-      if (!zipcode) {
-        return reply.code(400).send({ valid: false, reason: 'missing_zipcode', message: 'PIN code is required.' });
+      // Auto-detect mode: no body, derive country+city from the request's real IP.
+      if (!country && !city) {
+        const detected = await fetch(`http://ip-api.com/json/${request.ip}?fields=countryCode,city`)
+          .then(r => r.json())
+          .catch(() => null);
+
+        const detectedCountry = detected?.countryCode?.toLowerCase() || 'in';
+        const detectedCity = detected?.city || null;
+        const countryName = countries.find(c => c.code === detectedCountry)?.name || detectedCountry.toUpperCase();
+
+        const proxy = await userService.createOrUpdateProxyJson(request.user.userDir, request.user.token, {
+          country: detectedCountry,
+          city: detectedCity
+        });
+        return { valid: true, country: proxy.country, countryName, city: proxy.city || null };
       }
 
-      const zip = zipcode.trim();
-
-      if (!/^\d{3,10}$/.test(zip)) {
-        return { valid: false, reason: 'invalid_format', message: 'PIN code must be digits only (3–10 digits).' };
+      // Manual override: validate country against our known list, then
+      // confirm the country+city combination actually exists via Nominatim.
+      if (!country || !city) {
+        return reply.code(400).send({ valid: false, reason: 'missing_fields', message: 'Both country and city are required.' });
       }
 
-      // Call ip-api and Nominatim in parallel with 8 s timeout each
-      const withTimeout = (promise, ms) => Promise.race([
-        promise,
-        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
-      ]);
-
-      const [ipResult, zipResult] = await Promise.allSettled([
-        withTimeout(
-          fetch(`http://ip-api.com/json/${request.ip}?fields=countryCode`)
-            .then(r => r.json()).then(d => d.countryCode?.toLowerCase() || null),
-          8000
-        ),
-        withTimeout(
-          fetch(`https://nominatim.openstreetmap.org/search?postalcode=${encodeURIComponent(zip)}&format=json&addressdetails=1&limit=1`, {
-            headers: { 'User-Agent': 'Watobot/1.0 (watobot.com)' }
-          }).then(r => r.json()).then(data => {
-            if (!Array.isArray(data) || data.length === 0) return { found: false };
-            const addr = data[0].address || {};
-            return {
-              found: true,
-              country: addr.country_code?.toLowerCase() || null,
-              countryName: addr.country || null,
-              city: addr.city || addr.town || addr.village || addr.municipality || addr.county || addr.state || null
-            };
-          }),
-          8000
-        )
-      ]);
-
-      const ipCountry = ipResult.status === 'fulfilled' ? ipResult.value : null;
-      const zipInfo  = zipResult.status === 'fulfilled' ? zipResult.value : null;
-      const ipOk  = ipCountry !== null;
-      const zipOk = zipInfo !== null;
-
-      // Zipcode not found (Nominatim returned empty)
-      if (zipOk && !zipInfo.found) {
-        return { valid: false, reason: 'invalid_zipcode', message: 'This PIN code was not found. Please double-check and try again.' };
+      const countryEntry = countries.find(c => c.code === country.toLowerCase());
+      if (!countryEntry) {
+        return reply.code(400).send({ valid: false, reason: 'invalid_country', message: 'Please choose a valid country from the list.' });
       }
 
-      // Both APIs failed
-      if (!zipOk && !ipOk) {
-        return { valid: false, reason: 'api_error', message: 'Unable to verify your location right now. Please try again in a moment.' };
+      const nominatimResult = await fetch(
+        `https://nominatim.openstreetmap.org/search?city=${encodeURIComponent(city)}&country=${encodeURIComponent(countryEntry.name)}&format=json&limit=1`,
+        { headers: { 'User-Agent': 'Watobot/1.0 (watobot.com)' } }
+      ).then(r => r.json()).catch(() => null);
+
+      if (!Array.isArray(nominatimResult) || nominatimResult.length === 0) {
+        return reply.code(400).send({
+          valid: false,
+          reason: 'city_not_found',
+          message: `Couldn't find "${city}" in ${countryEntry.name}. Please check the spelling.`
+        });
       }
 
-      // Nominatim failed, IP works → proceed with IP country, no zipcode stored
-      if (!zipOk && ipOk) {
-        const proxy = await userService.createOrUpdateProxyJson(request.user.userDir, request.user.token, { country: ipCountry });
-        return { valid: true, country: proxy.country, warning: 'pin_validation_unavailable', message: "Couldn't validate your PIN code — using your detected region instead." };
-      }
-
-      // Nominatim found the zipcode — determine country to store
-      const zipcodeCountry = zipInfo.country;
-      const countryToStore = zipcodeCountry || ipCountry || 'in';
-
-      if (!force) {
-        // Nominatim found zip but returned no country — ask user to confirm
-        if (!zipcodeCountry) {
-          return {
-            valid: false,
-            reason: 'confirm_country',
-            zipcodeCountry: (ipCountry || 'in').toUpperCase(),
-            zipcodeCity: zipInfo.city,
-            message: `PIN code found but country couldn't be determined. Is your location ${(ipCountry || 'in').toUpperCase()}?`
-          };
-        }
-
-        // ip-api failed: can't compare — ask user to confirm the PIN's country
-        if (!ipOk && zipcodeCountry) {
-          return {
-            valid: false,
-            reason: 'confirm_country',
-            zipcodeCountry: zipcodeCountry.toUpperCase(),
-            zipcodeCountryName: zipInfo.countryName,
-            zipcodeCity: zipInfo.city,
-            message: `Couldn't detect your region. This PIN code is from ${zipInfo.countryName || zipcodeCountry.toUpperCase()}. If that's your location, proceed.`
-          };
-        }
-
-        // ip-api worked but countries don't match
-        if (ipOk && zipcodeCountry && ipCountry && zipcodeCountry !== ipCountry) {
-          return {
-            valid: false,
-            reason: 'country_mismatch',
-            ipCountry: ipCountry.toUpperCase(),
-            zipcodeCountry: zipcodeCountry.toUpperCase(),
-            zipcodeCountryName: zipInfo.countryName,
-            zipcodeCity: zipInfo.city,
-            message: `This PIN code belongs to ${zipInfo.countryName || zipcodeCountry.toUpperCase()}, not your detected location (${ipCountry.toUpperCase()}). Please enter your correct local PIN code.`
-          };
-        }
-      }
-
-      const proxy = await userService.createOrUpdateProxyJson(request.user.userDir, request.user.token, { country: countryToStore });
-      return { valid: true, country: proxy.country, zipcodeCity: zipInfo.city };
+      const proxy = await userService.createOrUpdateProxyJson(request.user.userDir, request.user.token, {
+        country: countryEntry.code,
+        city
+      });
+      return { valid: true, country: proxy.country, countryName: countryEntry.name, city: proxy.city };
 
     } catch (err) {
       fastify.log.error(err);
-      const { zipcode } = request.body || {};
-      return zipcode ? { valid: false, reason: 'error', message: 'Something went wrong. Please try again.' } : { country: null };
+      return reply.code(500).send({ valid: false, reason: 'error', message: 'Something went wrong. Please try again.' });
     }
   });
 
