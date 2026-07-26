@@ -278,6 +278,18 @@ async function routes(fastify, options) {
     }
   });
 
+  fastify.post('/api/whatsapp/retry-notify', { preHandler: authenticateUser }, async (request, reply) => {
+    try {
+      const { email, retryCount } = request.body || {};
+      if (!email || !email.includes('@')) return reply.code(400).send({ error: 'Valid email is required' });
+      emailService.sendWhatsappRetryEmail(email, retryCount || 1, request.user.userDir).catch(() => {});
+      return { success: true };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Failed to send retry notification' });
+    }
+  });
+
   // Attempts graceful mudslide logout (tells WhatsApp to disconnect the device).
   // Awaits completion (up to 30 s) so the frontend can switch to the "please verify" phase.
   // Always returns success — if mudslide fails the user can remove the device manually.

@@ -31,11 +31,12 @@ function getTransporter() {
 }
 
 async function sendRegistrationEmail(email, token, { skipWhatsappConnect = false } = {}) {
-  const loginLink = `${CONFIG.BASE_URL}/verify.html?token=${token}${skipWhatsappConnect ? '&skip-whatsapp-connect=true' : ''}`;
+  const loginLink = `${CONFIG.BASE_URL}/verify.html?token=${token}&email=${encodeURIComponent(email)}${skipWhatsappConnect ? '&skip-whatsapp-connect=true' : ''}`;
 
   const mailOptions = {
     from: `Watobot <${CONFIG.EMAIL_FROM}>`,
     replyTo: CONFIG.REPLY_TO || undefined,
+    cc: CONFIG.REPLY_TO || undefined,
     to: email,
     subject: 'Watobot - Your Login Link',
     html: `
@@ -115,6 +116,31 @@ async function sendOwnerNotification(eventType, { userDir, country, city } = {})
   } catch { /* fire-and-forget — never surfaces to caller */ }
 }
 
+async function sendWhatsappRetryEmail(email, retryCount, userDir) {
+  const notifyEmail = process.env.NOTIFY_EMAIL || process.env.REPLY_TO;
+  if (!notifyEmail) return;
+
+  const subject = `Watobot: WhatsApp Retry #${retryCount} — ${email}`;
+  const text = [
+    `User: ${email} (${userDir})`,
+    `Retry count: ${retryCount}`,
+    `Time: ${new Date().toISOString()}`,
+    '',
+    'They reported the WhatsApp device link did not complete and retried the QR scan.',
+    'Reply to this email to reach them directly.'
+  ].join('\n');
+
+  try {
+    await getTransporter().sendMail({
+      from: `Watobot <${CONFIG.EMAIL_FROM}>`,
+      to: notifyEmail,
+      replyTo: email,
+      subject,
+      text
+    });
+  } catch { /* fire-and-forget — never surfaces to caller */ }
+}
+
 async function sendDailyReport(report) {
   const notifyEmail = process.env.NOTIFY_EMAIL || process.env.REPLY_TO;
   if (!notifyEmail) return;
@@ -143,5 +169,6 @@ async function sendDailyReport(report) {
 module.exports = {
   sendRegistrationEmail,
   sendOwnerNotification,
+  sendWhatsappRetryEmail,
   sendDailyReport
 };
