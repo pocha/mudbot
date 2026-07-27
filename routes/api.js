@@ -114,29 +114,15 @@ async function routes(fastify, options) {
 
   fastify.get('/api/countries', async () => countries);
 
+  // Country/city are detected AND validated client-side (see public/verify.html
+  // — geolocation via ipwho.is for the auto-detect path, Nominatim for manual
+  // entry, both called directly from the browser). By the time this route is
+  // hit, the city is already trusted, so this just validates the country
+  // code (cheap, local, no external call) and persists.
   fastify.post('/api/user/location', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       const { country, city } = request.body || {};
 
-      // Auto-detect mode: no body, derive country+city from the request's real IP.
-      if (!country && !city) {
-        const detected = await fetch(`http://ip-api.com/json/${request.ip}?fields=countryCode,city`)
-          .then(r => r.json())
-          .catch(() => null);
-
-        const detectedCountry = detected?.countryCode?.toLowerCase() || 'in';
-        const detectedCity = detected?.city || null;
-        const countryName = countries.find(c => c.code === detectedCountry)?.name || detectedCountry.toUpperCase();
-
-        const proxy = await userService.createOrUpdateProxyJson(request.user.userDir, request.user.token, {
-          country: detectedCountry,
-          city: detectedCity
-        });
-        return { valid: true, country: proxy.country, countryName, city: proxy.city || null };
-      }
-
-      // Manual override: validate country against our known list, then
-      // confirm the country+city combination actually exists via Nominatim.
       if (!country || !city) {
         return reply.code(400).send({ valid: false, reason: 'missing_fields', message: 'Both country and city are required.' });
       }
@@ -144,19 +130,6 @@ async function routes(fastify, options) {
       const countryEntry = countries.find(c => c.code === country.toLowerCase());
       if (!countryEntry) {
         return reply.code(400).send({ valid: false, reason: 'invalid_country', message: 'Please choose a valid country from the list.' });
-      }
-
-      const nominatimResult = await fetch(
-        `https://nominatim.openstreetmap.org/search?city=${encodeURIComponent(city)}&country=${encodeURIComponent(countryEntry.name)}&format=json&limit=1`,
-        { headers: { 'User-Agent': 'Watobot/1.0 (watobot.com)' } }
-      ).then(r => r.json()).catch(() => null);
-
-      if (!Array.isArray(nominatimResult) || nominatimResult.length === 0) {
-        return reply.code(400).send({
-          valid: false,
-          reason: 'city_not_found',
-          message: `Couldn't find "${city}" in ${countryEntry.name}. Please check the spelling.`
-        });
       }
 
       const proxy = await userService.createOrUpdateProxyJson(request.user.userDir, request.user.token, {

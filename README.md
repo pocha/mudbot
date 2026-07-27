@@ -120,7 +120,7 @@ When `DATAIMPULSE_USERNAME` is not set, Watobot falls back to unproxied connecti
 
 ### Country + city detection
 
-Instead of asking users for a PIN/postal code, Watobot auto-detects their country and city from their IP address on first connect (shown to them, with a "not right? change it" link for VPN users or misdetections — manual overrides are validated against a real city via OpenStreetMap's Nominatim before being accepted). This gets stored per-user and used to target DataImpulse's proxy to a matching residential IP.
+Instead of asking users for a PIN/postal code, Watobot auto-detects their country and city from their IP address on first connect (shown to them, with a "not right? change it" link for VPN users or misdetections). Both the geolocation lookup (`ipwho.is`) and, for manual overrides, city validation (OpenStreetMap's Nominatim) happen directly in the browser rather than server-side — this reflects the user's real IP rather than the server's view of it, and Nominatim's canonical resolved city name is used rather than whatever the user typed, since DataImpulse's own city database doesn't recognize aliases/old names (e.g. "Bangalore" vs "Bengaluru"). This gets stored per-user and used to target DataImpulse's proxy to a matching residential IP.
 
 ### The local relay — why it exists
 

@@ -180,12 +180,11 @@ test('GET /api/countries returns the static country list', async () => {
   assert.deepEqual(india, { code: 'in', name: 'India' });
 });
 
-test('POST /api/user/location auto-detects from IP with empty body', async () => {
+test('POST /api/user/location requires both country and city', async () => {
   const { status, body } = await post(`${BASE_URL}/api/user/location`, {}, authHeader(token));
-  assert.equal(status, 200);
-  assert.equal(body.valid, true);
-  assert.match(body.country, /^[a-z]{2}$/);
-  assert.equal(typeof body.countryName, 'string');
+  assert.equal(status, 400);
+  assert.equal(body.valid, false);
+  assert.equal(body.reason, 'missing_fields');
 });
 
 test('POST /api/user/location rejects an invalid country code', async () => {
@@ -199,15 +198,18 @@ test('POST /api/user/location rejects an invalid country code', async () => {
   assert.equal(body.reason, 'invalid_country');
 });
 
-test('POST /api/user/location rejects a city that cannot be found', async () => {
+// City validation (Nominatim) now happens client-side in verify.html —
+// this route trusts whatever city string it's given as long as the
+// country code is valid, since it never makes an external call itself.
+test('POST /api/user/location accepts and persists any city for a valid country', async () => {
   const { status, body } = await post(
     `${BASE_URL}/api/user/location`,
     { country: 'in', city: 'Zzzznotarealcityxyz123' },
     authHeader(token)
   );
-  assert.equal(status, 400);
-  assert.equal(body.valid, false);
-  assert.equal(body.reason, 'city_not_found');
+  assert.equal(status, 200);
+  assert.equal(body.valid, true);
+  assert.equal(body.city, 'Zzzznotarealcityxyz123');
 });
 
 test('POST /api/user/location accepts and persists a valid manual override', async () => {
