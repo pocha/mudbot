@@ -1,0 +1,18 @@
+# Watobot
+
+> Watobot lets you send WhatsApp messages programmatically from your own personal WhatsApp number — no WhatsApp Business API (WABA), no Meta business verification, and no message template approval process required.
+
+Watobot links to your existing WhatsApp account the same way WhatsApp Web does (scan a QR code from a linked-devices flow), then exposes a REST API and a scheduling dashboard for sending messages — to individual contacts or WhatsApp groups — programmatically or on a recurring schedule. Every connection routes through a dedicated residential IP address near the user's real location to avoid WhatsApp's shared-server/bot detection, and per-user WhatsApp session data is encrypted client-side with a token that never leaves the browser, so the server operators cannot read it. The service is free, with no credit card required.
+
+## Product
+
+- [Homepage](https://watobot.xyz/): overview, features (remote API access, scheduled recurring messages, delivery logs, residential-IP ban protection), and pricing (free)
+- [Privacy Policy](https://watobot.xyz/privacy.html)
+
+## Free tools
+
+- [WhatsApp Group FAQ Generator](https://watobot.xyz/whatsapp-group-faq/): upload a WhatsApp group chat export and get an AI-generated, editable, publishable public FAQ page in minutes — no signup required to try it
+
+## Source
+
+- [GitHub repository](https://github.com/pocha/mudbot): full source code, including how the client-side data encryption model works

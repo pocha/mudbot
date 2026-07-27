@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard.html
+Disallow: /verify.html
+
+Sitemap: https://watobot.xyz/sitemap.xml
