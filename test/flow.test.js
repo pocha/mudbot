@@ -171,6 +171,64 @@ test('verify token', async () => {
   assert.equal(typeof body.user.whatsappConnected, 'boolean');
 });
 
+test('GET /api/countries returns the static country list', async () => {
+  const { status, body } = await get(`${BASE_URL}/api/countries`);
+  assert.equal(status, 200);
+  assert.ok(Array.isArray(body));
+  assert.ok(body.length > 100);
+  const india = body.find(c => c.code === 'in');
+  assert.deepEqual(india, { code: 'in', name: 'India' });
+});
+
+test('POST /api/user/location requires both country and city', async () => {
+  const { status, body } = await post(`${BASE_URL}/api/user/location`, {}, authHeader(token));
+  assert.equal(status, 400);
+  assert.equal(body.valid, false);
+  assert.equal(body.reason, 'missing_fields');
+});
+
+test('POST /api/user/location rejects an invalid country code', async () => {
+  const { status, body } = await post(
+    `${BASE_URL}/api/user/location`,
+    { country: 'zz', city: 'Nowhereville' },
+    authHeader(token)
+  );
+  assert.equal(status, 400);
+  assert.equal(body.valid, false);
+  assert.equal(body.reason, 'invalid_country');
+});
+
+// City validation (Nominatim) now happens client-side in verify.html —
+// this route trusts whatever city string it's given as long as the
+// country code is valid, since it never makes an external call itself.
+test('POST /api/user/location accepts and persists any city for a valid country', async () => {
+  const { status, body } = await post(
+    `${BASE_URL}/api/user/location`,
+    { country: 'in', city: 'Zzzznotarealcityxyz123' },
+    authHeader(token)
+  );
+  assert.equal(status, 200);
+  assert.equal(body.valid, true);
+  assert.equal(body.city, 'Zzzznotarealcityxyz123');
+});
+
+test('POST /api/user/location accepts and persists a valid manual override', async () => {
+  const { status, body } = await post(
+    `${BASE_URL}/api/user/location`,
+    { country: 'in', city: 'Bengaluru' },
+    authHeader(token)
+  );
+  assert.equal(status, 200);
+  assert.equal(body.valid, true);
+  assert.equal(body.country, 'in');
+  assert.equal(body.countryName, 'India');
+  assert.equal(body.city, 'Bengaluru');
+
+  const userDir = getUserDir(TEST_EMAIL);
+  const raw = await fs.readFile(path.join(USERS_DIR, userDir, 'proxy.json'), 'utf8');
+  assert.match(raw, /^[a-f0-9]+:[a-f0-9]+$/); // encrypted on disk
+});
+
 test('user directory and token_hash created', async () => {
   const userDir = getUserDir(TEST_EMAIL);
   const stat = await fs.stat(path.join(USERS_DIR, userDir));

@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node test/flow.test.js"
+    "test": "node test/flow.test.js",
+    "test-mudslide-proxy": "node scripts/test-mudslide-proxy.js"
   },
   "repository": {
     "type": "git",

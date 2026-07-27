@@ -102,14 +102,15 @@ When multiple users connect WhatsApp from the same server IP, WhatsApp can detec
 
 ### Setup with DataImpulse
 
-1. Sign up at [dataimpulse.com](https://dataimpulse.com) and purchase a residential proxy plan.
+1. Sign up at [dataimpulse.com](https://dataimpulse.com) and purchase a **premium** residential proxy plan (city/ZIP-level targeting is gated behind premium — the free/standard tier only supports country-level targeting).
 2. Add the following to your `.env`:
 
 ```env
 DATAIMPULSE_USERNAME=your_username
 DATAIMPULSE_PASSWORD=your_password
-DATAIMPULSE_GATEWAY=74.81.81.81
-DATAIMPULSE_PORT=10000        # Starting port — each user gets the next port in sequence
+DATAIMPULSE_HTTP_GATEWAY=gw.dataimpulse.com
+DATAIMPULSE_GATEWAY=74.81.81.81   # legacy, unused now that traffic routes through the relay
+DATAIMPULSE_PORT=10000            # Starting port — each user gets the next port in sequence
 ```
 
 3. Ensure `proxychains4` is installed (the install script handles this automatically).
@@ -117,9 +118,25 @@ DATAIMPULSE_PORT=10000        # Starting port — each user gets the next port i
 
 When `DATAIMPULSE_USERNAME` is not set, Watobot falls back to unproxied connections — all features still work, but WhatsApp connections originate from your server's IP.
 
+### Country + city detection
+
+Instead of asking users for a PIN/postal code, Watobot auto-detects their country and city from their IP address on first connect (shown to them, with a "not right? change it" link for VPN users or misdetections). Both the geolocation lookup (`ipwho.is`) and, for manual overrides, city validation (OpenStreetMap's Nominatim) happen directly in the browser rather than server-side — this reflects the user's real IP rather than the server's view of it, and Nominatim's canonical resolved city name is used rather than whatever the user typed, since DataImpulse's own city database doesn't recognize aliases/old names (e.g. "Bangalore" vs "Bengaluru"). This gets stored per-user and used to target DataImpulse's proxy to a matching residential IP.
+
+### The local relay — why it exists
+
+DataImpulse's city/ZIP targeting syntax embeds a literal `;` in the proxy login string (e.g. `user__cr.in;city.bengaluru`). Node's `URL` parser — used internally by `global-agent`, which `mudslide`'s own `--proxy` flag depends on — silently percent-encodes that `;` into `%3B` before it ever reaches DataImpulse, corrupting the targeting request. `services/dataimpulseRelay.js` sits between `proxychains` and DataImpulse, building the `Proxy-Authorization` header itself from the raw, un-encoded credential string, sidestepping the bug entirely. It also retries once with country-only targeting if DataImpulse can't find a match for the requested city (city/ZIP-level availability is intermittent even on premium plans).
+
+`services/proxyRelayManager.js` manages one relay per active user, started lazily on their first mudslide operation and stopped once they have no more queued jobs — mirroring the existing per-user job queue in `services/mudslideService.js`. Nothing needs installing or supervising separately; it's part of the running app process.
+
+To sanity-check the whole chain (proxychains → relay → DataImpulse → WhatsApp) independent of the running app:
+
+```bash
+npm run test-mudslide-proxy -- --country=in --city=bengaluru --recipient=<your-number>
+```
+
 ### How port allocation works
 
-DataImpulse maps each port in the range 10000–20000 to a distinct sticky residential session. Watobot allocates one port per user at registration time (stored in their encrypted `proxy.json`) and targets their country using the `__cr.<countrycode>` username suffix. The allocation counter is persisted in `users/.proxy_port_counter`.
+DataImpulse maps each port in the range 10000–20000 to a distinct sticky residential session. Watobot allocates one port per user at registration time (stored in their encrypted `proxy.json`) — the local relay reuses that same port number bound to `127.0.0.1` (no collision, since one is a loopback bind and the other is remote). The allocation counter is persisted in `users/.proxy_port_counter`.
 
 ---
 

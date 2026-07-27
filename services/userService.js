@@ -61,6 +61,11 @@ function decryptData(ciphertext, token) {
   return decrypted.toString('utf8');
 }
 
+// Points proxychains at the local per-user relay (services/dataimpulseRelay.js,
+// managed by services/proxyRelayManager.js) rather than at DataImpulse
+// directly. The relay listens on 127.0.0.1:<port>, reusing the user's own
+// DataImpulse sticky port — so this conf never needs to embed credentials
+// or country/city at all; that targeting logic lives entirely in the relay.
 async function proxyConfPath(userDir, token, forceRegenerate = false) {
   if (!process.env.PROXYCHAINS_PATH || !process.env.DATAIMPULSE_USERNAME) return null;
   const confPath = `/tmp/watobot-proxy-${userDir}.conf`;
@@ -71,18 +76,14 @@ async function proxyConfPath(userDir, token, forceRegenerate = false) {
     const proxy = JSON.parse(await readUserFile(
       path.join(CONFIG.USERS_DIR, userDir, 'proxy.json'), token
     ));
-    const country = proxy.country || 'in';
-    const login = `${process.env.DATAIMPULSE_USERNAME}__cr.${country}`;
-    const conf = [
-      'strict_chain', 'proxy_dns', '[ProxyList]',
-      `socks5 ${process.env.DATAIMPULSE_GATEWAY || '74.81.81.81'} ${proxy.port || parseInt(process.env.DATAIMPULSE_PORT) || 10000} ${login} ${process.env.DATAIMPULSE_PASSWORD}`
-    ].join('\n');
+    const port = proxy.port || parseInt(process.env.DATAIMPULSE_PORT) || 10000;
+    const conf = ['strict_chain', 'proxy_dns', '[ProxyList]', `http 127.0.0.1 ${port}`].join('\n');
     await fs.writeFile(confPath, conf, 'utf8');
     return confPath;
   } catch { return null; }
 }
 
-async function createOrUpdateProxyJson(userDir, token, { country = null } = {}) {
+async function createOrUpdateProxyJson(userDir, token, { country = null, city = null } = {}) {
   const proxyFile = path.join(CONFIG.USERS_DIR, userDir, 'proxy.json');
 
   let existing = {};
@@ -94,6 +95,7 @@ async function createOrUpdateProxyJson(userDir, token, { country = null } = {}) 
 
   if (country) existing.country = country;
   if (!existing.country) existing.country = 'in';
+  if (city) existing.city = city;
 
   const newContent = JSON.stringify(Object.fromEntries(Object.keys(existing).sort().map(k => [k, existing[k]])));
   try {

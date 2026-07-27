@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs').promises;
 const crypto = require('crypto');
 const { proxyConfPath, encryptData, decryptData } = require('./userService');
+const proxyRelayManager = require('./proxyRelayManager');
 
 const CONFIG = {
   MUDSLIDE_PATH: process.env.MUDSLIDE_PATH || 'mudslide',
@@ -112,6 +113,7 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}) {
     let succeeded = false;
     let errMsg = null;
     try {
+      await proxyRelayManager.acquireRelay(userDir, token);
       credPath = await decryptMudslideToTemp(userDir, token);
       const result = await fn(credPath);
       succeeded = true;
@@ -130,6 +132,7 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}) {
           await cleanupTemp(userDir);
         }
       }
+      await proxyRelayManager.releaseRelay(userDir);
     }
   };
   const prev = userQueue[userDir] || Promise.resolve();
@@ -178,22 +181,27 @@ async function getProxiedIpInfo(userDir, token) {
   const confPath = await proxyConfPath(userDir, token).catch(() => null);
   if (!confPath || !CONFIG.PROXYCHAINS_PATH) return null;
 
-  return new Promise(resolve => {
-    const proc = spawn(CONFIG.PROXYCHAINS_PATH, [
-      '-f', confPath, 'curl', '-s', '--max-time', '10',
-      'http://ip-api.com/json/?fields=query,city,country,countryCode'
-    ]);
-    let out = '';
-    proc.stdout.on('data', d => { out += d.toString(); });
-    proc.stderr.on('data', () => {});
-    proc.on('close', () => {
-      try {
-        const { query: ip, city, country, countryCode } = JSON.parse(out);
-        resolve({ ip, city, country, countryCode });
-      } catch { resolve(null); }
+  await proxyRelayManager.acquireRelay(userDir, token);
+  try {
+    return await new Promise(resolve => {
+      const proc = spawn(CONFIG.PROXYCHAINS_PATH, [
+        '-f', confPath, 'curl', '-s', '--max-time', '10',
+        'http://ip-api.com/json/?fields=query,city,country,countryCode'
+      ]);
+      let out = '';
+      proc.stdout.on('data', d => { out += d.toString(); });
+      proc.stderr.on('data', () => {});
+      proc.on('close', () => {
+        try {
+          const { query: ip, city, country, countryCode } = JSON.parse(out);
+          resolve({ ip, city, country, countryCode });
+        } catch { resolve(null); }
+      });
+      setTimeout(() => { proc.kill(); resolve(null); }, 15000);
     });
-    setTimeout(() => { proc.kill(); resolve(null); }, 15000);
-  });
+  } finally {
+    await proxyRelayManager.releaseRelay(userDir);
+  }
 }
 
 async function runMudslide(args, timeoutMs, userDir, token) {
@@ -238,6 +246,14 @@ async function getQRCode(userDir, token) {
     ? ['-f', confPath, CONFIG.MUDSLIDE_PATH, '-c', mudslideDir(userDir), 'login']
     : ['-c', mudslideDir(userDir), 'login'];
 
+  if (useProxy) await proxyRelayManager.acquireRelay(userDir, token);
+  let relayReleased = !useProxy;
+  const releaseRelayOnce = () => {
+    if (relayReleased) return;
+    relayReleased = true;
+    proxyRelayManager.releaseRelay(userDir).catch(() => {});
+  };
+
   return new Promise((resolve, reject) => {
     const proc = spawn(bin, argv);
     loginProc = proc;
@@ -276,6 +292,7 @@ async function getQRCode(userDir, token) {
 
     proc.on('close', () => {
       loginProc = null;
+      releaseRelayOnce();
       if (idleTimer) clearTimeout(idleTimer);
       if (!resolved) {
         if (output.trim()) resolve({ success: true, qr: stripProxy(output) });
