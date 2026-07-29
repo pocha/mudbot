@@ -61,7 +61,7 @@ async function routes(fastify, options) {
       }
       const { token, userDir } = await userService.registerUser(email);
       await emailService.sendRegistrationEmail(email, token, { skipWhatsappConnect: !!skipWhatsappConnect });
-      emailService.sendOwnerNotification('new_registration', { userDir }).catch(() => {});
+      emailService.sendOwnerNotification('new_registration', { userDir, email }).catch(() => {});
       return { success: true, message: 'Registration email sent. Please check your inbox.' };
     } catch (error) {
       fastify.log.error(error);

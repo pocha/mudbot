@@ -36,7 +36,6 @@ async function sendRegistrationEmail(email, token, { skipWhatsappConnect = false
   const mailOptions = {
     from: `Watobot <${CONFIG.EMAIL_FROM}>`,
     replyTo: CONFIG.REPLY_TO || undefined,
-    cc: CONFIG.REPLY_TO || undefined,
     to: email,
     subject: 'Watobot - Your Login Link',
     html: `
@@ -89,7 +88,7 @@ This link will remain valid and can be used anytime to access your account.
   }
 }
 
-async function sendOwnerNotification(eventType, { userDir, country, city } = {}) {
+async function sendOwnerNotification(eventType, { userDir, country, city, email } = {}) {
   const notifyEmail = process.env.NOTIFY_EMAIL || process.env.REPLY_TO;
   if (!notifyEmail) return;
 
@@ -97,19 +96,22 @@ async function sendOwnerNotification(eventType, { userDir, country, city } = {})
     new_registration: 'New Registration',
     whatsapp_connected: 'WhatsApp Connected'
   };
-  const subject = `Watobot: ${labels[eventType] || eventType}`;
+  const subject = `Watobot: ${labels[eventType] || eventType}${email ? ` — ${email}` : ''}`;
   const location = [city, country ? country.toUpperCase() : null].filter(Boolean).join(', ');
   const lines = [
     `Event: ${labels[eventType] || eventType}`,
+    email ? `Email: ${email}` : null,
     `User:  ${userDir}`,
     `Time:  ${new Date().toISOString()}`,
-    location ? `Where: ${location}` : null
+    location ? `Where: ${location}` : null,
+    email ? '\nReply to this email to reach them directly.' : null
   ].filter(Boolean).join('\n');
 
   try {
     await getTransporter().sendMail({
       from: `Watobot <${CONFIG.EMAIL_FROM}>`,
       to: notifyEmail,
+      replyTo: email || undefined,
       subject,
       text: lines
     });
