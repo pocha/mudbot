@@ -46,11 +46,10 @@ async function sendRegistrationEmail(email, token, { skipWhatsappConnect = false
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: linear-gradient(135deg, #006d2f 0%, #25d366 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-          <h1 style="color: white; margin: 0; letter-spacing: -0.5px;">Watobot</h1>
-          <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0; font-size: 14px;">WhatsApp Automation</p>
+        <div style="text-align: center; padding: 10px 0 20px;">
+          <img src="${CONFIG.BASE_URL}/logo.png" alt="Watobot" style="max-width: 180px; width: 100%; height: auto;" />
         </div>
-        <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+        <div style="background: #f9f9f9; padding: 30px; border-radius: 10px;">
           <p style="font-size: 16px;">Hello,</p>
           <p style="font-size: 16px;">Click the button below to log in to your Watobot account:</p>
           <div style="text-align: center; margin: 30px 0;">
@@ -59,6 +58,7 @@ async function sendRegistrationEmail(email, token, { skipWhatsappConnect = false
           <p style="font-size: 14px; color: #666;">Or copy and paste this link in your browser:</p>
           <p style="font-size: 12px; word-break: break-all; background: white; padding: 10px; border-radius: 5px; border: 1px solid #ddd;">${loginLink}</p>
           <p style="font-size: 14px; color: #666; margin-top: 30px;">This link will remain valid and can be used anytime to access your account.</p>
+          <p style="font-size: 14px; color: #666; margin-top: 20px;">This email comes from Ashish, the creator of Watobot — just reply to it if you'd like to reach him directly.</p>
         </div>
         <div style="text-align: center; margin-top: 20px; color: #999; font-size: 12px;">
           <p>© ${new Date().getFullYear()} Watobot. All rights reserved.</p>
@@ -73,6 +73,8 @@ Click the link below to log in to your account:
 ${loginLink}
 
 This link will remain valid and can be used anytime to access your account.
+
+This email comes from Ashish, the creator of Watobot — just reply to it if you'd like to reach him directly.
 
 © ${new Date().getFullYear()} Watobot. All rights reserved.
     `
