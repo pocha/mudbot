@@ -316,6 +316,28 @@
                 </p>
               </div>
 
+              <!-- Try it out: curl example (shown once a key exists), collapsed by default -->
+              <details id="apikey-curl-block" class="hidden">
+                <summary
+                  class="text-primary font-label-md text-sm cursor-pointer hover:underline"
+                >
+                  Show curl example
+                </summary>
+                <div class="relative mt-2">
+                  <pre
+                    id="apikey-curl-example"
+                    class="text-xs font-mono text-on-surface bg-surface-container-lowest border border-outline-variant rounded-lg p-3 pr-9 overflow-x-auto whitespace-pre-wrap"
+                  ></pre>
+                  <button
+                    onclick="copyCurlExample()"
+                    class="absolute top-2 right-2 material-symbols-outlined text-primary hover:bg-white p-1 rounded transition-colors text-[16px]"
+                    id="apikey-curl-copy-btn"
+                  >
+                    content_copy
+                  </button>
+                </div>
+              </details>
+
               <a
                 href="https://github.com/pocha/mudbot?tab=readme-ov-file#api"
                 target="_blank"
@@ -878,6 +900,7 @@
             document
               .getElementById("apikey-active-view")
               .classList.add("hidden");
+            document.getElementById("apikey-curl-block")?.classList.add("hidden");
             if (status.expired)
               document
                 .getElementById("apikey-expired-notice")
@@ -902,6 +925,7 @@
                 .getElementById("apikey-permanent-cta")
                 .classList.remove("hidden");
             }
+            renderCurlExample();
           }
         } catch (e) {
           console.error("Failed to load API key status", e);
@@ -928,6 +952,7 @@
           document.getElementById("apikey-active-view").classList.add("hidden");
           document.getElementById("apikey-new-view").classList.remove("hidden");
           document.getElementById("apikey-value").textContent = data.apiKey;
+          renderCurlExample(data.apiKey);
           const exp = new Date(data.expiresAt);
           document.getElementById("apikey-expiry-new").textContent =
             `Valid for 1 hour · expires at ${exp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
@@ -961,6 +986,38 @@
         const key = document.getElementById("apikey-value").textContent;
         navigator.clipboard.writeText(key).then(() => {
           const btn = document.getElementById("apikey-copy-btn");
+          btn.textContent = "check";
+          setTimeout(() => {
+            btn.textContent = "content_copy";
+          }, 2000);
+        });
+      }
+
+      // Shows a copy-pasteable curl example for /api/message. Uses the real
+      // key right after generation (the only time the raw value is ever
+      // available client-side); falls back to a placeholder for an
+      // already-active key, since past that point only its hash is stored.
+      function renderCurlExample(apiKey) {
+        const block = document.getElementById("apikey-curl-block");
+        const pre = document.getElementById("apikey-curl-example");
+        if (!block || !pre) return;
+        const key = apiKey || "YOUR_API_KEY";
+        // "me" is a special recipient mudslide/WhatsApp resolves to your own
+        // number, so this is runnable as-is — no phone number to fill in —
+        // and you'll see the message land on your own phone immediately.
+        pre.textContent = `curl -X POST ${API_BASE}/api/message \\
+  -H "x-api-key: ${key}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"to": "me", "message": "Hello from Watobot!"}'`;
+        block.classList.remove("hidden");
+      }
+
+      function copyCurlExample() {
+        const text = document.getElementById("apikey-curl-example")?.textContent;
+        if (!text) return;
+        navigator.clipboard.writeText(text).then(() => {
+          const btn = document.getElementById("apikey-curl-copy-btn");
+          if (!btn) return;
           btn.textContent = "check";
           setTimeout(() => {
             btn.textContent = "content_copy";
