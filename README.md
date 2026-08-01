@@ -1,4 +1,4 @@
-# Watobot — Self-hosted WhatsApp Automation
+# Watobot — free multi tenant whatsapp messaging API with zero knowledge encryption & account ban protection
 
 A self-hosted WhatsApp message automation platform built on [Mudslide](https://github.com/robvanderleek/mudslide). Connect your WhatsApp account via QR code, then schedule automated messages or trigger them on demand via a REST API.
 
@@ -90,17 +90,21 @@ For **local development**, MailDev is started automatically by the test suite (s
 
 ---
 
-## Residential Proxy (strongly recommended for production)
+## Account Ban Protection Techniques
+
+WhatsApp flags accounts that behave like bots or spam operations — both by where a connection comes from and by how messages are sent. Watobot addresses both angles: a residential proxy so linked devices look like real phones on home networks, and a per-account message queue so sends never fire in the kind of rapid-fire bursts that trip spam detection.
+
+### Residential Proxy (strongly recommended for production)
 
 When multiple users connect WhatsApp from the same server IP, WhatsApp can detect that many accounts share one IP address and flag them as bots or spam operations. To prevent this, Watobot routes each user's WhatsApp connection through a **dedicated residential IP address** near their geographic location.
 
-### Why this matters
+#### Why this matters
 
 - **Server IP protection:** Your server's real IP is never exposed to WhatsApp. If WhatsApp blacklists a residential IP, only that one user is affected — your server IP stays clean.
 - **Account authenticity:** WhatsApp sees a local residential connection (like a home router) rather than a data-centre IP. This makes the linked device look like a real phone on a home network.
 - **Per-user isolation:** Each user is assigned a unique proxy port, so no two users share the same residential IP. One user's behaviour cannot affect another's account standing.
 
-### Setup with DataImpulse
+#### Setup with DataImpulse
 
 1. Sign up at [dataimpulse.com](https://dataimpulse.com) and purchase a **premium** residential proxy plan (city/ZIP-level targeting is gated behind premium — the free/standard tier only supports country-level targeting).
 2. Add the following to your `.env`:
@@ -118,11 +122,11 @@ DATAIMPULSE_PORT=10000            # Starting port — each user gets the next po
 
 When `DATAIMPULSE_USERNAME` is not set, Watobot falls back to unproxied connections — all features still work, but WhatsApp connections originate from your server's IP.
 
-### Country + city detection
+#### Country + city detection
 
 Instead of asking users for a PIN/postal code, Watobot auto-detects their country and city from their IP address on first connect (shown to them, with a "not right? change it" link for VPN users or misdetections). Both the geolocation lookup (`ipwho.is`) and, for manual overrides, city validation (OpenStreetMap's Nominatim) happen directly in the browser rather than server-side — this reflects the user's real IP rather than the server's view of it, and Nominatim's canonical resolved city name is used rather than whatever the user typed, since DataImpulse's own city database doesn't recognize aliases/old names (e.g. "Bangalore" vs "Bengaluru"). This gets stored per-user and used to target DataImpulse's proxy to a matching residential IP.
 
-### The local relay — why it exists
+#### The local relay — why it exists
 
 DataImpulse's city/ZIP targeting syntax embeds a literal `;` in the proxy login string (e.g. `user__cr.in;city.bengaluru`). Node's `URL` parser — used internally by `global-agent`, which `mudslide`'s own `--proxy` flag depends on — silently percent-encodes that `;` into `%3B` before it ever reaches DataImpulse, corrupting the targeting request. `services/dataimpulseRelay.js` sits between `proxychains` and DataImpulse, building the `Proxy-Authorization` header itself from the raw, un-encoded credential string, sidestepping the bug entirely. It also retries once with country-only targeting if DataImpulse can't find a match for the requested city (city/ZIP-level availability is intermittent even on premium plans).
 
@@ -134,9 +138,15 @@ To sanity-check the whole chain (proxychains → relay → DataImpulse → Whats
 npm run test-mudslide-proxy -- --country=in --city=bengaluru --recipient=<your-number>
 ```
 
-### How port allocation works
+#### How port allocation works
 
 DataImpulse maps each port in the range 10000–20000 to a distinct sticky residential session. Watobot allocates one port per user at registration time (stored in their encrypted `proxy.json`) — the local relay reuses that same port number bound to `127.0.0.1` (no collision, since one is a loopback bind and the other is remote). The allocation counter is persisted in `users/.proxy_port_counter`.
+
+### Message Queueing
+
+Sending several messages back-to-back in rapid succession is a pattern WhatsApp's spam detection watches for, independent of where the connection comes from. Watobot serializes all outgoing operations (`sendMessage`, `sendMedia`, group fetches, disconnects) per WhatsApp account through a strict, promise-chained queue (`withSession` in `services/mudslideService.js`) — so a user's messages are always sent one at a time, never concurrently, no matter how many requests hit the API at once (a burst of scheduled sends, several manual API calls, etc.).
+
+This queue also drives the lifecycle of the per-user proxy relay and WhatsApp session cache: both are lazily acquired the moment the first job for a user starts, and released the moment their queue drains back to zero — so a user with no pending work has no lingering open connections.
 
 ---
 
