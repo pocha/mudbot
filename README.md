@@ -1,8 +1,16 @@
-# Watobot — free multi tenant whatsapp messaging API with zero knowledge encryption & account ban protection
+# Unofficial/free multi tenant whatsapp messaging API with user-controlled encryption & account ban mitigation
 
-A self-hosted WhatsApp message automation platform built on [Mudslide](https://github.com/robvanderleek/mudslide). Connect your WhatsApp account via QR code, then schedule automated messages or trigger them on demand via a REST API.
+A self-hosted WhatsApp message automation platform built using [Mudslide](https://github.com/robvanderleek/mudslide). Connect your WhatsApp account via QR code, then schedule automated messages or trigger them on demand via a REST API.
 
-All user data is encrypted using your personal auth token as the key. There is no shared server secret — even the server owner cannot read your data. Live demo: [watobot.xyz](https://watobot.xyz)
+All user data is encrypted using your personal auth token as the key. There is no shared server secret — even the server owner cannot read your data. 
+
+The server routes your connection through a residential IP in your city and queues messages sequentially, reducing ban risks.
+
+Live website: [watobot.xyz](https://watobot.xyz) . The website is running on a 4GB RAM AWS VM & is fully functional. You can signup, use the API to send messages, schedule automated recurring messages to any of your groups & even create FAQ from chat backup of a whatsapp group. Logging out of account disconnect your whatsapp & removes encrypted auth data. 
+
+![Watobot.xyz](http://pocha.fyi/assets/img/projects/watobot-hero.png)
+
+P.S. there will be 15-20 seconds delay in connecting your account & sending messages due to Residential Proxy setup & encryption + decryption on every request. The whatsapp device adding via QR code step takes a few iterations sometime. 
 
 ---
 
