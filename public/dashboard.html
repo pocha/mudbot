@@ -55,7 +55,7 @@
       <!-- Main Workspace -->
       <main class="flex-1 overflow-y-auto custom-scrollbar p-6 bg-background">
         <div class="max-w-6xl mx-auto space-y-stack-gap">
-          <!-- Message Activity Stats -->
+          <!-- WhatsApp Interaction Stats -->
           <section
             class="hidden bg-surface-container-lowest p-6 rounded-xl border border-outline-variant shadow-sm"
             id="stats-section"
@@ -63,11 +63,14 @@
             <div class="flex items-center justify-between mb-5 flex-wrap gap-2">
               <div class="flex items-center gap-2">
                 <span class="material-symbols-outlined text-primary" style="font-variation-settings:'FILL' 1;">insights</span>
-                <h2 class="font-headline-md text-headline-md">Message Activity</h2>
+                <h2 class="font-headline-md text-headline-md">WhatsApp Interactions</h2>
               </div>
               <div class="text-right">
-                <p class="font-headline-lg text-3xl font-black text-primary" id="stats-total">—</p>
-                <p class="text-on-surface-variant font-body-md text-sm">Total messages sent</p>
+                <p class="font-headline-lg text-3xl font-black text-primary">
+                  <span id="stats-total">—</span
+                  ><span class="hidden text-xl font-bold text-on-surface-variant ml-2" id="stats-total-reconciled"></span>
+                </p>
+                <p class="text-on-surface-variant font-body-md text-sm">Total WhatsApp interactions</p>
               </div>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -88,11 +91,17 @@
                 </div>
                 <div class="flex items-end justify-between">
                   <div>
-                    <p class="font-headline-md text-2xl font-bold text-on-surface" id="stats-day-current">—</p>
+                    <p class="font-headline-md text-2xl font-bold text-on-surface">
+                      <span id="stats-day-current">—</span
+                      ><span class="hidden text-sm font-bold text-on-surface-variant ml-1" id="stats-day-current-reconciled"></span>
+                    </p>
                     <p class="text-on-surface-variant font-body-md text-xs">Today</p>
                   </div>
                   <div class="text-right">
-                    <p class="font-label-md text-lg text-on-surface-variant" id="stats-day-previous">—</p>
+                    <p class="font-label-md text-lg text-on-surface-variant">
+                      <span id="stats-day-previous">—</span
+                      ><span class="hidden text-xs font-bold ml-1" id="stats-day-previous-reconciled"></span>
+                    </p>
                     <p class="text-on-surface-variant font-body-md text-xs">Yesterday</p>
                   </div>
                 </div>
@@ -118,11 +127,17 @@
                 </div>
                 <div class="flex items-end justify-between">
                   <div>
-                    <p class="font-headline-md text-2xl font-bold text-on-surface" id="stats-week-current">—</p>
+                    <p class="font-headline-md text-2xl font-bold text-on-surface">
+                      <span id="stats-week-current">—</span
+                      ><span class="hidden text-sm font-bold text-on-surface-variant ml-1" id="stats-week-current-reconciled"></span>
+                    </p>
                     <p class="text-on-surface-variant font-body-md text-xs">This Week</p>
                   </div>
                   <div class="text-right">
-                    <p class="font-label-md text-lg text-on-surface-variant" id="stats-week-previous">—</p>
+                    <p class="font-label-md text-lg text-on-surface-variant">
+                      <span id="stats-week-previous">—</span
+                      ><span class="hidden text-xs font-bold ml-1" id="stats-week-previous-reconciled"></span>
+                    </p>
                     <p class="text-on-surface-variant font-body-md text-xs">Last Week</p>
                   </div>
                 </div>
@@ -148,11 +163,17 @@
                 </div>
                 <div class="flex items-end justify-between">
                   <div>
-                    <p class="font-headline-md text-2xl font-bold text-on-surface" id="stats-month-current">—</p>
+                    <p class="font-headline-md text-2xl font-bold text-on-surface">
+                      <span id="stats-month-current">—</span
+                      ><span class="hidden text-sm font-bold text-on-surface-variant ml-1" id="stats-month-current-reconciled"></span>
+                    </p>
                     <p class="text-on-surface-variant font-body-md text-xs">This Month</p>
                   </div>
                   <div class="text-right">
-                    <p class="font-label-md text-lg text-on-surface-variant" id="stats-month-previous">—</p>
+                    <p class="font-label-md text-lg text-on-surface-variant">
+                      <span id="stats-month-previous">—</span
+                      ><span class="hidden text-xs font-bold ml-1" id="stats-month-previous-reconciled"></span>
+                    </p>
                     <p class="text-on-surface-variant font-body-md text-xs">Last Month</p>
                   </div>
                 </div>
@@ -1165,6 +1186,24 @@
         }
       }
 
+      // Renders bucket.total, striking it through with the corrected value from
+      // scripts/daily-report.js's nightly reconciliation when they disagree.
+      function renderStatsCount(idPrefix, bucket) {
+        const mainEl = document.getElementById(idPrefix);
+        const reconciledEl = document.getElementById(`${idPrefix}-reconciled`);
+        if (!mainEl || !reconciledEl) return;
+
+        mainEl.textContent = bucket.total;
+        if (bucket.reconciledTotal !== bucket.total) {
+          mainEl.classList.add("line-through", "opacity-60");
+          reconciledEl.textContent = `→ ${bucket.reconciledTotal}`;
+          reconciledEl.classList.remove("hidden");
+        } else {
+          mainEl.classList.remove("line-through", "opacity-60");
+          reconciledEl.classList.add("hidden");
+        }
+      }
+
       function renderMessageStats(stats) {
         const section = document.getElementById("stats-section");
         if (!stats.total.total) {
@@ -1173,17 +1212,16 @@
         }
         if (section) section.classList.remove("hidden");
 
-        const totalEl = document.getElementById("stats-total");
-        if (totalEl) totalEl.textContent = stats.total.total;
+        renderStatsCount("stats-total", stats.total);
 
         ["day", "week", "month"].forEach((period) => {
           const { current, previous } = stats[period];
-          document.getElementById(`stats-${period}-current`).textContent = current.total;
-          document.getElementById(`stats-${period}-previous`).textContent = previous.total;
+          renderStatsCount(`stats-${period}-current`, current);
+          renderStatsCount(`stats-${period}-previous`, previous);
           document.getElementById(`stats-${period}-current-detail`).textContent =
-            `${current.success} sent, ${current.failed} failed`;
+            `${current.success} succeeded, ${current.failed} failed`;
           document.getElementById(`stats-${period}-previous-detail`).textContent =
-            `${previous.success} sent, ${previous.failed} failed`;
+            `${previous.success} succeeded, ${previous.failed} failed`;
         });
       }
 

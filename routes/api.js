@@ -1,6 +1,7 @@
 const userService = require('../services/userService');
 const emailService = require('../services/emailService');
 const mudslideService = require('../services/mudslideService');
+const usageService = require('../services/usageService');
 const scheduleService = require('../services/scheduleService');
 const faqService = require('../services/faqService');
 const countries = require('../services/countries.json');
@@ -295,7 +296,7 @@ async function routes(fastify, options) {
   fastify.get('/api/usage/logs', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       const limit = parseInt(request.query.limit) || 50;
-      return await mudslideService.getUsageLogs(request.user.userDir, limit, request.user.token);
+      return await usageService.getUsageLogs(request.user.userDir, limit, request.user.token);
     } catch (error) {
       fastify.log.error(error);
       return reply.code(500).send({ error: 'Failed to get usage logs' });
@@ -304,7 +305,7 @@ async function routes(fastify, options) {
 
   fastify.get('/api/usage/stats', { preHandler: authenticateUser }, async (request, reply) => {
     try {
-      return await mudslideService.getMessageStats(request.user.userDir, request.query.tz);
+      return await usageService.getMessageStats(request.user.userDir, request.query.tz);
     } catch (error) {
       fastify.log.error(error);
       return reply.code(500).send({ error: 'Failed to get usage stats' });

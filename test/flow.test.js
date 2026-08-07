@@ -5,6 +5,7 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const { spawn } = require('child_process');
 const path = require('path');
+const os = require('os');
 const fs = require('fs').promises;
 const crypto = require('crypto');
 
@@ -16,6 +17,8 @@ const MAILDEV_URL = `http://localhost:${MAILDEV_WEB_PORT}`;
 const TEST_EMAIL = `test-${crypto.randomBytes(4).toString('hex')}@example.com`;
 const USERS_DIR = path.join(__dirname, '..', 'users');
 const { getUserDir } = require('../services/userService');
+const usageService = require('../services/usageService');
+const dailyReport = require('../scripts/daily-report');
 const MailDev = require('maildev');
 
 let serverProcess = null;
@@ -336,6 +339,71 @@ test('schedule removed from storage', async () => {
   const { status, body } = await get(`${BASE_URL}/api/schedules`, authHeader(token));
   assert.equal(status, 200);
   assert.equal(body.schedules.length, 0);
+});
+
+// --- usage stats (all file-based; no mudslide/WhatsApp calls involved) ---
+
+test('getMessageStats aggregates today/yesterday and surfaces reconciliation drift', async () => {
+  const userDir = getUserDir(TEST_EMAIL);
+  const statsPath = path.join(USERS_DIR, userDir, 'usage-stats.json');
+  const todayKey = new Date().toISOString().slice(0, 10);
+
+  await fs.writeFile(statsPath, JSON.stringify({
+    [todayKey]: { total: 5, success: 4, failed: 1 }
+  }));
+
+  let stats = await usageService.getMessageStats(userDir, 'UTC');
+  assert.deepEqual(stats.day.current, { total: 5, success: 4, failed: 1, reconciledTotal: 5 });
+  assert.equal(stats.day.previous.total, 0);
+  assert.equal(stats.total.total, 5);
+  assert.equal(stats.total.reconciledTotal, 5);
+
+  // Simulate a nightly reconciliation correction (live counter under-counted)
+  await fs.writeFile(statsPath, JSON.stringify({
+    [todayKey]: { total: 5, success: 4, failed: 1, totalReconciled: 8 }
+  }));
+  stats = await usageService.getMessageStats(userDir, 'UTC');
+  assert.equal(stats.day.current.total, 5); // live count unchanged
+  assert.equal(stats.day.current.reconciledTotal, 8); // corrected value surfaces separately
+  assert.equal(stats.total.reconciledTotal, 8);
+
+  await fs.rm(statsPath, { force: true });
+});
+
+test('daily-report processUser reconciles drift and skips zero-activity days entirely', async () => {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'watobot-daily-report-'));
+  const dayKey = '2026-08-06';
+
+  // No usage.log at all — must skip entirely, no usage-stats.json created
+  const skipped = await dailyReport.processUser(tmpDir, dayKey);
+  assert.equal(skipped, null);
+  await assert.rejects(fs.access(path.join(tmpDir, 'usage-stats.json')));
+
+  // Live cache under-counted (2) vs actual log (3) — should self-heal via totalReconciled
+  await fs.writeFile(path.join(tmpDir, 'usage.log'), [
+    { ts: `${dayKey}T09:00:00.000Z`, action: 'sendMessage' },
+    { ts: `${dayKey}T10:00:00.000Z`, action: 'getGroups' },
+    { ts: `${dayKey}T11:00:00.000Z`, action: 'logout' }
+  ].map(o => JSON.stringify(o)).join('\n') + '\n');
+  await fs.writeFile(path.join(tmpDir, 'usage-stats.json'), JSON.stringify({
+    [dayKey]: { total: 2, success: 2, failed: 0 }
+  }));
+
+  const result = await dailyReport.processUser(tmpDir, dayKey);
+  assert.deepEqual(result, { userDir: path.basename(tmpDir), total: 3 });
+
+  let stats = JSON.parse(await fs.readFile(path.join(tmpDir, 'usage-stats.json'), 'utf8'));
+  assert.equal(stats[dayKey].totalReconciled, 3);
+
+  // Running again once the live count matches must be a no-op — no stale totalReconciled written
+  await fs.writeFile(path.join(tmpDir, 'usage-stats.json'), JSON.stringify({
+    [dayKey]: { total: 3, success: 2, failed: 1 }
+  }));
+  await dailyReport.processUser(tmpDir, dayKey);
+  stats = JSON.parse(await fs.readFile(path.join(tmpDir, 'usage-stats.json'), 'utf8'));
+  assert.equal(stats[dayKey].totalReconciled, undefined);
+
+  await fs.rm(tmpDir, { recursive: true, force: true });
 });
 
 test('re-registration invalidates old token and issues new one for same userDir', async () => {
