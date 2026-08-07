@@ -57,9 +57,21 @@
         <div class="max-w-6xl mx-auto space-y-stack-gap">
           <!-- WhatsApp Interaction Stats -->
           <section
-            class="hidden bg-surface-container-lowest p-6 rounded-xl border border-outline-variant shadow-sm"
+            class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant shadow-sm"
             id="stats-section"
           >
+            <div id="stats-loading" class="space-y-4">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-outline-variant/40 animate-pulse"></div>
+                <div class="h-5 w-48 bg-outline-variant/40 rounded animate-pulse"></div>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="h-24 bg-outline-variant/30 rounded-xl animate-pulse"></div>
+                <div class="h-24 bg-outline-variant/30 rounded-xl animate-pulse"></div>
+                <div class="h-24 bg-outline-variant/30 rounded-xl animate-pulse"></div>
+              </div>
+            </div>
+            <div id="stats-content" class="hidden">
             <div class="flex items-center justify-between mb-5 flex-wrap gap-2">
               <div class="flex items-center gap-2">
                 <span class="material-symbols-outlined text-primary" style="font-variation-settings:'FILL' 1;">insights</span>
@@ -182,6 +194,7 @@
                   <p class="text-xs text-on-surface-variant">Last Month: <span id="stats-month-previous-detail"></span></p>
                 </div>
               </div>
+            </div>
             </div>
           </section>
 
@@ -1179,10 +1192,14 @@
             `${API_BASE}/api/usage/stats?tz=${encodeURIComponent(tz)}`,
             { headers: { Authorization: `Bearer ${authToken}` } }
           );
-          if (!response.ok) return;
+          if (!response.ok) {
+            document.getElementById("stats-section")?.classList.add("hidden");
+            return;
+          }
           renderMessageStats(await response.json());
         } catch (error) {
           console.error("Error loading message stats:", error);
+          document.getElementById("stats-section")?.classList.add("hidden");
         }
       }
 
@@ -1206,11 +1223,15 @@
 
       function renderMessageStats(stats) {
         const section = document.getElementById("stats-section");
-        if (!stats.total.total) {
+        // Backend returns null when the user has no usage-stats.json at all
+        // (never interacted) — hide the whole section in that case only.
+        if (!stats) {
           if (section) section.classList.add("hidden");
           return;
         }
-        if (section) section.classList.remove("hidden");
+
+        document.getElementById("stats-loading")?.classList.add("hidden");
+        document.getElementById("stats-content")?.classList.remove("hidden");
 
         renderStatsCount("stats-total", stats.total);
 

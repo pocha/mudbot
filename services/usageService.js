@@ -100,11 +100,15 @@ function bucketKeyToLocalDateStr(key, tz) {
   return localDateStr(new Date(`${key}T12:00:00Z`), tz);
 }
 
+// Returns null when the user has no usage-stats.json at all (never interacted) —
+// callers use this to distinguish "no data yet" from "data exists, all zero".
 async function getMessageStats(userDir, tz) {
-  let stats = {};
+  let stats;
   try {
     stats = JSON.parse(await fs.readFile(usageStatsPath(userDir), 'utf8'));
-  } catch {}
+  } catch {
+    return null;
+  }
 
   const zone = tz || 'UTC';
   const now = new Date();
