@@ -55,6 +55,115 @@
       <!-- Main Workspace -->
       <main class="flex-1 overflow-y-auto custom-scrollbar p-6 bg-background">
         <div class="max-w-6xl mx-auto space-y-stack-gap">
+          <!-- Message Activity Stats -->
+          <section
+            class="hidden bg-surface-container-lowest p-6 rounded-xl border border-outline-variant shadow-sm"
+            id="stats-section"
+          >
+            <div class="flex items-center justify-between mb-5 flex-wrap gap-2">
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary" style="font-variation-settings:'FILL' 1;">insights</span>
+                <h2 class="font-headline-md text-headline-md">Message Activity</h2>
+              </div>
+              <div class="text-right">
+                <p class="font-headline-lg text-3xl font-black text-primary" id="stats-total">—</p>
+                <p class="text-on-surface-variant font-body-md text-sm">Total messages sent</p>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <!-- Day -->
+              <div class="bg-surface p-4 rounded-xl border border-outline-variant">
+                <div class="flex items-center justify-between mb-3">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-on-surface-variant text-[18px]">today</span>
+                    <p class="font-label-md font-bold text-on-surface">Day</p>
+                  </div>
+                  <button
+                    class="text-on-surface-variant hover:text-primary transition-colors"
+                    onclick="toggleStatsDetail('day')"
+                    aria-label="Show success/failure breakdown"
+                  >
+                    <span class="material-symbols-outlined text-[20px] transition-transform" id="stats-day-chevron">expand_more</span>
+                  </button>
+                </div>
+                <div class="flex items-end justify-between">
+                  <div>
+                    <p class="font-headline-md text-2xl font-bold text-on-surface" id="stats-day-current">—</p>
+                    <p class="text-on-surface-variant font-body-md text-xs">Today</p>
+                  </div>
+                  <div class="text-right">
+                    <p class="font-label-md text-lg text-on-surface-variant" id="stats-day-previous">—</p>
+                    <p class="text-on-surface-variant font-body-md text-xs">Yesterday</p>
+                  </div>
+                </div>
+                <div class="hidden mt-3 pt-3 border-t border-outline-variant space-y-1" id="stats-day-detail">
+                  <p class="text-xs text-on-surface-variant">Today: <span id="stats-day-current-detail"></span></p>
+                  <p class="text-xs text-on-surface-variant">Yesterday: <span id="stats-day-previous-detail"></span></p>
+                </div>
+              </div>
+              <!-- Week -->
+              <div class="bg-surface p-4 rounded-xl border border-outline-variant">
+                <div class="flex items-center justify-between mb-3">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-on-surface-variant text-[18px]">date_range</span>
+                    <p class="font-label-md font-bold text-on-surface">Week</p>
+                  </div>
+                  <button
+                    class="text-on-surface-variant hover:text-primary transition-colors"
+                    onclick="toggleStatsDetail('week')"
+                    aria-label="Show success/failure breakdown"
+                  >
+                    <span class="material-symbols-outlined text-[20px] transition-transform" id="stats-week-chevron">expand_more</span>
+                  </button>
+                </div>
+                <div class="flex items-end justify-between">
+                  <div>
+                    <p class="font-headline-md text-2xl font-bold text-on-surface" id="stats-week-current">—</p>
+                    <p class="text-on-surface-variant font-body-md text-xs">This Week</p>
+                  </div>
+                  <div class="text-right">
+                    <p class="font-label-md text-lg text-on-surface-variant" id="stats-week-previous">—</p>
+                    <p class="text-on-surface-variant font-body-md text-xs">Last Week</p>
+                  </div>
+                </div>
+                <div class="hidden mt-3 pt-3 border-t border-outline-variant space-y-1" id="stats-week-detail">
+                  <p class="text-xs text-on-surface-variant">This Week: <span id="stats-week-current-detail"></span></p>
+                  <p class="text-xs text-on-surface-variant">Last Week: <span id="stats-week-previous-detail"></span></p>
+                </div>
+              </div>
+              <!-- Month -->
+              <div class="bg-surface p-4 rounded-xl border border-outline-variant">
+                <div class="flex items-center justify-between mb-3">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-on-surface-variant text-[18px]">calendar_month</span>
+                    <p class="font-label-md font-bold text-on-surface">Month</p>
+                  </div>
+                  <button
+                    class="text-on-surface-variant hover:text-primary transition-colors"
+                    onclick="toggleStatsDetail('month')"
+                    aria-label="Show success/failure breakdown"
+                  >
+                    <span class="material-symbols-outlined text-[20px] transition-transform" id="stats-month-chevron">expand_more</span>
+                  </button>
+                </div>
+                <div class="flex items-end justify-between">
+                  <div>
+                    <p class="font-headline-md text-2xl font-bold text-on-surface" id="stats-month-current">—</p>
+                    <p class="text-on-surface-variant font-body-md text-xs">This Month</p>
+                  </div>
+                  <div class="text-right">
+                    <p class="font-label-md text-lg text-on-surface-variant" id="stats-month-previous">—</p>
+                    <p class="text-on-surface-variant font-body-md text-xs">Last Month</p>
+                  </div>
+                </div>
+                <div class="hidden mt-3 pt-3 border-t border-outline-variant space-y-1" id="stats-month-detail">
+                  <p class="text-xs text-on-surface-variant">This Month: <span id="stats-month-current-detail"></span></p>
+                  <p class="text-xs text-on-surface-variant">Last Month: <span id="stats-month-previous-detail"></span></p>
+                </div>
+              </div>
+            </div>
+          </section>
+
           <!-- Onboarding Bento Grid -->
           <div class="grid grid-cols-1 md:grid-cols-12 gap-stack-gap">
             <!-- Step 1: WhatsApp Connect -->
@@ -812,6 +921,7 @@
         await claimPendingFaqs();
         await loadSchedules();
         await loadFaqEntries();
+        await loadMessageStats();
 
         setupEventListeners();
         setupRecipientCombobox();
@@ -1039,6 +1149,49 @@
         } catch (error) {
           console.error("Error loading schedules:", error);
         }
+      }
+
+      async function loadMessageStats() {
+        try {
+          const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+          const response = await fetch(
+            `${API_BASE}/api/usage/stats?tz=${encodeURIComponent(tz)}`,
+            { headers: { Authorization: `Bearer ${authToken}` } }
+          );
+          if (!response.ok) return;
+          renderMessageStats(await response.json());
+        } catch (error) {
+          console.error("Error loading message stats:", error);
+        }
+      }
+
+      function renderMessageStats(stats) {
+        const section = document.getElementById("stats-section");
+        if (!stats.total.total) {
+          if (section) section.classList.add("hidden");
+          return;
+        }
+        if (section) section.classList.remove("hidden");
+
+        const totalEl = document.getElementById("stats-total");
+        if (totalEl) totalEl.textContent = stats.total.total;
+
+        ["day", "week", "month"].forEach((period) => {
+          const { current, previous } = stats[period];
+          document.getElementById(`stats-${period}-current`).textContent = current.total;
+          document.getElementById(`stats-${period}-previous`).textContent = previous.total;
+          document.getElementById(`stats-${period}-current-detail`).textContent =
+            `${current.success} sent, ${current.failed} failed`;
+          document.getElementById(`stats-${period}-previous-detail`).textContent =
+            `${previous.success} sent, ${previous.failed} failed`;
+        });
+      }
+
+      function toggleStatsDetail(period) {
+        const detail = document.getElementById(`stats-${period}-detail`);
+        const chevron = document.getElementById(`stats-${period}-chevron`);
+        detail.classList.toggle("hidden");
+        chevron.classList.toggle("rotate-180");
       }
 
       function renderSchedules() {

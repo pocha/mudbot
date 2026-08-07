@@ -302,6 +302,15 @@ async function routes(fastify, options) {
     }
   });
 
+  fastify.get('/api/usage/stats', { preHandler: authenticateUser }, async (request, reply) => {
+    try {
+      return await mudslideService.getMessageStats(request.user.userDir, request.query.tz);
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Failed to get usage stats' });
+    }
+  });
+
   fastify.post('/api/message', { preHandler: [authenticateUser, requireWhatsapp] }, async (request, reply) => {
     try {
       const { to, message, media } = request.body;
