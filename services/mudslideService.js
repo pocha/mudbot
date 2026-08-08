@@ -12,8 +12,13 @@ const CONFIG = {
   USERS_DIR: path.join(__dirname, '..', 'users')
 };
 
-// Holds the active mudslide login process so the keypress can be sent after QR scan.
-let loginProc = null;
+// Tracks the active mudslide login process per user (userDir -> { proc, reapTimer }),
+// so the keypress can be sent after QR scan and an unscanned session gets reaped.
+// Reap window is generous (2 min) but only ever matters for the "never scanned"
+// case — once a user actually scans, mudslide writes credentials and exits on its
+// own within seconds (see the "press any key" handling below), well before this fires.
+const loginProcs = new Map();
+const LOGIN_REAP_MS = 2 * 60 * 1000;
 
 // Per-user operation queue — ensures only one mudslide command runs at a time per user.
 const userQueue = {};
@@ -198,11 +203,24 @@ async function runMudslide(args, timeoutMs, userDir, token) {
   });
 }
 
+// Kills and forgets any login process tracked for userDir. Guards on identity
+// (loginProcs.get(userDir) === entry) so a stale timer/call from an older
+// generation can never clobber a newer one for the same user.
+function killLoginProc(userDir, entry) {
+  if (loginProcs.get(userDir) !== entry) return;
+  clearTimeout(entry.reapTimer);
+  loginProcs.delete(userDir);
+  if (!entry.proc.killed) entry.proc.kill();
+}
+
+// Kills every tracked login process, for graceful shutdown.
+function killAllLoginProcs() {
+  for (const [userDir, entry] of loginProcs) killLoginProc(userDir, entry);
+}
+
 async function getQRCode(userDir, token) {
-  if (loginProc && !loginProc.killed) {
-    loginProc.kill();
-    loginProc = null;
-  }
+  const existing = loginProcs.get(userDir);
+  if (existing) killLoginProc(userDir, existing);
 
   await purgeMudslideCache(userDir);
 
@@ -223,7 +241,14 @@ async function getQRCode(userDir, token) {
 
   return new Promise((resolve, reject) => {
     const proc = spawn(bin, argv);
-    loginProc = proc;
+    const entry = { proc, reapTimer: null };
+    loginProcs.set(userDir, entry);
+    // Backstop for an unscanned QR — mudslide/Baileys almost certainly gives up
+    // on its own well before this, since a real scan makes it exit within seconds
+    // (see the "press any key" handling below). This just guarantees nothing
+    // lingers if that internal cleanup doesn't happen.
+    entry.reapTimer = setTimeout(() => killLoginProc(userDir, entry), LOGIN_REAP_MS);
+
     let output = '';
     let idleTimer = null;
     let resolved = false;
@@ -258,7 +283,10 @@ async function getQRCode(userDir, token) {
     proc.stderr.on('data', onStderr);
 
     proc.on('close', () => {
-      loginProc = null;
+      if (loginProcs.get(userDir) === entry) {
+        clearTimeout(entry.reapTimer);
+        loginProcs.delete(userDir);
+      }
       releaseRelayOnce();
       if (idleTimer) clearTimeout(idleTimer);
       if (!resolved) {
@@ -371,5 +399,6 @@ module.exports = {
   sendMedia,
   getGroups,
   whatsappDeviceDisconnect,
-  purgeMudslideCache
+  purgeMudslideCache,
+  killAllLoginProcs
 };

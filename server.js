@@ -47,14 +47,17 @@ fastify.register(require('@fastify/static'), {
 fastify.register(require('./routes/api'));
 
 const proxyRelayManager = require('./services/proxyRelayManager');
+const mudslideService = require('./services/mudslideService');
 
 // Closes any active per-user relay listeners (services/proxyRelayManager.js)
-// so a restart doesn't leave orphaned sockets bound. Relay state is
-// in-memory only — each relay is re-acquired lazily the next time that
-// user's mudslide session needs one, so nothing here needs to persist.
+// and kills any in-flight `mudslide login` processes so a restart doesn't
+// leave orphaned sockets/processes behind. Both are in-memory-only state —
+// relays are re-acquired lazily and a killed login just means the user sees
+// a dead QR and requests a new one, so nothing here needs to persist.
 for (const signal of ['SIGTERM', 'SIGINT']) {
   process.on(signal, async () => {
     await proxyRelayManager.closeAllRelays().catch(() => {});
+    mudslideService.killAllLoginProcs();
     process.exit(0);
   });
 }
