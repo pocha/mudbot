@@ -522,7 +522,7 @@
                       <div class="space-y-2">
                         <div class="flex items-center gap-1">
                           <label class="font-label-md text-on-surface-variant"
-                            >Recipient (User/Group)</label
+                            >Recipient</label
                           >
                           <div class="relative group">
                             <span
@@ -535,38 +535,65 @@
                               Groups are fetched live from WhatsApp each time —
                               we don't store any of your contacts or group
                               information. This may take up to a minute via the
-                              residential proxy.<br />If it says 'No groups
-                              found', try again.
+                              residential proxy.
                               <span
                                 class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-on-surface"
                               ></span>
                             </div>
                           </div>
                         </div>
-                        <div class="relative" id="recipient-combobox">
-                          <span
-                            class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60 z-10"
-                            >search</span
-                          >
+                        <select
+                          id="recipient-type"
+                          class="w-full py-2 px-3 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                        >
+                          <option value="number" selected>Phone Number</option>
+                          <option value="group">WhatsApp Group</option>
+                        </select>
+                        <input type="hidden" id="recipient-value" />
+                        <!-- Phone number mode (default) -->
+                        <div id="recipient-number-field">
                           <input
-                            id="recipient-input"
-                            class="w-full pl-10 pr-10 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-                            placeholder="Tap to load .. takes a minute to load data"
-                            type="text"
+                            id="recipient-number-input"
+                            class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                            placeholder="+14155552671 (with country code)"
+                            type="tel"
                             autocomplete="off"
                           />
-                          <span
-                            id="recipient-spinner"
-                            class="hidden absolute right-3 top-0 bottom-0 flex items-center"
-                            ><span
-                              class="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin block"
-                            ></span
-                          ></span>
-                          <input type="hidden" id="recipient-value" />
-                          <div
-                            id="recipient-dropdown"
-                            class="hidden absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-outline-variant rounded-lg shadow-lg max-h-48 overflow-y-auto"
-                          ></div>
+                        </div>
+                        <!-- Group mode -->
+                        <div id="recipient-group-field" class="hidden">
+                          <div class="relative" id="recipient-combobox">
+                            <span
+                              class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60 z-10"
+                              >search</span
+                            >
+                            <input
+                              id="recipient-input"
+                              class="w-full pl-10 pr-10 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all disabled:opacity-60 disabled:cursor-wait"
+                              placeholder=""
+                              type="text"
+                              autocomplete="off"
+                              disabled
+                            />
+                            <span
+                              id="recipient-spinner"
+                              class="hidden absolute right-3 top-0 bottom-0 flex items-center"
+                              ><span
+                                class="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin block"
+                              ></span
+                            ></span>
+                            <div
+                              id="recipient-dropdown"
+                              class="hidden absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-outline-variant rounded-lg shadow-lg max-h-48 overflow-y-auto"
+                            ></div>
+                          </div>
+                          <p
+                            id="recipient-group-error"
+                            class="hidden text-error font-body-md text-sm mt-1"
+                          >
+                            Error occurred while fetching WhatsApp groups.
+                            Refresh the page and try again.
+                          </p>
                         </div>
                       </div>
                       <div class="space-y-2">
@@ -959,6 +986,7 @@
 
         setupEventListeners();
         setupRecipientCombobox();
+        setupRecipientTypeToggle();
       });
 
       async function checkConnectionStatus() {
@@ -1544,28 +1572,9 @@
       function setupRecipientCombobox() {
         const input = document.getElementById("recipient-input");
         const dropdown = document.getElementById("recipient-dropdown");
-        const spinner = document.getElementById("recipient-spinner");
 
-        input.addEventListener("focus", async () => {
-          if (allGroups.length > 0) {
-            showDropdown(allGroups.slice(0, 10));
-            return;
-          }
-          spinner.classList.remove("hidden");
-          try {
-            const res = await fetch(`${API_BASE}/api/whatsapp/groups`, {
-              headers: { Authorization: `Bearer ${authToken}` },
-            });
-            if (res.ok) {
-              const data = await res.json();
-              allGroups = data.groups || [];
-            }
-          } catch (e) {
-            console.error("Failed to fetch groups", e);
-          } finally {
-            spinner.classList.add("hidden");
-          }
-          showDropdown(allGroups.slice(0, 10));
+        input.addEventListener("focus", () => {
+          if (allGroups.length > 0) showDropdown(allGroups.slice(0, 10));
         });
 
         input.addEventListener("input", () => {
@@ -1587,7 +1596,7 @@
         function showDropdown(groups) {
           if (groups.length === 0) {
             dropdown.innerHTML =
-              '<p class="px-4 py-3 text-body-md text-on-surface-variant">An error occured. Try again please.</p>';
+              '<p class="px-4 py-3 text-body-md text-on-surface-variant">No matching groups found.</p>';
           } else {
             dropdown.innerHTML = groups
               .map(
@@ -1608,18 +1617,98 @@
         }
       }
 
+      // Fetches the full group list once (cached in allGroups for the rest of
+      // the session) as soon as the user switches to "WhatsApp Group" mode —
+      // there's no server-side search, so we load everything up front and
+      // filter client-side as they type.
+      async function loadGroupsIfNeeded() {
+        const input = document.getElementById("recipient-input");
+        const spinner = document.getElementById("recipient-spinner");
+        const errorEl = document.getElementById("recipient-group-error");
+        errorEl.classList.add("hidden");
+
+        if (allGroups.length > 0) {
+          input.disabled = false;
+          input.placeholder = "Start typing to see WhatsApp group names";
+          return;
+        }
+
+        input.disabled = true;
+        input.placeholder = "Loading WhatsApp groups, this can take a minute…";
+        spinner.classList.remove("hidden");
+
+        try {
+          const res = await fetch(`${API_BASE}/api/whatsapp/groups`, {
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+          if (!res.ok) throw new Error("Failed to fetch groups");
+          const data = await res.json();
+          allGroups = data.groups || [];
+          input.disabled = false;
+          input.placeholder = "Start typing to see WhatsApp group names";
+        } catch (e) {
+          console.error("Failed to fetch groups", e);
+          input.placeholder = "";
+          errorEl.classList.remove("hidden");
+          // leave input disabled — user is told to refresh and try again
+        } finally {
+          spinner.classList.add("hidden");
+        }
+      }
+
+      function setupRecipientTypeToggle() {
+        const typeSelect = document.getElementById("recipient-type");
+        const numberField = document.getElementById("recipient-number-field");
+        const groupField = document.getElementById("recipient-group-field");
+        const numberInput = document.getElementById("recipient-number-input");
+        const groupInput = document.getElementById("recipient-input");
+
+        typeSelect.addEventListener("change", () => {
+          document.getElementById("recipient-value").value = "";
+          if (typeSelect.value === "group") {
+            numberField.classList.add("hidden");
+            groupField.classList.remove("hidden");
+            groupInput.value = "";
+            loadGroupsIfNeeded();
+          } else {
+            groupField.classList.add("hidden");
+            numberField.classList.remove("hidden");
+            numberInput.value = "";
+          }
+        });
+
+        numberInput.addEventListener("input", () => {
+          document.getElementById("recipient-value").value = numberInput.value
+            .trim()
+            .replace(/[\s\-()]/g, "");
+        });
+      }
+
       function loadScheduleIntoForm(scheduleId) {
         const schedule = schedules.find((s) => s.id === scheduleId);
         if (!schedule) return;
 
         editingScheduleId = scheduleId;
 
-        // Recipient — show stored id as display text; user can re-pick from dropdown if needed
+        // Recipient — group ids always end in @g.us; anything else is a phone number.
         const recipientId =
           (schedule.recipients && schedule.recipients[0]) || "";
+        const isGroup = recipientId.includes("@g.us");
         document.getElementById("recipient-value").value = recipientId;
-        document.getElementById("recipient-input").value =
-          schedule.name || recipientId;
+        document.getElementById("recipient-type").value = isGroup
+          ? "group"
+          : "number";
+        if (isGroup) {
+          document.getElementById("recipient-number-field").classList.add("hidden");
+          document.getElementById("recipient-group-field").classList.remove("hidden");
+          document.getElementById("recipient-input").value =
+            schedule.name || recipientId;
+          loadGroupsIfNeeded();
+        } else {
+          document.getElementById("recipient-group-field").classList.add("hidden");
+          document.getElementById("recipient-number-field").classList.remove("hidden");
+          document.getElementById("recipient-number-input").value = recipientId;
+        }
 
         // Frequency — use stored value, fall back to inferring from cron for old schedules
         const freq =
@@ -1676,7 +1765,11 @@
 
       function cancelEdit() {
         editingScheduleId = null;
+        document.getElementById("recipient-type").value = "number";
+        document.getElementById("recipient-group-field").classList.add("hidden");
+        document.getElementById("recipient-number-field").classList.remove("hidden");
         document.getElementById("recipient-input").value = "";
+        document.getElementById("recipient-number-input").value = "";
         document.getElementById("recipient-value").value = "";
         document.getElementById("frequency-select").value = "Once";
         document.getElementById("schedule-date").value = "";
@@ -1689,10 +1782,14 @@
       }
 
       async function handleCreateSchedule() {
-        const recipientId = document.getElementById("recipient-value").value;
-        const recipientName = document
-          .getElementById("recipient-input")
+        const recipientType = document.getElementById("recipient-type").value;
+        const recipientId = document
+          .getElementById("recipient-value")
           .value.trim();
+        const recipientName =
+          recipientType === "group"
+            ? document.getElementById("recipient-input").value.trim()
+            : recipientId;
         const frequency = document.getElementById("frequency-select").value;
         const date = document.getElementById("schedule-date").value;
         const time = document.getElementById("schedule-time").value || "09:00";
@@ -1703,8 +1800,20 @@
 
         if (!recipientId || !message) {
           alert(
-            "Please select a recipient from the dropdown and enter a message",
+            recipientType === "group"
+              ? "Please select a group from the dropdown and enter a message"
+              : "Please enter a phone number and a message",
           );
+          return;
+        }
+        if (recipientType === "number" && !/^\+[1-9]\d{6,14}$/.test(recipientId)) {
+          alert(
+            "Please enter a valid phone number with country code, e.g. +14155552671",
+          );
+          return;
+        }
+        if (recipientType === "group" && !recipientId.includes("@g.us")) {
+          alert("Please select a group from the dropdown");
           return;
         }
 
