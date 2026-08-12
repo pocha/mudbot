@@ -232,6 +232,36 @@ test('POST /api/user/location accepts and persists a valid manual override', asy
   assert.match(raw, /^[a-f0-9]+:[a-f0-9]+$/); // encrypted on disk
 });
 
+test('POST /api/user/notify-email rejects an invalid email', async () => {
+  const { status, body } = await post(
+    `${BASE_URL}/api/user/notify-email`,
+    { email: 'not-an-email' },
+    authHeader(token)
+  );
+  assert.equal(status, 400);
+  assert.ok(body.error);
+});
+
+test('POST /api/user/notify-email saves, encrypts on disk, and GET returns it back', async () => {
+  const { status, body } = await post(
+    `${BASE_URL}/api/user/notify-email`,
+    { email: 'alerts@example.com' },
+    authHeader(token)
+  );
+  assert.equal(status, 200);
+  assert.equal(body.success, true);
+  assert.equal(body.email, 'alerts@example.com');
+
+  const userDir = getUserDir(TEST_EMAIL);
+  const raw = await fs.readFile(path.join(USERS_DIR, userDir, 'notify_email.enc'), 'utf8');
+  assert.match(raw, /^[a-f0-9]+:[a-f0-9]+$/); // encrypted on disk
+  assert.ok(!raw.includes('alerts@example.com'));
+
+  const getRes = await get(`${BASE_URL}/api/user/notify-email`, authHeader(token));
+  assert.equal(getRes.status, 200);
+  assert.equal(getRes.body.email, 'alerts@example.com');
+});
+
 test('user directory and token_hash created', async () => {
   const userDir = getUserDir(TEST_EMAIL);
   const stat = await fs.stat(path.join(USERS_DIR, userDir));

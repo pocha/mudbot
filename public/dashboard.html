@@ -409,10 +409,6 @@
                     content_copy
                   </button>
                 </div>
-                <p
-                  id="apikey-expiry-new"
-                  class="text-on-surface-variant font-body-md text-sm"
-                ></p>
               </div>
 
               <!-- State: active key (status loaded, key not shown) -->
@@ -433,65 +429,95 @@
                 </div>
               </div>
 
+              <!-- Try it out: curl example (shown once a key exists) -->
+              <div id="apikey-curl-section" class="hidden">
+                <div class="flex items-center justify-between gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onclick="toggleCurlExample()"
+                    class="text-primary font-label-md text-sm hover:underline text-left"
+                  >
+                    Try sending message with curl
+                  </button>
+                  <a
+                    href="https://github.com/pocha/mudbot?tab=readme-ov-file#api"
+                    target="_blank"
+                    rel="noopener"
+                    class="text-secondary font-label-md text-sm flex items-center gap-1 hover:underline flex-shrink-0"
+                  >
+                    <span class="material-symbols-outlined text-[16px]"
+                      >description</span
+                    >
+                    View API Documentation
+                  </a>
+                </div>
+                <div id="apikey-curl-block" class="hidden mt-2">
+                  <div class="relative">
+                    <pre
+                      id="apikey-curl-example"
+                      class="text-xs font-mono text-on-surface bg-surface-container-lowest border border-outline-variant rounded-lg p-3 pr-9 overflow-x-auto whitespace-pre-wrap"
+                    ></pre>
+                    <button
+                      onclick="copyCurlExample()"
+                      class="absolute top-2 right-2 material-symbols-outlined text-primary hover:bg-white p-1 rounded transition-colors text-[16px]"
+                      id="apikey-curl-copy-btn"
+                    >
+                      content_copy
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <!-- Permanent key CTA (shown when key is temporary) -->
               <div
                 id="apikey-permanent-cta"
                 class="hidden border border-outline-variant rounded-lg p-3 space-y-2"
               >
-                <p class="text-on-surface font-label-md font-bold text-sm">
-                  Need a permanent key?
-                </p>
+                <p
+                  id="apikey-permanent-title"
+                  class="text-on-surface font-label-md font-bold text-sm"
+                ></p>
                 <p class="text-on-surface-variant font-body-md text-sm">
-                  Drop an email to
-                  <a
-                    id="apikey-contact-email"
-                    href="#"
-                    class="text-primary underline"
-                  ></a>
-                  with your name and use case — we'll make it permanent.
-                </p>
-                <p class="text-on-surface-variant font-body-md text-sm">
-                  Include your User ID:
+                  Click
+                  <button
+                    type="button"
+                    onclick="openSupport()"
+                    class="text-primary underline font-bold"
+                  >
+                    Support
+                  </button>
+                  to send a WhatsApp message to the creator with your user ID:
                   <code
                     id="apikey-user-id"
                     class="bg-surface-variant px-1 rounded text-xs font-mono text-on-surface"
                   ></code>
+                  and ask them to make it permanent.
                 </p>
               </div>
 
-              <!-- Try it out: curl example (shown once a key exists), collapsed by default -->
-              <details id="apikey-curl-block" class="hidden">
-                <summary
-                  class="text-primary font-label-md text-sm cursor-pointer hover:underline"
+              <!-- Failure notification email -->
+              <div class="border-t border-outline-variant pt-4 space-y-2">
+                <label class="font-label-md text-on-surface-variant text-sm"
+                  >Notify me if a message fails to send</label
                 >
-                  Show curl example
-                </summary>
-                <div class="relative mt-2">
-                  <pre
-                    id="apikey-curl-example"
-                    class="text-xs font-mono text-on-surface bg-surface-container-lowest border border-outline-variant rounded-lg p-3 pr-9 overflow-x-auto whitespace-pre-wrap"
-                  ></pre>
+                <div class="flex gap-2">
+                  <input
+                    id="notify-email-input"
+                    type="email"
+                    placeholder="you@example.com"
+                    autocomplete="off"
+                    class="flex-1 px-3 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm"
+                  />
                   <button
-                    onclick="copyCurlExample()"
-                    class="absolute top-2 right-2 material-symbols-outlined text-primary hover:bg-white p-1 rounded transition-colors text-[16px]"
-                    id="apikey-curl-copy-btn"
+                    onclick="saveNotifyEmail()"
+                    id="notify-email-save-btn"
+                    class="px-4 py-2 bg-primary-container text-on-primary-container font-label-md text-sm font-bold rounded-lg hover:opacity-90 transition-all flex-shrink-0"
                   >
-                    content_copy
+                    Save
                   </button>
                 </div>
-              </details>
-
-              <a
-                href="https://github.com/pocha/mudbot?tab=readme-ov-file#api"
-                target="_blank"
-                rel="noopener"
-                class="text-secondary font-label-md flex items-center gap-1 hover:underline mt-auto"
-              >
-                <span class="material-symbols-outlined text-[18px]"
-                  >description</span
-                >
-                View API Documentation
-              </a>
+                <p id="notify-email-message" class="hidden font-body-md text-sm"></p>
+              </div>
             </section>
           </div>
           <!-- Main Automation Area -->
@@ -983,6 +1009,7 @@
         await loadSchedules();
         await loadFaqEntries();
         await loadMessageStats();
+        await loadNotifyEmail();
 
         setupEventListeners();
         setupRecipientCombobox();
@@ -1042,24 +1069,22 @@
         }
       }
 
+      // Builds the "Valid for 1 hour (expires at HH:MM), want to make it
+      // permanent?" title shown on the permanent-key CTA box.
+      function permanentCtaTitle(expiresAt) {
+        const exp = new Date(expiresAt);
+        const time = exp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        return `Valid for 1 hour (expires at ${time}), want to make it permanent?`;
+      }
+
       async function loadApiKeyStatus() {
         try {
           document.getElementById("apikey-loading")?.classList.remove("hidden");
-          const [statusRes, configRes] = await Promise.all([
-            fetch(`${API_BASE}/api/apikey/status`, {
-              headers: { Authorization: `Bearer ${authToken}` },
-            }),
-            fetch(`${API_BASE}/api/config`),
-          ]);
+          const statusRes = await fetch(`${API_BASE}/api/apikey/status`, {
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
           const status = await statusRes.json();
-          const config = configRes.ok ? await configRes.json() : {};
 
-          const contactEmail = config.contactEmail || "";
-          const emailEl = document.getElementById("apikey-contact-email");
-          if (emailEl && contactEmail) {
-            emailEl.textContent = contactEmail;
-            emailEl.href = `mailto:${contactEmail}?subject=Permanent API Key Request`;
-          }
           const userIdEl = document.getElementById("apikey-user-id");
           if (userIdEl && authToken)
             userIdEl.textContent = authToken.slice(0, 10);
@@ -1072,7 +1097,12 @@
             document
               .getElementById("apikey-active-view")
               .classList.add("hidden");
-            document.getElementById("apikey-curl-block")?.classList.add("hidden");
+            document
+              .getElementById("apikey-curl-section")
+              ?.classList.add("hidden");
+            document
+              .getElementById("apikey-permanent-cta")
+              .classList.add("hidden");
             if (status.expired)
               document
                 .getElementById("apikey-expired-notice")
@@ -1091,8 +1121,9 @@
                 .getElementById("apikey-permanent-cta")
                 .classList.add("hidden");
             } else {
-              const exp = new Date(status.expiresAt);
-              label.textContent = `Expires at ${exp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} today`;
+              label.textContent = "Temporary key";
+              document.getElementById("apikey-permanent-title").textContent =
+                permanentCtaTitle(status.expiresAt);
               document
                 .getElementById("apikey-permanent-cta")
                 .classList.remove("hidden");
@@ -1125,25 +1156,14 @@
           document.getElementById("apikey-new-view").classList.remove("hidden");
           document.getElementById("apikey-value").textContent = data.apiKey;
           renderCurlExample(data.apiKey);
-          const exp = new Date(data.expiresAt);
-          document.getElementById("apikey-expiry-new").textContent =
-            `Valid for 1 hour · expires at ${exp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+          document.getElementById("apikey-permanent-title").textContent =
+            permanentCtaTitle(data.expiresAt);
           document
             .getElementById("apikey-permanent-cta")
             .classList.remove("hidden");
           const userIdEl2 = document.getElementById("apikey-user-id");
           if (userIdEl2 && authToken)
             userIdEl2.textContent = authToken.slice(0, 10);
-
-          const configRes = await fetch(`${API_BASE}/api/config`);
-          if (configRes.ok) {
-            const config = await configRes.json();
-            const emailEl = document.getElementById("apikey-contact-email");
-            if (emailEl && config.contactEmail) {
-              emailEl.textContent = config.contactEmail;
-              emailEl.href = `mailto:${config.contactEmail}?subject=Permanent API Key Request`;
-            }
-          }
         } catch (e) {
           console.error("Failed to generate API key", e);
           if (btn) {
@@ -1165,14 +1185,16 @@
         });
       }
 
-      // Shows a copy-pasteable curl example for /api/message. Uses the real
-      // key right after generation (the only time the raw value is ever
-      // available client-side); falls back to a placeholder for an
-      // already-active key, since past that point only its hash is stored.
+      // Reveals the "Try sending message with curl" row and pre-fills the
+      // snippet. Uses the real key right after generation (the only time the
+      // raw value is ever available client-side); falls back to a
+      // placeholder for an already-active key, since past that point only
+      // its hash is stored. The snippet itself stays collapsed until the
+      // user clicks the toggle (see toggleCurlExample).
       function renderCurlExample(apiKey) {
-        const block = document.getElementById("apikey-curl-block");
+        const section = document.getElementById("apikey-curl-section");
         const pre = document.getElementById("apikey-curl-example");
-        if (!block || !pre) return;
+        if (!section || !pre) return;
         const key = apiKey || "YOUR_API_KEY";
         // "me" is a special recipient mudslide/WhatsApp resolves to your own
         // number, so this is runnable as-is — no phone number to fill in —
@@ -1181,7 +1203,11 @@
   -H "x-api-key: ${key}" \\
   -H "Content-Type: application/json" \\
   -d '{"to": "me", "message": "Hello from Watobot!"}'`;
-        block.classList.remove("hidden");
+        section.classList.remove("hidden");
+      }
+
+      function toggleCurlExample() {
+        document.getElementById("apikey-curl-block")?.classList.toggle("hidden");
       }
 
       function copyCurlExample() {
@@ -1210,6 +1236,62 @@
           }
         } catch (error) {
           console.error("Error loading schedules:", error);
+        }
+      }
+
+      async function loadNotifyEmail() {
+        try {
+          const response = await fetch(`${API_BASE}/api/user/notify-email`, {
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+          if (!response.ok) return;
+          const data = await response.json();
+          if (data.email) {
+            document.getElementById("notify-email-input").value = data.email;
+          }
+        } catch (error) {
+          console.error("Error loading notification email:", error);
+        }
+      }
+
+      async function saveNotifyEmail() {
+        const input = document.getElementById("notify-email-input");
+        const btn = document.getElementById("notify-email-save-btn");
+        const messageEl = document.getElementById("notify-email-message");
+        const email = input.value.trim();
+
+        messageEl.classList.add("hidden");
+        btn.disabled = true;
+        const originalText = btn.textContent;
+        btn.textContent = "Saving…";
+
+        try {
+          const response = await fetch(`${API_BASE}/api/user/notify-email`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ email }),
+          });
+          const data = await response.json();
+
+          messageEl.classList.remove("hidden");
+          if (response.ok) {
+            messageEl.textContent = "Saved.";
+            messageEl.className = "font-body-md text-sm text-primary";
+          } else {
+            messageEl.textContent = data.error || "Failed to save. Please try again.";
+            messageEl.className = "font-body-md text-sm text-error";
+          }
+        } catch (error) {
+          console.error("Error saving notification email:", error);
+          messageEl.classList.remove("hidden");
+          messageEl.textContent = "Failed to save. Please try again.";
+          messageEl.className = "font-body-md text-sm text-error";
+        } finally {
+          btn.disabled = false;
+          btn.textContent = originalText;
         }
       }
 

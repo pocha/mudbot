@@ -145,6 +145,55 @@ async function sendWhatsappRetryEmail(email, retryCount, userDir) {
   } catch { /* fire-and-forget — never surfaces to caller */ }
 }
 
+// Fired when a sendMessage/sendMedia call fails (see withSession's finally
+// block in services/mudslideService.js) — always alerts the admin
+// (NOTIFY_EMAIL/REPLY_TO), and additionally the user's own opt-in address
+// (services/userService.js's notify_email.enc) when they've set one.
+async function sendMessageFailureNotification({ userDir, to, action, error, userEmail }) {
+  const notifyEmail = process.env.NOTIFY_EMAIL || process.env.REPLY_TO;
+  const kind = action === 'sendMedia' ? 'media message' : 'message';
+
+  const sends = [];
+
+  if (notifyEmail) {
+    const adminText = [
+      `A ${kind} send failed.`,
+      `User: ${userDir}`,
+      `To: ${to || 'unknown'}`,
+      `Error: ${error}`,
+      `Time: ${new Date().toISOString()}`
+    ].join('\n');
+    sends.push(getTransporter().sendMail({
+      from: `Watobot <${CONFIG.EMAIL_FROM}>`,
+      to: notifyEmail,
+      subject: `Watobot: Message Send Failed — ${userDir}`,
+      text: adminText
+    }).catch(() => {}));
+  }
+
+  if (userEmail) {
+    const userText = [
+      `Hi,`,
+      '',
+      `We tried to send your ${kind} to ${to || 'the recipient'}, but it failed.`,
+      '',
+      `Error: ${error}`,
+      '',
+      'Check your dashboard and try again.',
+      '',
+      '— Watobot'
+    ].join('\n');
+    sends.push(getTransporter().sendMail({
+      from: `Watobot <${CONFIG.EMAIL_FROM}>`,
+      to: userEmail,
+      subject: `Watobot: Your ${kind} failed to send`,
+      text: userText
+    }).catch(() => {}));
+  }
+
+  await Promise.all(sends);
+}
+
 async function sendDailyReport(report, backupError = null) {
   const notifyEmail = process.env.NOTIFY_EMAIL || process.env.REPLY_TO;
   if (!notifyEmail) return;
@@ -178,5 +227,6 @@ module.exports = {
   sendRegistrationEmail,
   sendOwnerNotification,
   sendWhatsappRetryEmail,
+  sendMessageFailureNotification,
   sendDailyReport
 };

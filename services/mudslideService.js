@@ -2,9 +2,10 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs').promises;
 const crypto = require('crypto');
-const { proxyConfPath } = require('./userService');
+const { proxyConfPath, getNotifyEmail } = require('./userService');
 const proxyRelayManager = require('./proxyRelayManager');
 const usageService = require('./usageService');
+const emailService = require('./emailService');
 
 const CONFIG = {
   MUDSLIDE_PATH: process.env.MUDSLIDE_PATH || 'mudslide',
@@ -107,6 +108,19 @@ async function cleanupTemp(userDir) {
   await fs.rm(tempDir(userDir), { recursive: true, force: true });
 }
 
+const SEND_ACTIONS = new Set(['sendMessage', 'sendMedia']);
+
+// Fire-and-forget — a notification failure must never affect the send's own
+// outcome. Looks up the user's opt-in notify-email (services/userService.js);
+// emailService always alerts NOTIFY_EMAIL/REPLY_TO too, regardless of whether
+// the user has one set.
+async function notifySendFailure(userDir, token, action, error, meta) {
+  const userEmail = await getNotifyEmail(userDir, token).catch(() => null);
+  await emailService.sendMessageFailureNotification({
+    userDir, to: meta?.to, action, error, userEmail
+  });
+}
+
 // Queues fn(credPath) for the user — operations are strictly sequential per user,
 // ensuring WhatsApp sees one message at a time. Decrypts once on first op in a
 // batch, reuses the temp dir for subsequent ops, then encrypts and cleans up only
@@ -129,6 +143,9 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}) {
       throw err;
     } finally {
       await usageService.appendUsageLog(userDir, action, succeeded, errMsg, meta, token);
+      if (!succeeded && SEND_ACTIONS.has(action)) {
+        notifySendFailure(userDir, token, action, errMsg, meta).catch(() => {});
+      }
       userQueueDepth[userDir]--;
       if (userQueueDepth[userDir] === 0) {
         if (credPath) {

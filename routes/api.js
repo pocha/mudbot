@@ -145,6 +145,30 @@ async function routes(fastify, options) {
     }
   });
 
+  fastify.get('/api/user/notify-email', { preHandler: authenticateUser }, async (request, reply) => {
+    try {
+      const email = await userService.getNotifyEmail(request.user.userDir, request.user.token);
+      return { email };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Failed to get notification email' });
+    }
+  });
+
+  fastify.post('/api/user/notify-email', { preHandler: authenticateUser }, async (request, reply) => {
+    try {
+      const { email } = request.body || {};
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return reply.code(400).send({ error: 'A valid email is required' });
+      }
+      await userService.createOrUpdateNotifyEmail(request.user.userDir, request.user.token, email);
+      return { success: true, email };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Failed to save notification email' });
+    }
+  });
+
   fastify.get('/api/whatsapp/status', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       return await mudslideService.confirmWhatsappLogin(request.user.userDir, request.user.token);

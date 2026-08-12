@@ -218,6 +218,27 @@ async function verifyApiKey(apiKey) {
   }
 }
 
+// Opt-in email for failure notifications (e.g. a scheduled/API send fails) —
+// distinct from the login email, which is deliberately never stored. Encrypted
+// with the user's token like proxy.json/schedules.json, so it's unreadable
+// without it.
+function notifyEmailPath(userDir) {
+  return path.join(CONFIG.USERS_DIR, userDir, 'notify_email.enc');
+}
+
+async function createOrUpdateNotifyEmail(userDir, token, email) {
+  await writeUserFile(notifyEmailPath(userDir), email, token);
+  return { email };
+}
+
+async function getNotifyEmail(userDir, token) {
+  try {
+    return await readUserFile(notifyEmailPath(userDir), token);
+  } catch {
+    return null;
+  }
+}
+
 module.exports = {
   registerUser,
   verifyToken,
@@ -232,5 +253,7 @@ module.exports = {
   computeTokenHash,
   allocateProxyPort,
   createOrUpdateProxyJson,
-  proxyConfPath
+  proxyConfPath,
+  createOrUpdateNotifyEmail,
+  getNotifyEmail
 };
