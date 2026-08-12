@@ -2,9 +2,12 @@
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const fs = require('fs').promises;
 const path = require('path');
+const util = require('util');
+const execAsync = util.promisify(require('child_process').exec);
 const emailService = require('../services/emailService');
 
 const USERS_DIR = path.join(__dirname, '..', 'users');
+const REPO_ROOT = path.join(__dirname, '..');
 
 // usage.log entries' `ts` is always a cleartext ISO string (UTC), and
 // usage-stats.json buckets are keyed the same way (see bumpStatsCache in
@@ -50,6 +53,19 @@ async function processUser(userPath, dayKey) {
   return { userDir: path.basename(userPath), total: count };
 }
 
+// Commits + pushes whatever changed under the repo root (mainly users/**) so
+// user data is backed up daily. Runs as root via cron, which already has
+// push access. Skips the commit entirely if nothing changed.
+async function backupUserData() {
+  const { stdout: status } = await execAsync('git status --porcelain', { cwd: REPO_ROOT });
+  if (!status.trim()) return;
+
+  const label = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  await execAsync('git add -A', { cwd: REPO_ROOT });
+  await execAsync(`git commit -m "data backup - ${label}"`, { cwd: REPO_ROOT });
+  await execAsync('git push origin main', { cwd: REPO_ROOT });
+}
+
 async function main() {
   const dayKey = yesterdayUTCKey();
   const report = [];
@@ -67,12 +83,22 @@ async function main() {
     if (result) report.push(result);
   }
 
+  // Not production-critical — on failure, surface it in the report email
+  // (or just log it, if there's no report to send) rather than failing the run.
+  let backupError = null;
+  try {
+    await backupUserData();
+  } catch (err) {
+    backupError = (err.stderr || err.message || 'Unknown error').trim();
+    console.error('daily-report backup error:', backupError);
+  }
+
   if (report.length === 0) {
     console.log('No activity yesterday — skipping report.');
     return;
   }
 
-  await emailService.sendDailyReport(report);
+  await emailService.sendDailyReport(report, backupError);
   console.log(`Daily report sent: ${report.length} active user(s).`);
 }
 
@@ -83,4 +109,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { yesterdayUTCKey, countInFile, reconcileStats, processUser };
+module.exports = { yesterdayUTCKey, countInFile, reconcileStats, processUser, backupUserData };

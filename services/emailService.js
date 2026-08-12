@@ -145,7 +145,7 @@ async function sendWhatsappRetryEmail(email, retryCount, userDir) {
   } catch { /* fire-and-forget — never surfaces to caller */ }
 }
 
-async function sendDailyReport(report) {
+async function sendDailyReport(report, backupError = null) {
   const notifyEmail = process.env.NOTIFY_EMAIL || process.env.REPLY_TO;
   if (!notifyEmail) return;
 
@@ -158,12 +158,16 @@ async function sendDailyReport(report) {
     `${r.userDir}  |  Actions: ${r.total}`
   ).join('\n');
 
+  const backupSection = backupError
+    ? `\n\n⚠️ Data backup (git commit/push) failed:\n${backupError}`
+    : '';
+
   try {
     await getTransporter().sendMail({
       from: `Watobot <${CONFIG.EMAIL_FROM}>`,
       to: notifyEmail,
-      subject: `Watobot Daily Report — ${dateStr}`,
-      text: `Daily Activity Report for ${dateStr}\n\nTotal actions across all users: ${total}\n\nBreakdown by user:\n\n${rows}`
+      subject: `Watobot Daily Report — ${dateStr}${backupError ? ' [backup failed]' : ''}`,
+      text: `Daily Activity Report for ${dateStr}\n\nTotal actions across all users: ${total}\n\nBreakdown by user:\n\n${rows}${backupSection}`
     });
   } catch (e) {
     console.error('Failed to send daily report:', e.message);
