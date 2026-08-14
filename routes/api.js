@@ -338,10 +338,16 @@ async function routes(fastify, options) {
 
   fastify.post('/api/message', { preHandler: [authenticateUser, requireWhatsapp] }, async (request, reply) => {
     try {
-      const { to, message, media } = request.body;
+      const { message, media } = request.body;
+      let { to } = request.body;
       if (!to || !message) {
         return reply.code(400).send({ error: 'to and message are required' });
       }
+      // Dashboard UI already strips spaces/hyphens/parens from phone numbers
+      // client-side (see recipient-number-input in public/dashboard.html) —
+      // API callers (curl, Zapier, etc.) bypass that, so enforce it here too.
+      // No-op for group JIDs (...@g.us), which never contain these chars.
+      to = to.replace(/[\s\-()]/g, '');
       await (media
         ? mudslideService.sendMedia(request.user.userDir, request.user.token, to, media, message)
         : mudslideService.sendMessage(request.user.userDir, request.user.token, to, message));
