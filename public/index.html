@@ -145,6 +145,11 @@
 							</ul>
 						</div>
 					</div>
+					<div class="mt-6 bg-surface p-6 rounded-xl border border-outline-variant text-sm text-on-surface-variant font-body-md space-y-2">
+						<p class="font-label-md font-bold text-on-surface">Which one should you use?</p>
+						<p>WhatsApp's own <a href="https://developers.facebook.com/docs/whatsapp/messaging-limits/" target="_blank" rel="noopener" class="text-primary underline">messaging limits</a> let a brand-new, unverified Business API number send up to 250 messages a day, provided every recipient has given <a href="https://developers.facebook.com/documentation/business-messaging/whatsapp/getting-opt-in" target="_blank" rel="noopener" class="text-primary underline">opt-in consent</a> to be contacted — a sign that WhatsApp doesn't treat modest volumes as inherently abusive. Watobot is a good fit well within that range: personal reminders, small teams, and low-volume automations, comfortably under it. Keep in mind Watobot runs on your personal WhatsApp account, which WhatsApp evaluates using its own spam-detection systems rather than a published quota — and if that number is also used for regular personal messaging, that activity counts toward the same pattern WhatsApp is watching, so use your own judgment on top of any number here.</p>
+						<p>If you're consistently sending higher volumes — say, 100+ messages a day to many different people — that's exactly what the official WhatsApp Business API is built for. Worth registering for it instead.</p>
+					</div>
 				</div>
 			</section>
 
@@ -163,7 +168,7 @@
 							</div>
 							<h3 class="font-headline-md text-headline-md">Remote API Access</h3>
 						</div>
-						<p class="text-on-surface-variant font-body-md">Trigger messages from any backend via our RESTful API. Generate an API key from the dashboard and integrate in minutes.</p>
+						<p class="text-on-surface-variant font-body-md">Trigger messages from any backend via our RESTful API — to individuals or WhatsApp groups. Generate an API key from the dashboard and integrate in minutes.</p>
 					</div>
 					<!-- Card 2: Scheduling -->
 					<div class="bg-surface p-6 rounded-xl border border-outline-variant whatsapp-shadow hover:border-primary transition-colors flex flex-col gap-3 group">
@@ -194,6 +199,26 @@
 							<h3 class="font-headline-md text-headline-md">Built-in Ban Protection</h3>
 						</div>
 						<p class="text-on-surface-variant font-body-md">Every connection routes through a dedicated residential IP near your location, so WhatsApp sees a real device — not a shared server. Messages are queued and sent one at a time per account, avoiding the burst patterns that trigger spam detection.</p>
+					</div>
+					<!-- Card 5: Failure Alerts -->
+					<div class="bg-surface p-6 rounded-xl border border-outline-variant whatsapp-shadow hover:border-primary transition-colors flex flex-col gap-3 group">
+						<div class="flex items-center gap-3">
+							<div class="w-10 h-10 bg-secondary-container flex items-center justify-center rounded-lg text-on-secondary-container flex-shrink-0">
+								<span class="material-symbols-outlined text-[20px]">notifications_active</span>
+							</div>
+							<h3 class="font-headline-md text-headline-md">Get Notified on Failure</h3>
+						</div>
+						<p class="text-on-surface-variant font-body-md">Add an email in your dashboard and get alerted the moment a message fails to send — no need to babysit the logs to catch a problem.</p>
+					</div>
+					<!-- Card 6: WhatsApp Groups -->
+					<div class="bg-surface p-6 rounded-xl border border-outline-variant whatsapp-shadow hover:border-primary transition-colors flex flex-col gap-3 group">
+						<div class="flex items-center gap-3">
+							<div class="w-10 h-10 bg-tertiary-container flex items-center justify-center rounded-lg text-on-tertiary-container flex-shrink-0">
+								<span class="material-symbols-outlined text-[20px]">groups</span>
+							</div>
+							<h3 class="font-headline-md text-headline-md">Message Your Existing Groups</h3>
+						</div>
+						<p class="text-on-surface-variant font-body-md">Send to any WhatsApp group you're already in — no need to recreate it through an API. Meta's <a href="https://developers.facebook.com/documentation/business-messaging/whatsapp/groups" target="_blank" rel="noopener" class="text-primary underline">official Groups API</a> caps out at 8 participants and requires an Official Business Account; Watobot works with the real, full-sized groups you already have.</p>
 					</div>
 				</div>
 			</section>

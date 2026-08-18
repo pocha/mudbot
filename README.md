@@ -202,7 +202,9 @@ echo "permanent" > users/<userDir>/api_key_expiry
 
 The `userDir` is the 10-character prefix shown in the dashboard's API key section. Users should email the server owner with their use case to request a permanent key.
 
-### Endpoints
+### User Management
+
+Registration, login, API key, and WhatsApp connection lifecycle.
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -215,15 +217,15 @@ The `userDir` is the 10-character prefix shown in the dashboard's API key sectio
 | `POST` | `/api/whatsapp/login/confirm` | Confirm QR scan is complete |
 | `POST` | `/api/whatsapp/logout` | Initiate WhatsApp disconnect |
 | `POST` | `/api/whatsapp/logout/confirm` | Clean up session after manual device removal |
-| `POST` | `/api/message` | Send a message immediately |
-| `GET` | `/api/schedules` | List all schedules |
-| `POST` | `/api/schedules` | Create a schedule |
-| `GET` | `/api/schedules/:id` | Get a schedule |
-| `PUT` | `/api/schedules/:id` | Update a schedule |
-| `DELETE` | `/api/schedules/:id` | Delete a schedule |
-| `GET` | `/api/schedules/:id/logs` | Get execution logs for a schedule |
 
-### Send a message
+### Send Message
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/message` | Send a message immediately |
+| `GET` | `/api/whatsapp/groups` | List WhatsApp groups linked to your connected account |
+
+Send a message to an individual:
 
 ```bash
 curl -X POST https://<domain>/api/message \
@@ -232,7 +234,31 @@ curl -X POST https://<domain>/api/message \
   -d '{"to": "919876543210", "message": "Hello!"}'
 ```
 
-### Create a schedule
+To message a WhatsApp group instead, first fetch your groups to get its JID, then send to that JID:
+
+```bash
+curl https://<domain>/api/whatsapp/groups \
+  -H "x-api-key: <your-api-key>"
+# => {"groups": [{"name": "Family", "id": "919876543210-1234567890@g.us"}, ...]}
+
+curl -X POST https://<domain>/api/message \
+  -H "x-api-key: <your-api-key>" \
+  -H "Content-Type: application/json" \
+  -d '{"to": "919876543210-1234567890@g.us", "message": "Hello, everyone!"}'
+```
+
+### Create Schedule
+
+Schedules are automated, recurring messages sent at a time you specify — set one up once and it keeps firing on its own (daily, weekly, monthly, or a single future date), with no need to keep anything running yourself.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/schedules` | List all schedules |
+| `POST` | `/api/schedules` | Create a schedule |
+| `GET` | `/api/schedules/:id` | Get a schedule |
+| `PUT` | `/api/schedules/:id` | Update a schedule |
+| `DELETE` | `/api/schedules/:id` | Delete a schedule |
+| `GET` | `/api/usage/logs` | Get recent send logs, including scheduled runs |
 
 ```bash
 curl -X POST https://<domain>/api/schedules \
