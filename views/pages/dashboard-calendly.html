@@ -712,20 +712,22 @@
 
       // Actually sending the message has to go through the VM (mudslide
       // needs the user's decrypted WhatsApp session, which Firestore has no
-      // access to) — the lead's own status/messageSent are then updated
-      // directly here, since the frontend already has write access to it.
+      // access to) — reuses the existing POST /api/message endpoint rather
+      // than a dedicated leads-send route, since it already does exactly
+      // this. The lead's own status/messageSent are then updated directly
+      // here, since the frontend already has write access to it.
       async function sendLeadMessage(leadId, phone) {
         if (!phone) return;
         const message = prompt("Message to send:", "");
         if (!message) return;
         try {
-          const res = await fetch(`${API_BASE}/api/leads/send`, {
+          const res = await fetch(`${API_BASE}/api/message`, {
             method: "POST",
             headers: {
               Authorization: `Bearer ${authToken}`,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ phone, message }),
+            body: JSON.stringify({ to: phone, message }),
           });
           if (!res.ok) throw new Error("Failed to send message");
           await updateDoc(doc(db, "leads", leadId), {

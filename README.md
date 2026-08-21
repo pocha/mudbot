@@ -348,24 +348,19 @@ curl -X POST https://<domain>/api/calendly/<meetingId>/lead \
 
 ### Leads
 
-Every Calendly booking that runs through `POST /api/calendly/:meetingId/lead` is recorded as a lead. Listing, editing notes, deleting, and manually adding leads all happen **client-side**, directly against Firestore (see [How leads are stored and accessed](#how-leads-are-stored-and-accessed)) — there's no `/api/leads` REST surface for that anymore. Two small server routes remain:
+Every Calendly booking that runs through `POST /api/calendly/:meetingId/lead` is recorded as a lead. Listing, editing notes, deleting, and manually adding leads all happen **client-side**, directly against Firestore (see [How leads are stored and accessed](#how-leads-are-stored-and-accessed)) — there's no `/api/leads` REST surface for that anymore. One small server route remains:
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/firebase-token` | Mint a Firebase custom token + return your `userDir`, so the dashboard can sign in to Firestore directly |
-| `POST` | `/api/leads/send` | Send a WhatsApp message on demand (`{phone, message}`) — the one lead-related action that has to stay server-side, since it needs your WhatsApp session |
 
 ```bash
 curl https://<domain>/api/firebase-token \
   -H "x-api-key: <your-api-key>"
 # => {"firebaseToken": "...", "userDir": "..."}
-
-curl -X POST https://<domain>/api/leads/send \
-  -H "x-api-key: <your-api-key>" \
-  -H "Content-Type: application/json" \
-  -d '{"phone": "+15551234567", "message": "Following up on our chat!"}'
-# => {"success": true}
 ```
+
+Sending a WhatsApp message to a lead on demand (the dashboard's "Send" button) reuses the existing `POST /api/message` endpoint (see [above](#api)) — no dedicated leads-send route.
 
 ---
 

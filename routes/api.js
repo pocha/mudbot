@@ -543,24 +543,6 @@ async function routes(fastify, options) {
     }
   });
 
-  // The one lead-related action that must stay server-side regardless —
-  // actually sending a WhatsApp message requires mudslideService, which
-  // Firestore/the frontend has no access to. The frontend updates the
-  // lead's status/messageSent itself afterward, since it already has write
-  // access to its own leads.
-  fastify.post('/api/leads/send', { preHandler: [authenticateUser, requireWhatsapp] }, async (request, reply) => {
-    try {
-      const { phone, message } = request.body || {};
-      if (!phone || !message) return reply.code(400).send({ error: 'phone and message are required' });
-
-      const { userDir, token } = request.user;
-      await mudslideService.sendMessage(userDir, token, phone, message);
-      return { success: true };
-    } catch (error) {
-      fastify.log.error(error);
-      return reply.code(500).send({ error: 'Failed to send message' });
-    }
-  });
 }
 
 module.exports = routes;
