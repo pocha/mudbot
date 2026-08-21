@@ -179,6 +179,25 @@ async function listMeetings(userDir, token) {
   return config.meetings || {};
 }
 
+// Lets the dashboard offer a picker instead of the user pasting a booking
+// URL by hand. Requires the Calendly OAuth app to be granted the
+// event_types:read scope (see README) alongside scheduled_events:read.
+async function listEventTypes(userDir, token) {
+  const config = await readConfig(userDir, token);
+  if (!config.connected) throw new ApiError(400, 'Calendly not connected');
+
+  const eventTypes = [];
+  let url = `${CALENDLY_API_BASE_URL}/event_types?user=${encodeURIComponent(config.calendlyUserUri)}&active=true&count=100`;
+  while (url) {
+    const data = await calendlyApiGet(userDir, token, url);
+    for (const et of data.collection || []) {
+      eventTypes.push({ uri: et.uri, name: et.name, schedulingUrl: et.scheduling_url });
+    }
+    url = data.pagination?.next_page || null;
+  }
+  return eventTypes;
+}
+
 async function upsertMeeting(userDir, token, meetingId, meetingData) {
   const config = await readConfig(userDir, token);
   const id = meetingId || crypto.randomUUID();
@@ -347,6 +366,7 @@ module.exports = {
   fetchEventDetails,
   upsertMeeting,
   deleteMeeting,
+  listEventTypes,
   resolveMessageTemplate,
   getUserPhoneFromEvent,
   buildCalendlyEmbedScript,

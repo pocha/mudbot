@@ -62,37 +62,56 @@
             <section
               class="card"
             >
-              <div class="p-6 border-b border-outline-variant">
-                <h3 class="section-title" id="meeting-form-title">Add Meeting</h3>
-                <p class="text-body-muted">
-                  Map one Calendly event type to a WhatsApp message template.
-                </p>
+              <div class="p-6 border-b border-outline-variant flex items-start justify-between gap-4">
+                <div>
+                  <h3 class="section-title">Configured Meetings</h3>
+                  <p class="text-body-muted">
+                    Pick event types from your Calendly account, then set a WhatsApp message template for each.
+                  </p>
+                </div>
+                <button
+                  id="event-type-picker-open-btn"
+                  class="inline-flex items-center gap-2 bg-primary-container text-on-primary-container font-bold px-4 py-2 rounded-xl hover:opacity-90 transition-all flex-shrink-0"
+                >
+                  <span class="material-symbols-outlined text-[20px]">add</span>
+                  Add from Calendly
+                </button>
               </div>
-              <div class="p-6 space-y-gutter">
+
+              <!-- Event type picker -->
+              <div id="event-type-picker" class="hidden p-6 border-b border-outline-variant space-y-3 bg-surface-container-low">
+                <h4 class="label-strong">Select event types to add</h4>
+                <div id="event-type-picker-loading" class="hidden text-body-muted text-sm">Loading your event types…</div>
+                <div id="event-type-picker-empty" class="hidden text-body-muted text-sm italic">
+                  No unconfigured event types found in your Calendly account.
+                </div>
+                <div id="event-type-picker-error" class="hidden text-error text-sm"></div>
+                <div id="event-type-picker-list" class="hidden space-y-2 max-h-64 overflow-y-auto"></div>
+                <div class="pt-2 flex gap-3">
+                  <button
+                    id="event-type-picker-add-btn"
+                    class="flex-1 bg-primary text-on-primary py-3 rounded-xl font-label-md flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-md"
+                  >
+                    <span class="material-symbols-outlined">add_task</span>
+                    Add Selected
+                  </button>
+                  <button
+                    id="event-type-picker-cancel-btn"
+                    class="text-on-surface-variant border border-outline-variant px-4 py-2 rounded-xl font-label-md hover:bg-surface-container transition-all"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+
+              <!-- Edit an already-added meeting -->
+              <div id="meeting-edit-form" class="hidden p-6 border-b border-outline-variant">
                 <div class="whatsapp-border bg-surface-container-low p-5 rounded-xl space-y-4">
                   <input type="hidden" id="meeting-id" />
-                  <div class="space-y-2">
-                    <label class="label-muted">Event Type URL / URI</label>
-                    <input
-                      id="meeting-event-type-uri"
-                      class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-                      placeholder="https://calendly.com/your-org/discovery-call"
-                      type="text"
-                      autocomplete="off"
-                    />
-                    <p class="text-xs text-on-surface-variant">
-                      Find this in your Calendly event type's settings, or just paste the event type's booking URL.
-                    </p>
-                  </div>
-                  <div class="space-y-2">
-                    <label class="label-muted">Event Type Name</label>
-                    <input
-                      id="meeting-event-type-name"
-                      class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-                      placeholder="Discovery Call"
-                      type="text"
-                      autocomplete="off"
-                    />
+                  <input type="hidden" id="meeting-event-type-uri" />
+                  <div class="space-y-1">
+                    <label class="label-muted">Event Type</label>
+                    <p id="meeting-event-type-name-display" class="font-label-md text-on-surface"></p>
                   </div>
                   <div class="space-y-2">
                     <label class="label-muted">Message Template</label>
@@ -127,24 +146,22 @@
                       id="meeting-save-btn"
                       class="flex-1 bg-primary text-on-primary py-3 rounded-xl font-label-md flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-md"
                     >
-                      <span class="material-symbols-outlined">add_task</span>
-                      Save Meeting
+                      <span class="material-symbols-outlined">save</span>
+                      Update Meeting
                     </button>
                     <button
                       id="meeting-cancel-edit-btn"
-                      class="hidden text-on-surface-variant border border-outline-variant px-4 py-2 rounded-xl font-label-md hover:bg-surface-container transition-all"
+                      class="text-on-surface-variant border border-outline-variant px-4 py-2 rounded-xl font-label-md hover:bg-surface-container transition-all"
                     >
                       Cancel
                     </button>
                   </div>
                 </div>
               </div>
-              <div class="border-t border-outline-variant">
-                <div class="p-6 pb-3">
-                  <h4 class="label-strong">Configured Meetings</h4>
-                </div>
-                <div id="meetings-empty" class="hidden px-6 pb-6 text-center text-on-surface-variant opacity-50 italic text-body-md">
-                  No meetings configured yet. Add one above.
+
+              <div>
+                <div id="meetings-empty" class="hidden px-6 py-6 text-center text-on-surface-variant opacity-50 italic text-body-md">
+                  No meetings configured yet. Click "Add from Calendly" above.
                 </div>
                 <div id="meetings-list" class="hidden divide-y divide-outline-variant"></div>
               </div>
@@ -321,6 +338,9 @@
         document.getElementById("calendly-disconnect-btn")?.addEventListener("click", handleDisconnectCalendly);
         document.getElementById("meeting-save-btn").addEventListener("click", handleSaveMeeting);
         document.getElementById("meeting-cancel-edit-btn").addEventListener("click", cancelMeetingEdit);
+        document.getElementById("event-type-picker-open-btn").addEventListener("click", openEventTypePicker);
+        document.getElementById("event-type-picker-cancel-btn").addEventListener("click", closeEventTypePicker);
+        document.getElementById("event-type-picker-add-btn").addEventListener("click", handleAddSelectedEventTypes);
         document.getElementById("add-lead-btn").addEventListener("click", handleAddLead);
 
         document.getElementById("logout-btn").addEventListener("click", () => {
@@ -469,16 +489,15 @@
       function loadMeetingIntoForm(meetingId) {
         const m = meetings[meetingId];
         if (!m) return;
+        closeEventTypePicker();
         editingMeetingId = meetingId;
         document.getElementById("meeting-id").value = meetingId;
         document.getElementById("meeting-event-type-uri").value = m.eventTypeUri || "";
-        document.getElementById("meeting-event-type-name").value = m.eventTypeName || "";
+        document.getElementById("meeting-event-type-name-display").textContent =
+          m.eventTypeName || m.eventTypeUri || "";
         document.getElementById("meeting-message-template").value = m.messageTemplate || "";
         document.getElementById("meeting-phone-question-name").value = m.phoneQuestionName || "";
-        document.getElementById("meeting-form-title").textContent = "Edit Meeting";
-        document.getElementById("meeting-save-btn").innerHTML =
-          '<span class="material-symbols-outlined">save</span> Update Meeting';
-        document.getElementById("meeting-cancel-edit-btn").classList.remove("hidden");
+        document.getElementById("meeting-edit-form").classList.remove("hidden");
         document
           .getElementById("meeting-save-btn")
           .scrollIntoView({ behavior: "smooth", block: "center" });
@@ -488,23 +507,19 @@
         editingMeetingId = null;
         document.getElementById("meeting-id").value = "";
         document.getElementById("meeting-event-type-uri").value = "";
-        document.getElementById("meeting-event-type-name").value = "";
+        document.getElementById("meeting-event-type-name-display").textContent = "";
         document.getElementById("meeting-message-template").value = "";
         document.getElementById("meeting-phone-question-name").value = "";
-        document.getElementById("meeting-form-title").textContent = "Add Meeting";
-        document.getElementById("meeting-save-btn").innerHTML =
-          '<span class="material-symbols-outlined">add_task</span> Save Meeting';
-        document.getElementById("meeting-cancel-edit-btn").classList.add("hidden");
+        document.getElementById("meeting-edit-form").classList.add("hidden");
       }
 
       async function handleSaveMeeting() {
-        const eventTypeUri = document.getElementById("meeting-event-type-uri").value.trim();
-        const eventTypeName = document.getElementById("meeting-event-type-name").value.trim();
+        const eventTypeUri = document.getElementById("meeting-event-type-uri").value;
         const messageTemplate = document.getElementById("meeting-message-template").value.trim();
         const phoneQuestionName = document.getElementById("meeting-phone-question-name").value.trim();
 
-        if (!eventTypeUri || !messageTemplate) {
-          alert("Please fill in the event type URL and a message template.");
+        if (!messageTemplate) {
+          alert("Please fill in a message template.");
           return;
         }
 
@@ -519,9 +534,9 @@
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              meetingId: editingMeetingId || undefined,
+              meetingId: editingMeetingId,
               eventTypeUri,
-              eventTypeName,
+              eventTypeName: meetings[editingMeetingId]?.eventTypeName || "",
               messageTemplate,
               phoneQuestionName: phoneQuestionName || null,
             }),
@@ -535,6 +550,112 @@
         } catch (error) {
           console.error("Error saving meeting:", error);
           alert(error.message || "Failed to save meeting");
+        } finally {
+          btn.disabled = false;
+        }
+      }
+
+      const DEFAULT_MESSAGE_TEMPLATE =
+        "Hi {{name}}, thanks for booking {{event_name}}! See you at {{event_time}}.";
+
+      function openEventTypePicker() {
+        cancelMeetingEdit();
+        document.getElementById("event-type-picker").classList.remove("hidden");
+        document.getElementById("event-type-picker").scrollIntoView({ behavior: "smooth", block: "center" });
+        loadEventTypesForPicker();
+      }
+
+      function closeEventTypePicker() {
+        document.getElementById("event-type-picker").classList.add("hidden");
+      }
+
+      async function loadEventTypesForPicker() {
+        const loading = document.getElementById("event-type-picker-loading");
+        const empty = document.getElementById("event-type-picker-empty");
+        const errorBox = document.getElementById("event-type-picker-error");
+        const list = document.getElementById("event-type-picker-list");
+        list.classList.add("hidden");
+        empty.classList.add("hidden");
+        errorBox.classList.add("hidden");
+        loading.classList.remove("hidden");
+        list.innerHTML = "";
+
+        try {
+          const res = await fetch(`${API_BASE}/api/calendly/event-types`, {
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || "Failed to load event types");
+          }
+          const { eventTypes } = await res.json();
+          const configuredUris = new Set(Object.values(meetings).map((m) => m.eventTypeUri));
+          const available = eventTypes.filter((et) => !configuredUris.has(et.uri));
+
+          loading.classList.add("hidden");
+          if (available.length === 0) {
+            empty.classList.remove("hidden");
+            return;
+          }
+
+          list.classList.remove("hidden");
+          list.innerHTML = available
+            .map(
+              (et, i) => `
+            <label class="flex items-center gap-3 p-2 rounded-lg hover:bg-white cursor-pointer">
+              <input type="checkbox" class="event-type-checkbox" data-index="${i}" />
+              <span class="text-sm text-on-surface">${escapeHtml(et.name || et.uri)}</span>
+            </label>
+          `
+            )
+            .join("");
+          list.dataset.eventTypes = JSON.stringify(available);
+        } catch (error) {
+          console.error("Error loading event types:", error);
+          loading.classList.add("hidden");
+          errorBox.textContent = error.message || "Failed to load event types";
+          errorBox.classList.remove("hidden");
+        }
+      }
+
+      async function handleAddSelectedEventTypes() {
+        const list = document.getElementById("event-type-picker-list");
+        const eventTypes = JSON.parse(list.dataset.eventTypes || "[]");
+        const checked = Array.from(document.querySelectorAll(".event-type-checkbox:checked")).map(
+          (cb) => eventTypes[Number(cb.dataset.index)]
+        );
+        if (checked.length === 0) {
+          alert("Select at least one event type.");
+          return;
+        }
+
+        const btn = document.getElementById("event-type-picker-add-btn");
+        btn.disabled = true;
+        try {
+          for (const et of checked) {
+            const res = await fetch(`${API_BASE}/api/calendly/config`, {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${authToken}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                eventTypeUri: et.uri,
+                eventTypeName: et.name,
+                messageTemplate: DEFAULT_MESSAGE_TEMPLATE,
+                phoneQuestionName: null,
+              }),
+            });
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              throw new Error(err.error || `Failed to add ${et.name || et.uri}`);
+            }
+          }
+          closeEventTypePicker();
+          await loadCalendlyConfig();
+        } catch (error) {
+          console.error("Error adding event types:", error);
+          alert(error.message || "Failed to add selected event types");
         } finally {
           btn.disabled = false;
         }

@@ -441,6 +441,19 @@ async function routes(fastify, options) {
     }
   });
 
+  // Backs the dashboard's "Add from Calendly" picker so users select an
+  // event type instead of pasting its booking URL by hand.
+  fastify.get('/api/calendly/event-types', { preHandler: authenticateUser }, async (request, reply) => {
+    try {
+      const eventTypes = await calendlyService.listEventTypes(request.user.userDir, request.user.token);
+      return { eventTypes };
+    } catch (error) {
+      if (error.statusCode) return reply.code(error.statusCode).send({ error: error.message });
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Failed to load Calendly event types' });
+    }
+  });
+
   fastify.post('/api/calendly/config', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       const { meetingId, eventTypeUri, eventTypeName, messageTemplate, phoneQuestionName, allowedOrigin } = request.body || {};

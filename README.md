@@ -165,6 +165,8 @@ This queue also drives the lifecycle of the per-user proxy relay and WhatsApp se
 
 Connect your Calendly account (standard OAuth — click Connect in the dashboard, approve access, done) and Watobot will automatically send a WhatsApp message to every person who books a meeting through it.
 
+Your Calendly OAuth app (in the [Calendly developer console](https://developer.calendly.com/)) needs the `scheduled_events:read` and `event_types:read` scopes — the former to look up booking/invitee details when a lead comes in, the latter so the dashboard can list your event types for you to pick from instead of pasting a booking URL by hand. No write scopes are needed: nothing is ever created or modified on Calendly's side.
+
 This requires one thing on the Calendly side: add a **custom question** to the event type you want covered, asking for the invitee's phone number. The exact question label is configurable per meeting in the Watobot dashboard (it's matched against `phoneQuestionName`), and it's strongly recommended you mark the question **required** — a booking without a phone number is logged as a lead with `status: "no_phone"` but no message is sent.
 
 Once a meeting is configured, embed its one-line script on that event type's booking page, before your existing Calendly embed code (each configured meeting has its own snippet, shown in the dashboard):
@@ -327,6 +329,7 @@ Endpoints for connecting Calendly, configuring which event types trigger a Whats
 |--------|------|-------------|
 | `GET` | `/api/calendly/authorize` | Get the Calendly OAuth consent URL to start connecting |
 | `GET` | `/api/calendly/config` | Get connection status, integration key, and configured meetings |
+| `GET` | `/api/calendly/event-types` | List the connected account's Calendly event types not yet configured, for the dashboard's picker |
 | `POST` | `/api/calendly/config` | Create or update a meeting's message template / phone question |
 | `DELETE` | `/api/calendly/config/:meetingId` | Delete a meeting's configuration |
 | `POST` | `/api/calendly/disconnect` | Disconnect the linked Calendly account |
