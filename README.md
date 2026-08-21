@@ -185,6 +185,20 @@ Every booking is recorded as a lead in a Firestore `leads` collection, and the d
 
 The one exception is lead *creation* from a Calendly booking, which has no legitimate browser session behind it at all (it's fired by whoever's booking the meeting on your site, not you) — that goes through a second Cloud Function, `createLead`, called by the VM. Both Cloud Functions live in `functions/` and are restricted to only accept requests from the VM's static IP (`ALLOWED_VM_IP` in `functions/.env` — see `functions/.env.example`), rather than GCP IAM: simpler to operate, and gives the same practical protection for this threat model (it stops outside callers; like IAM, it does not protect against the VM itself being compromised, since compromised code there would still originate from the allowed IP).
 
+### Deploying the Firebase side
+
+Before the Calendly integration works, the Cloud Functions, Firestore Security Rules, and Firestore indexes all need to be deployed to the `wato-bot` Firebase project:
+
+```bash
+npm install -g firebase-tools   # if you don't already have it
+firebase login
+cd functions && cp .env.example .env   # then fill in ALLOWED_VM_IP with the VM's static IP
+cd ..
+firebase deploy --only functions,firestore:rules,firestore:indexes
+```
+
+Re-run `firebase deploy --only functions` after any change to `functions/index.js` or `functions/.env`, and `firebase deploy --only firestore:rules` (or `firestore:indexes`) after editing `firestore.rules` / `firestore.indexes.json` — none of these are picked up automatically, unlike the VM's own code.
+
 ---
 
 ## Running the app
