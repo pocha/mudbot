@@ -478,74 +478,33 @@ async function routes(fastify, options) {
     }
   });
 
-  // Returns the tiny runtime script the user embeds as
-  // <script src="/api/calendly/code?token=..."></script>. Deliberately does
-  // NOT use authenticateCalendlyKey — an invalid/missing token here should
-  // never break the visitor's page with a 401, just serve a no-op script.
+  // Returns the tiny runtime script the user embeds, scoped to one meeting:
+  // <script src="/api/calendly/code?token=...&meetingId=..."></script>.
+  // Deliberately does NOT use authenticateCalendlyKey — an invalid/missing
+  // token here should never break the visitor's page with a 401, just serve
+  // a no-op script.
   fastify.get('/api/calendly/code', async (request, reply) => {
     reply.header('Content-Type', 'application/javascript');
     reply.header('Cache-Control', 'no-store');
-    const key = request.query.token;
-    const user = key && await userService.verifyCalendlyKey(key);
-    return user ? calendlyService.buildCalendlyEmbedScript(key) : '/* invalid calendly integration key */';
+    const { token: key, meetingId } = request.query;
+    const user = key && meetingId && await userService.verifyCalendlyKey(key);
+    return user ? calendlyService.buildCalendlyEmbedScript(key, meetingId) : '/* invalid calendly integration key */';
   });
 
-  fastify.post('/api/calendly', { preHandler: [authenticateCalendlyKey, requireWhatsapp] }, async (request, reply) => {
+  // Thin by design — all booking→lead logic (ownership check, meeting
+  // match, phone resolution, send, store) lives in
+  // leadsService.createLeadFromCalendlyEvent, which throws ApiError with the
+  // right status for not-found/ownership-mismatch cases.
+  fastify.post('/api/calendly/:meetingId/lead', { preHandler: [authenticateCalendlyKey, requireWhatsapp] }, async (request, reply) => {
     try {
       const { event_uri: eventUri, invitee_uri: inviteeUri } = request.body || {};
       if (!eventUri || !inviteeUri) return reply.code(400).send({ error: 'event_uri and invitee_uri are required' });
 
       const { userDir, token } = request.user;
-      const config = await calendlyService.readConfig(userDir, token);
-
-      const event = await calendlyService.fetchEventDetails(userDir, token, eventUri);
-      // Ownership pinning: never trust event_uri/invitee_uri as authorization
-      // on their own — confirm this event actually belongs to the connected
-      // Calendly account before doing anything else with it.
-      const belongsToUser = (event.event_memberships || []).some(m => m.user === config.calendlyUserUri);
-      if (!belongsToUser) return reply.code(403).send({ error: 'Event does not belong to the connected Calendly account' });
-
-      const meeting = calendlyService.findMeetingByEventTypeUri(config.meetings, event.event_type);
-      if (!meeting) return reply.code(404).send({ error: 'No meeting configured for this event type' });
-
-      const invitee = await calendlyService.fetchInviteeDetails(userDir, token, inviteeUri);
-      const { phone, phoneSource } = calendlyService.extractPhone(invitee, meeting.phoneQuestionName);
-
-      const leadData = {
-        userDir,
-        name: invitee.name,
-        email: invitee.email,
-        phone: phone ? calendlyService.normalizePhone(phone) : null,
-        source: 'calendly',
-        calendly: {
-          eventUri, inviteeUri, eventTypeUri: event.event_type,
-          eventName: event.name, eventStartTime: event.start_time, eventEndTime: event.end_time,
-          phoneSource
-        }
-      };
-
-      if (!leadData.phone) {
-        leadData.status = 'no_phone';
-        await leadsService.upsertLead(leadData);
-        return { success: true, status: 'no_phone' };
-      }
-
-      const message = calendlyService.resolveMessageTemplate(meeting.messageTemplate, {
-        name: invitee.name, eventName: event.name, eventStartTime: event.start_time
-      });
-
-      try {
-        await mudslideService.sendMessage(userDir, token, leadData.phone, message);
-        leadData.status = 'sent';
-        leadData.messageSent = message;
-      } catch (sendError) {
-        leadData.status = 'failed';
-        leadData.sendError = sendError.message;
-      }
-
-      await leadsService.upsertLead(leadData);
-      return { success: true, status: leadData.status };
+      const result = await leadsService.createLeadFromCalendlyEvent(userDir, token, request.params.meetingId, eventUri, inviteeUri);
+      return { success: true, status: result.status };
     } catch (error) {
+      if (error.statusCode) return reply.code(error.statusCode).send({ error: error.message });
       fastify.log.error(error);
       return reply.code(500).send({ error: 'Failed to process Calendly booking' });
     }

@@ -199,10 +199,6 @@ async function deleteMeeting(userDir, token, meetingId) {
   await writeConfig(userDir, token, config);
 }
 
-function findMeetingByEventTypeUri(meetings, eventTypeUri) {
-  return Object.values(meetings || {}).find(m => m.eventTypeUri === eventTypeUri) || null;
-}
-
 function resolveMessageTemplate(template, { name, eventName, eventStartTime }) {
   return template
     .replace(/{{\s*name\s*}}/gi, name || '')
@@ -227,16 +223,33 @@ function normalizePhone(phone) {
   return phone.replace(/[\s\-()]/g, '');
 }
 
-// The one-line embed: <script src="/api/calendly/code?token=..."></script>.
-// Listens for Calendly's postMessage event and relays it to /api/calendly.
-function buildCalendlyEmbedScript(calendlyKey, apiBase = '') {
+// Fetches the invitee and resolves their phone number in one call — the only
+// way callers outside this module need invitee data, so extractPhone/
+// normalizePhone/fetchInviteeDetails stay internal rather than each being a
+// separate exported step.
+async function getUserPhoneFromEvent(userDir, token, inviteeUri, phoneQuestionName) {
+  const invitee = await fetchInviteeDetails(userDir, token, inviteeUri);
+  const { phone, phoneSource } = extractPhone(invitee, phoneQuestionName);
+  return {
+    name: invitee.name,
+    email: invitee.email,
+    phone: phone ? normalizePhone(phone) : null,
+    phoneSource
+  };
+}
+
+// The one-line embed, scoped to one configured meeting:
+// <script src="/api/calendly/code?token=...&meetingId=..."></script>
+// Listens for Calendly's postMessage event and relays it to
+// /api/calendly/<meetingId>/lead.
+function buildCalendlyEmbedScript(calendlyKey, meetingId, apiBase = '') {
   return `(function(){
   function isCalendlyEvent(e) {
     return e.origin === "https://calendly.com" && e.data && e.data.event && e.data.event.indexOf("calendly.") === 0;
   }
   window.addEventListener("message", function(e) {
     if (!isCalendlyEvent(e) || e.data.event !== "calendly.event_scheduled") return;
-    fetch("${apiBase}/api/calendly", {
+    fetch("${apiBase}/api/calendly/${meetingId}/lead", {
       method: "POST",
       headers: { "x-calendly-key": "${calendlyKey}", "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -255,12 +268,9 @@ module.exports = {
   completeConnection,
   disconnect,
   fetchEventDetails,
-  fetchInviteeDetails,
   upsertMeeting,
   deleteMeeting,
-  findMeetingByEventTypeUri,
   resolveMessageTemplate,
-  extractPhone,
-  normalizePhone,
+  getUserPhoneFromEvent,
   buildCalendlyEmbedScript
 };
