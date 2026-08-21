@@ -5,7 +5,6 @@ const usageService = require('../services/usageService');
 const scheduleService = require('../services/scheduleService');
 const faqService = require('../services/faqService');
 const calendlyService = require('../services/calendlyService');
-const leadsService = require('../services/leadsService');
 const countries = require('../services/countries.json');
 
 async function routes(fastify, options) {
@@ -493,15 +492,15 @@ async function routes(fastify, options) {
 
   // Thin by design — all booking→lead logic (ownership check, meeting
   // match, phone resolution, send, store) lives in
-  // leadsService.createLeadFromCalendlyEvent, which throws ApiError with the
-  // right status for not-found/ownership-mismatch cases.
+  // calendlyService.createLeadFromCalendlyEvent, which throws ApiError with
+  // the right status for not-found/ownership-mismatch cases.
   fastify.post('/api/calendly/:meetingId/lead', { preHandler: [authenticateCalendlyKey, requireWhatsapp] }, async (request, reply) => {
     try {
       const { event_uri: eventUri, invitee_uri: inviteeUri } = request.body || {};
       if (!eventUri || !inviteeUri) return reply.code(400).send({ error: 'event_uri and invitee_uri are required' });
 
       const { userDir, token } = request.user;
-      const result = await leadsService.createLeadFromCalendlyEvent(userDir, token, request.params.meetingId, eventUri, inviteeUri);
+      const result = await calendlyService.createLeadFromCalendlyEvent(userDir, token, request.params.meetingId, eventUri, inviteeUri);
       return { success: true, status: result.status };
     } catch (error) {
       if (error.statusCode) return reply.code(error.statusCode).send({ error: error.message });
