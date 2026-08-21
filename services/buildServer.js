@@ -8,7 +8,21 @@ function buildServer() {
   const localCertPath = path.join(__dirname, '..', 'certs', 'localhost.pem');
   const localKeyPath = path.join(__dirname, '..', 'certs', 'localhost-key.pem');
 
-  if (baseUrl.startsWith('https://')) {
+  if (fs.existsSync(localCertPath) && fs.existsSync(localKeyPath)) {
+    // Local dev HTTPS via mkcert (`mkcert -cert-file certs/localhost.pem
+    // -key-file certs/localhost-key.pem localhost 127.0.0.1 ::1`). Needed
+    // because things like Cloudflare Turnstile assume a secure context and
+    // misbehave (failed postMessage, broken cookie handling) on plain
+    // http://localhost. Checked first (regardless of BASE_URL) since these
+    // certs only ever exist on a dev machine (gitignored) — a BASE_URL of
+    // https://localhost for local dev would otherwise fall into the
+    // Let's Encrypt branch below and silently drop to plain HTTP, since
+    // /etc/letsencrypt never has a "localhost" domain on it.
+    fastifyOptions.https = {
+      key: fs.readFileSync(localKeyPath),
+      cert: fs.readFileSync(localCertPath)
+    };
+  } else if (baseUrl.startsWith('https://')) {
     try {
       const domain = new URL(baseUrl).hostname;
       fastifyOptions.https = {
@@ -18,16 +32,6 @@ function buildServer() {
     } catch (e) {
       console.error('[WARN] SSL cert not found — starting without HTTPS. Run certbot to obtain a certificate.');
     }
-  } else if (fs.existsSync(localCertPath) && fs.existsSync(localKeyPath)) {
-    // Local dev HTTPS via mkcert (`mkcert -cert-file certs/localhost.pem
-    // -key-file certs/localhost-key.pem localhost 127.0.0.1 ::1`). Needed
-    // because things like Cloudflare Turnstile assume a secure context and
-    // misbehave (failed postMessage, broken cookie handling) on plain
-    // http://localhost.
-    fastifyOptions.https = {
-      key: fs.readFileSync(localKeyPath),
-      cert: fs.readFileSync(localCertPath)
-    };
   }
 
   const fastify = require('fastify')(fastifyOptions);

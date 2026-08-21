@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "prestart": "npm run build",
     "start": "node server.js",
+    "build": "node scripts/build-pages.js",
     "test": "node test/flow.test.js && jest",
     "test-mudslide-proxy": "node scripts/test-mudslide-proxy.js"
   },

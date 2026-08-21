@@ -1,67 +1,5 @@
-<!doctype html>
-
-<html class="light" lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title>WatoBot | Calendly</title>
-    <!-- Google Fonts -->
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700;800&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
-      rel="stylesheet"
-    />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
-      rel="stylesheet"
-    />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;family=Plus+Jakarta+Sans:wght@100..900&amp;display=swap"
-      rel="stylesheet"
-    />
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <!-- Style Guidance Implementation -->
-    <script src="/assets/theme.js"></script>
-    <link rel="stylesheet" href="/assets/theme.css" />
-  </head>
-  <body class="bg-surface text-on-surface font-body-md overflow-hidden">
-    <!-- Top Navigation -->
-    <header
-      class="flex justify-between items-center w-full px-gutter py-2 sticky top-0 z-50 bg-surface dark:bg-inverse-surface border-b border-outline-variant dark:border-on-surface-variant shadow-sm h-16"
-    >
-      <div class="flex items-center gap-4">
-        <span class="font-headline-md text-headline-md font-bold"
-          ><span class="text-primary">Wato</span
-          ><span class="text-on-surface">Bot</span></span
-        >
-      </div>
-      <div class="flex items-center gap-4">
-        <button
-          onclick="openSupport()"
-          class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors"
-        >
-          Support
-        </button>
-        <button
-          id="logout-btn"
-          class="flex items-center gap-2 text-error hover:bg-error/10 px-3 py-2 rounded-xl transition-all font-label-md"
-        >
-          <span class="material-symbols-outlined text-[20px]">logout</span>
-          <span class="hidden md:inline">Logout</span>
-        </button>
-      </div>
-    </header>
-    <div class="flex h-[calc(100vh-64px)] overflow-hidden justify-center">
-      <!-- Main Workspace -->
-      <main class="flex-1 overflow-y-auto custom-scrollbar p-6 bg-background">
-        <div class="max-w-6xl mx-auto space-y-stack-gap">
-          <!-- Dashboard section nav -->
-          <nav id="dashboard-nav" class="flex items-center gap-1 flex-wrap">
-            <a href="index.html" data-nav="index" class="px-3 py-1.5 rounded-lg font-label-md text-sm text-on-surface-variant hover:bg-surface-container transition-colors">Overview</a>
-            <a href="schedules.html" data-nav="schedules" class="px-3 py-1.5 rounded-lg font-label-md text-sm text-on-surface-variant hover:bg-surface-container transition-colors">Scheduled Messages</a>
-            <a href="faqs.html" data-nav="faqs" class="px-3 py-1.5 rounded-lg font-label-md text-sm text-on-surface-variant hover:bg-surface-container transition-colors">Group FAQs</a>
-            <a href="calendly.html" data-nav="calendly" class="px-3 py-1.5 rounded-lg font-label-md text-sm text-on-surface-variant hover:bg-surface-container transition-colors">Calendly</a>
-          </nav>
+<!--#var title="WatoBot | Calendly"-->
+<!--#include partial="dashboard-head-nav"-->
 
           <!-- Connect Calendly -->
           <section
@@ -254,52 +192,7 @@
         <script src="/assets/footer.js"></script>
       </main>
     </div>
-    <!-- Support Modal -->
-    <div
-      id="supportModal"
-      class="fixed inset-0 z-[100] hidden flex items-center justify-center px-4"
-    >
-      <div
-        class="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onclick="closeSupport()"
-      ></div>
-      <div
-        class="bg-surface-container-lowest w-full max-w-sm rounded-xl p-8 shadow-xl relative z-10 border border-outline-variant flex flex-col gap-4"
-      >
-        <div class="flex justify-between items-center">
-          <h3 class="font-headline-md text-headline-md text-on-surface">
-            Support
-          </h3>
-          <button
-            onclick="closeSupport()"
-            class="text-on-surface-variant hover:text-error transition-colors"
-          >
-            <span class="material-symbols-outlined">close</span>
-          </button>
-        </div>
-        <p class="text-on-surface-variant font-body-md">
-          Support is available on WhatsApp between
-          <strong class="text-on-surface">9 AM – 7 PM IST</strong> (Mon–Sat).
-        </p>
-        <div id="support-available" class="hidden">
-          <a
-            href="https://wa.me/919538384545"
-            target="_blank"
-            rel="noopener"
-            class="flex items-center justify-center gap-2 bg-primary-container text-on-primary-container font-bold py-3 rounded-xl hover:opacity-90 transition-all w-full"
-          >
-            <span class="material-symbols-outlined text-[20px]">chat</span>
-            Contact Dev on WhatsApp
-          </a>
-        </div>
-        <div id="support-unavailable" class="hidden">
-          <p class="text-on-surface-variant font-body-md text-sm text-center">
-            Developer is currently offline. Please try again during support
-            hours.
-          </p>
-        </div>
-      </div>
-    </div>
+<!--#include partial="dashboard-support-modal"-->
     <!-- Backend Integration Script -->
     <script>
       // Same origin locally (server.js serves public/ + /api together);
@@ -810,29 +703,6 @@
     </script>
 
     <!-- Logout modal -->
-    <div
-      id="logoutModal"
-      class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
-    >
-      <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
-        <h2
-          id="logoutModalTitle"
-          class="font-headline-md text-headline-md text-on-surface"
-        ></h2>
-        <div id="logoutModalBody"></div>
-        <div class="flex gap-3 justify-end pt-2">
-          <button
-            id="logoutModalCancel"
-            class="px-4 py-2 rounded-xl border border-outline-variant text-on-surface-variant font-label-md hover:bg-surface-container transition"
-          >
-            Cancel
-          </button>
-          <button
-            id="logoutModalConfirm"
-            class="px-4 py-2 rounded-xl bg-error text-white font-label-md hover:bg-error/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          ></button>
-        </div>
-      </div>
-    </div>
+<!--#include partial="dashboard-logout-modal"-->
   </body>
 </html>
