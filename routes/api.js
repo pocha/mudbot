@@ -424,7 +424,15 @@ async function routes(fastify, options) {
       if (!code || !pending) return reply.code(400).send({ error: 'Calendly connection expired, please try again' });
 
       await calendlyService.completeConnection(pending.userDir, pending.token, code);
-      return reply.redirect('/dashboard/calendly.html?connected=1');
+      // Mirrors dashboard-calendly.html's own API_BASE domain check: locally
+      // this Fastify server also serves public/ (same origin), but in
+      // production the frontend is a separate GitHub Pages origin
+      // (watobot.xyz) from this API server (api.watobot.xyz) — a relative
+      // redirect would otherwise resolve against the wrong one.
+      const host = request.headers.host || '';
+      const isLocal = host.startsWith('localhost') || host.startsWith('127.0.0.1');
+      const frontendBase = isLocal ? '' : 'https://watobot.xyz';
+      return reply.redirect(`${frontendBase}/dashboard/calendly.html?connected=1`);
     } catch (error) {
       fastify.log.error(error);
       return reply.code(500).send({ error: 'Calendly connection failed' });
