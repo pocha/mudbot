@@ -30,3 +30,67 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* Semantic aliases for the most-repeated Tailwind utility combos across the
+   dashboard/marketing page templates (views/) — collapses e.g.
+   `class="bg-surface-container-lowest rounded-xl border border-outline-variant
+   shadow-sm overflow-hidden flex flex-col"` into `class="card"`. Values are
+   hand-copied from the color/type tokens in theme.js, since the Tailwind CDN
+   build doesn't support @apply. Deliberately does NOT cover any combo that
+   includes a utility class toggled dynamically via classList (e.g. `hidden`,
+   `text-on-surface-variant` on nav links) — those must stay as literal
+   Tailwind classes for JS to find. */
+
+.card {
+  background-color: #ffffff; /* surface-container-lowest */
+  border-radius: 0.5rem; /* rounded-xl */
+  border: 1px solid #bbcbb9; /* outline-variant */
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); /* shadow-sm */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.section-title {
+  font-family: 'Plus Jakarta Sans', sans-serif; /* font-headline-md */
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600; /* text-headline-md */
+}
+
+.label-strong {
+  font-family: 'Inter', sans-serif; /* font-label-md */
+  font-size: 13px;
+  line-height: 18px;
+  letter-spacing: 0.05em;
+  font-weight: 700; /* font-bold overrides the label-md preset's 600 */
+  color: #191c1e; /* on-surface */
+}
+
+.label-muted {
+  font-family: 'Inter', sans-serif; /* font-label-md */
+  font-size: 13px;
+  line-height: 18px;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  color: #3c4a3d; /* on-surface-variant */
+}
+
+.text-muted {
+  color: #3c4a3d; /* on-surface-variant */
+  font-family: 'Inter', sans-serif; /* font-body-md */
+}
+
+.text-muted-sm {
+  color: #3c4a3d; /* on-surface-variant */
+  font-family: 'Inter', sans-serif; /* font-body-md */
+  font-size: 0.875rem; /* text-sm */
+  line-height: 1.25rem;
+}
+
+.text-body-muted {
+  color: #3c4a3d; /* on-surface-variant */
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400; /* text-body-md */
+}

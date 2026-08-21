@@ -8,15 +8,20 @@ function buildServer() {
   const localCertPath = path.join(__dirname, '..', 'certs', 'localhost.pem');
   const localKeyPath = path.join(__dirname, '..', 'certs', 'localhost-key.pem');
 
-  if (fs.existsSync(localCertPath) && fs.existsSync(localKeyPath)) {
+  if (baseUrl.startsWith('http://')) {
+    // Explicit plain-HTTP request (e.g. the test harness spawns the server
+    // with BASE_URL=http://localhost so it can talk to it without dealing
+    // with a self-signed cert) — skip all HTTPS logic entirely, even if
+    // local mkcert certs happen to exist on this machine.
+  } else if (fs.existsSync(localCertPath) && fs.existsSync(localKeyPath)) {
     // Local dev HTTPS via mkcert (`mkcert -cert-file certs/localhost.pem
     // -key-file certs/localhost-key.pem localhost 127.0.0.1 ::1`). Needed
     // because things like Cloudflare Turnstile assume a secure context and
     // misbehave (failed postMessage, broken cookie handling) on plain
-    // http://localhost. Checked first (regardless of BASE_URL) since these
-    // certs only ever exist on a dev machine (gitignored) — a BASE_URL of
-    // https://localhost for local dev would otherwise fall into the
-    // Let's Encrypt branch below and silently drop to plain HTTP, since
+    // http://localhost. Checked before the Let's Encrypt branch below since
+    // these certs only ever exist on a dev machine (gitignored) — a
+    // BASE_URL of https://localhost for local dev would otherwise fall into
+    // the Let's Encrypt branch and silently drop to plain HTTP, since
     // /etc/letsencrypt never has a "localhost" domain on it.
     fastifyOptions.https = {
       key: fs.readFileSync(localKeyPath),

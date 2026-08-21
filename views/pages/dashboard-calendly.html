@@ -16,7 +16,7 @@
               <div class="space-y-1">
                 <div class="flex items-center gap-2">
                   <span class="material-symbols-outlined text-primary" style="font-variation-settings:'FILL' 1;">event_available</span>
-                  <h3 class="font-headline-md text-headline-md">Connect Calendly</h3>
+                  <h3 class="section-title">Connect Calendly</h3>
                 </div>
                 <p class="text-on-surface-variant text-body-md max-w-xl">
                   Connect your Calendly account so bookings on your event types can
@@ -42,7 +42,7 @@
                 >
                 <div>
                   <h3 class="font-headline-md text-headline-md text-primary">Calendly Connected</h3>
-                  <p class="text-on-surface-variant text-body-md">
+                  <p class="text-body-muted">
                     Bookings on configured event types will trigger a WhatsApp message.
                   </p>
                 </div>
@@ -60,11 +60,11 @@
           <div id="calendly-connected-only" class="hidden space-y-stack-gap">
             <!-- Meeting configuration -->
             <section
-              class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden flex flex-col"
+              class="card"
             >
               <div class="p-6 border-b border-outline-variant">
-                <h3 class="font-headline-md text-headline-md" id="meeting-form-title">Add Meeting</h3>
-                <p class="text-on-surface-variant text-body-md">
+                <h3 class="section-title" id="meeting-form-title">Add Meeting</h3>
+                <p class="text-body-muted">
                   Map one Calendly event type to a WhatsApp message template.
                 </p>
               </div>
@@ -72,7 +72,7 @@
                 <div class="whatsapp-border bg-surface-container-low p-5 rounded-xl space-y-4">
                   <input type="hidden" id="meeting-id" />
                   <div class="space-y-2">
-                    <label class="font-label-md text-on-surface-variant">Event Type URL / URI</label>
+                    <label class="label-muted">Event Type URL / URI</label>
                     <input
                       id="meeting-event-type-uri"
                       class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
@@ -85,7 +85,7 @@
                     </p>
                   </div>
                   <div class="space-y-2">
-                    <label class="font-label-md text-on-surface-variant">Event Type Name</label>
+                    <label class="label-muted">Event Type Name</label>
                     <input
                       id="meeting-event-type-name"
                       class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
@@ -95,7 +95,7 @@
                     />
                   </div>
                   <div class="space-y-2">
-                    <label class="font-label-md text-on-surface-variant">Message Template</label>
+                    <label class="label-muted">Message Template</label>
                     <textarea
                       id="meeting-message-template"
                       class="w-full px-4 py-3 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all resize-none"
@@ -109,7 +109,7 @@
                     </p>
                   </div>
                   <div class="space-y-2">
-                    <label class="font-label-md text-on-surface-variant">Phone Question Name</label>
+                    <label class="label-muted">Phone Question Name</label>
                     <input
                       id="meeting-phone-question-name"
                       class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
@@ -141,7 +141,7 @@
               </div>
               <div class="border-t border-outline-variant">
                 <div class="p-6 pb-3">
-                  <h4 class="font-label-md font-bold text-on-surface">Configured Meetings</h4>
+                  <h4 class="label-strong">Configured Meetings</h4>
                 </div>
                 <div id="meetings-empty" class="hidden px-6 pb-6 text-center text-on-surface-variant opacity-50 italic text-body-md">
                   No meetings configured yet. Add one above.
@@ -152,11 +152,11 @@
 
             <!-- Leads table -->
             <section
-              class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden flex flex-col"
+              class="card"
             >
               <div class="p-6 border-b border-outline-variant">
-                <h3 class="font-headline-md text-headline-md">Leads</h3>
-                <p class="text-on-surface-variant text-body-md">
+                <h3 class="section-title">Leads</h3>
+                <p class="text-body-muted">
                   People who booked through a configured Calendly event type.
                 </p>
               </div>

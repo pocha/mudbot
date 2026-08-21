@@ -126,6 +126,11 @@ before(async () => {
     env: {
       ...process.env,
       PORT: String(TEST_PORT),
+      // Explicit, not inherited from .env — this test talks to the server
+      // over plain HTTP (see BASE_URL/get()/post() above), so the server
+      // must not switch on HTTPS (via mkcert or otherwise) regardless of
+      // what BASE_URL happens to be set to outside this test process.
+      BASE_URL: `http://localhost:${TEST_PORT}`,
       SMTP_HOST: 'localhost',
       SMTP_PORT: String(MAILDEV_SMTP_PORT),
       SMTP_SECURE: 'false',
