@@ -12,6 +12,8 @@ Watobot links to your existing WhatsApp account the same way WhatsApp Web does (
 ## Free tools
 
 - [WhatsApp Group FAQ Generator](https://watobot.xyz/whatsapp-group-faq/): upload a WhatsApp group chat export and get an AI-generated, editable, publishable public FAQ page in minutes — no signup required to try it
+- [Scheduled & Recurring WhatsApp Messages](https://watobot.xyz/free-whatsapp-recurring-messages.html): schedule one-time or recurring (daily/weekly/monthly) WhatsApp messages to a contact or group
+- [Calendly WhatsApp Integration](https://watobot.xyz/free-calendly-whatsapp-integration.html): connect Calendly and automatically send a WhatsApp message to every person who books a meeting — works on Calendly's free plan, unlike Zapier/Integrately/Pabbly which require Calendly's paid Standard plan for their webhook-based triggers
 
 ## Source
 

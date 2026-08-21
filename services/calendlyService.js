@@ -250,15 +250,12 @@ function buildCalendlyEmbedScript(calendlyKey, apiBase = '') {
 
 module.exports = {
   readConfig,
-  writeConfig,
   getAuthorizeUrl,
   consumePendingConnect,
   completeConnection,
   disconnect,
-  getValidAccessToken,
   fetchEventDetails,
   fetchInviteeDetails,
-  listMeetings,
   upsertMeeting,
   deleteMeeting,
   findMeetingByEventTypeUri,
