@@ -2,6 +2,7 @@ node_modules/
 .env
 .env.*
 !.env.*.example
+!functions/.env.example
 users/.proxy_port_counter
 scripts/.mudslide-test-cache/
 users/**/.mudslide

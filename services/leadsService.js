@@ -1,39 +1,18 @@
-const Lead = require('../models/lead');
 const calendlyService = require('./calendlyService');
 const mudslideService = require('./mudslideService');
 const ApiError = require('./apiError');
 
-async function listLeads(userDir, opts) {
-  return Lead.list(userDir, opts);
-}
-
-// For leads added by hand from the dashboard, not captured via an
-// integration — no automatic message send, just a record to track/edit like
-// any other lead.
-async function createManualLead(userDir, { name, email, phone, notes }) {
-  const lead = Lead.new({ userDir, name, email, phone, source: 'manual', sourceData: null, status: 'pending', notes });
-  await lead.save();
-  return lead;
-}
-
-async function updateLead(userDir, leadId, patch) {
-  const lead = await Lead.findByIdForUser(userDir, leadId);
-  if (!lead) return null;
-  return lead.updateNotes(patch.notes);
-}
-
-async function deleteLead(userDir, leadId) {
-  const lead = await Lead.findByIdForUser(userDir, leadId);
-  if (!lead) return false;
-  await lead.delete();
-  return true;
-}
+const CREATE_LEAD_FUNCTION_URL = 'https://asia-south1-wato-bot.cloudfunctions.net/createLead';
 
 // Orchestrates a booking → lead: validates the event belongs to the
 // connected account and matches the given meeting, resolves the invitee's
-// phone, sends the WhatsApp message, and stores the resulting lead. Throws
-// ApiError with the right status for the route to surface directly (not
-// found / ownership mismatch), rather than the route hand-rolling each check.
+// phone, sends the WhatsApp message, and stores the resulting lead (via the
+// createLead Cloud Function — see functions/index.js; this is the one path
+// with no legitimate user browser in the request, so it can't go through
+// the frontend's own Security-Rules-checked Firestore writes like every
+// other lead-management action now does). Throws ApiError with the right
+// status for the route to surface directly (not found / ownership
+// mismatch), rather than the route hand-rolling each check.
 async function createLeadFromCalendlyEvent(userDir, token, meetingId, eventUri, inviteeUri) {
   const config = await calendlyService.readConfig(userDir, token);
   if (!config.connected) throw new ApiError(404, 'Calendly not connected');
@@ -63,8 +42,7 @@ async function createLeadFromCalendlyEvent(userDir, token, meetingId, eventUri, 
   };
 
   if (!phone) {
-    const lead = Lead.new({ userDir, name, email, phone: null, source: 'calendly', sourceData, status: 'no_phone' });
-    await lead.save();
+    await postLead({ userDir, name, email, phone: null, source: 'calendly', calendly: sourceData, status: 'no_phone' });
     return { status: 'no_phone' };
   }
 
@@ -82,9 +60,21 @@ async function createLeadFromCalendlyEvent(userDir, token, meetingId, eventUri, 
     sendError = err.message;
   }
 
-  const lead = Lead.new({ userDir, name, email, phone, source: 'calendly', sourceData, status, messageSent, sendError });
-  await lead.save();
+  await postLead({ userDir, name, email, phone, source: 'calendly', calendly: sourceData, status, messageSent, sendError });
   return { status };
 }
 
-module.exports = { listLeads, updateLead, deleteLead, createLeadFromCalendlyEvent, createManualLead };
+async function postLead(leadData) {
+  const res = await fetch(CREATE_LEAD_FUNCTION_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(leadData)
+  });
+  if (!res.ok) {
+    // Don't fail the whole webhook response over a lead-storage hiccup — the
+    // WhatsApp message (the part the user actually notices) already sent.
+    console.error(`createLead call failed: ${res.status}`);
+  }
+}
+
+module.exports = { createLeadFromCalendlyEvent };

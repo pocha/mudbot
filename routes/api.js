@@ -510,49 +510,55 @@ async function routes(fastify, options) {
     }
   });
 
-  fastify.post('/api/leads', { preHandler: authenticateUser }, async (request, reply) => {
-    try {
-      const { name, email, phone, notes } = request.body || {};
-      if (!email && !phone) return reply.code(400).send({ error: 'email or phone is required' });
+  const MINT_TOKEN_FUNCTION_URL = 'https://asia-south1-wato-bot.cloudfunctions.net/mintFirebaseToken';
 
-      const lead = await leadsService.createManualLead(request.user.userDir, { name, email, phone, notes });
-      return { success: true, lead };
+  // Leads (listing, editing, deleting, manual creation) are handled directly
+  // by the dashboard frontend against Firestore, authenticated with the
+  // token this route hands back — see views/pages/dashboard-calendly.html
+  // and firestore.rules. This route is the ONLY place that check happens:
+  // authenticateUser has already run userService.verifyToken (the real
+  // check — it's the sole place with access to the per-user token_hash
+  // files that make it possible) before we ever call mintFirebaseToken.
+  // That Function itself performs no verification of its own — it can't,
+  // it has no access to those files — it just signs whatever (token,
+  // userDir) pair it's handed. Calling it directly (bypassing this route)
+  // would skip the only real check in the whole flow; it's only safe here
+  // because this route is IP-allowlisted as the sole caller (see
+  // functions/index.js: isAllowedVmCaller) and always calls it *after*,
+  // never before, verification succeeds.
+  fastify.get('/api/firebase-token', { preHandler: authenticateUser }, async (request, reply) => {
+    try {
+      const { token, userDir } = request.user;
+      const res = await fetch(MINT_TOKEN_FUNCTION_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, userDir })
+      });
+      if (!res.ok) return reply.code(502).send({ error: 'Failed to mint Firebase token' });
+      const { firebaseToken } = await res.json();
+      return { firebaseToken, userDir };
     } catch (error) {
       fastify.log.error(error);
-      return reply.code(500).send({ error: 'Failed to create lead' });
+      return reply.code(500).send({ error: 'Failed to mint Firebase token' });
     }
   });
 
-  fastify.get('/api/leads', { preHandler: authenticateUser }, async (request, reply) => {
+  // The one lead-related action that must stay server-side regardless —
+  // actually sending a WhatsApp message requires mudslideService, which
+  // Firestore/the frontend has no access to. The frontend updates the
+  // lead's status/messageSent itself afterward, since it already has write
+  // access to its own leads.
+  fastify.post('/api/leads/send', { preHandler: [authenticateUser, requireWhatsapp] }, async (request, reply) => {
     try {
-      const limit = parseInt(request.query.limit) || 50;
-      const leads = await leadsService.listLeads(request.user.userDir, { limit, cursor: request.query.cursor });
-      return { leads };
-    } catch (error) {
-      fastify.log.error(error);
-      return reply.code(500).send({ error: 'Failed to get leads' });
-    }
-  });
+      const { phone, message } = request.body || {};
+      if (!phone || !message) return reply.code(400).send({ error: 'phone and message are required' });
 
-  fastify.patch('/api/leads/:id', { preHandler: authenticateUser }, async (request, reply) => {
-    try {
-      const lead = await leadsService.updateLead(request.user.userDir, request.params.id, { notes: request.body?.notes });
-      if (!lead) return reply.code(404).send({ error: 'Lead not found' });
-      return { success: true, lead };
-    } catch (error) {
-      fastify.log.error(error);
-      return reply.code(500).send({ error: 'Failed to update lead' });
-    }
-  });
-
-  fastify.delete('/api/leads/:id', { preHandler: authenticateUser }, async (request, reply) => {
-    try {
-      const deleted = await leadsService.deleteLead(request.user.userDir, request.params.id);
-      if (!deleted) return reply.code(404).send({ error: 'Lead not found' });
+      const { userDir, token } = request.user;
+      await mudslideService.sendMessage(userDir, token, phone, message);
       return { success: true };
     } catch (error) {
       fastify.log.error(error);
-      return reply.code(500).send({ error: 'Failed to delete lead' });
+      return reply.code(500).send({ error: 'Failed to send message' });
     }
   });
 }

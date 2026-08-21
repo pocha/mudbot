@@ -1,14 +1,9 @@
 const path = require('path');
 const fs = require('fs').promises;
 
-const { createFakeFirestore } = require('./helpers/fakeFirestore');
-
-const mockFakeDb = createFakeFirestore();
-jest.mock('../services/firestore', () => ({
-  getDb: jest.fn(() => mockFakeDb)
-}));
-
 jest.mock('../services/mudslideService');
+
+const CREATE_LEAD_FUNCTION_URL = 'https://asia-south1-wato-bot.cloudfunctions.net/createLead';
 
 const buildServer = require('../services/buildServer');
 const userService = require('../services/userService');
@@ -46,8 +41,11 @@ function jsonResponse(body) {
   return { ok: true, status: 200, json: async () => body };
 }
 
+let createLeadCalls = [];
+
 function setupFetchMock() {
-  global.fetch = jest.fn(async (url) => {
+  createLeadCalls = [];
+  global.fetch = jest.fn(async (url, opts) => {
     const urlStr = String(url);
 
     if (urlStr.startsWith(`${CALENDLY_AUTH_BASE_URL}/oauth/token`)) {
@@ -61,6 +59,10 @@ function setupFetchMock() {
     }
     if (urlStr === INVITEE_URI) {
       return jsonResponse({ resource: inviteeWithPhone });
+    }
+    if (urlStr === CREATE_LEAD_FUNCTION_URL) {
+      createLeadCalls.push(JSON.parse(opts.body));
+      return jsonResponse({ success: true, id: 'fake-lead-id' });
     }
 
     throw new Error(`Unexpected fetch call in test: ${urlStr}`);
@@ -176,6 +178,15 @@ describe('Calendly integration (happy paths)', () => {
     expect(calledTo).toBe('+919538384545');
     expect(calledMessage).toContain('Jane Doe');
     expect(calledMessage).not.toContain('{{');
+
+    // createLead (functions/index.js) is a separate deploy target with its
+    // own responsibility for actually writing to Firestore — this only
+    // verifies the VM posts it the right payload, not that a doc landed.
+    expect(createLeadCalls).toHaveLength(1);
+    expect(createLeadCalls[0]).toMatchObject({
+      userDir, name: 'Jane Doe', email: 'jane@example.com', phone: '+919538384545',
+      source: 'calendly', status: 'sent'
+    });
   });
 
   test('GET /api/calendly/code returns the embed script for a connected meeting', async () => {
