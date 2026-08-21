@@ -2,6 +2,7 @@ node_modules/
 package-lock.json
 .env
 .env.*
+!.env.*.example
 users/.proxy_port_counter
 scripts/.mudslide-test-cache/
 users/**/.mudslide
@@ -14,3 +15,12 @@ public/.DS_Store
 firebase-debug.log
 functions/*.json
 certs/
+
+# Generated from views/pages/*.html by scripts/build-pages.js (npm run build).
+# views/ is the tracked source of truth for these pages.
+public/dashboard/index.html
+public/dashboard/schedules.html
+public/dashboard/faqs.html
+public/dashboard/calendly.html
+public/free-whatsapp-recurring-messages.html
+public/free-calendly-whatsapp-integration.html

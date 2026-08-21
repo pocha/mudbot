@@ -1,60 +1,5 @@
-<!doctype html>
-
-<html class="light" lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title>WatoBot | Dashboard</title>
-    <!-- Google Fonts -->
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700;800&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
-      rel="stylesheet"
-    />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
-      rel="stylesheet"
-    />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;family=Plus+Jakarta+Sans:wght@100..900&amp;display=swap"
-      rel="stylesheet"
-    />
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <!-- Style Guidance Implementation -->
-    <script src="/assets/theme.js"></script>
-    <link rel="stylesheet" href="/assets/theme.css" />
-  </head>
-  <body class="bg-surface text-on-surface font-body-md overflow-hidden">
-    <!-- Top Navigation -->
-    <header
-      class="flex justify-between items-center w-full px-gutter py-2 sticky top-0 z-50 bg-surface dark:bg-inverse-surface border-b border-outline-variant dark:border-on-surface-variant shadow-sm h-16"
-    >
-      <div class="flex items-center gap-4">
-        <span class="font-headline-md text-headline-md font-bold"
-          ><span class="text-primary">Wato</span
-          ><span class="text-on-surface">Bot</span></span
-        >
-      </div>
-      <div class="flex items-center gap-4">
-        <button
-          onclick="openSupport()"
-          class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors"
-        >
-          Support
-        </button>
-        <button
-          id="logout-btn"
-          class="flex items-center gap-2 text-error hover:bg-error/10 px-3 py-2 rounded-xl transition-all font-label-md"
-        >
-          <span class="material-symbols-outlined text-[20px]">logout</span>
-          <span class="hidden md:inline">Logout</span>
-        </button>
-      </div>
-    </header>
-    <div class="flex h-[calc(100vh-64px)] overflow-hidden justify-center">
-      <!-- Main Workspace -->
-      <main class="flex-1 overflow-y-auto custom-scrollbar p-6 bg-background">
-        <div class="max-w-6xl mx-auto space-y-stack-gap">
+<!--#var title="WatoBot | Dashboard"-->
+<!--#include partial="dashboard-head-nav"-->
           <!-- WhatsApp Interaction Stats -->
           <section
             class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant shadow-sm"
@@ -75,14 +20,14 @@
             <div class="flex items-center justify-between mb-5 flex-wrap gap-2">
               <div class="flex items-center gap-2">
                 <span class="material-symbols-outlined text-primary" style="font-variation-settings:'FILL' 1;">insights</span>
-                <h2 class="font-headline-md text-headline-md">WhatsApp Interactions</h2>
+                <h2 class="section-title">WhatsApp Interactions</h2>
               </div>
               <div class="text-right">
                 <p class="font-headline-lg text-3xl font-black text-primary">
                   <span id="stats-total">—</span
                   ><span class="hidden text-xl font-bold text-on-surface-variant ml-2" id="stats-total-reconciled"></span>
                 </p>
-                <p class="text-on-surface-variant font-body-md text-sm">Total WhatsApp interactions</p>
+                <p class="text-muted-sm">Total WhatsApp interactions</p>
               </div>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -91,7 +36,7 @@
                 <div class="flex items-center justify-between mb-3">
                   <div class="flex items-center gap-2">
                     <span class="material-symbols-outlined text-on-surface-variant text-[18px]">today</span>
-                    <p class="font-label-md font-bold text-on-surface">Day</p>
+                    <p class="label-strong">Day</p>
                   </div>
                   <button
                     class="text-on-surface-variant hover:text-primary transition-colors"
@@ -127,7 +72,7 @@
                 <div class="flex items-center justify-between mb-3">
                   <div class="flex items-center gap-2">
                     <span class="material-symbols-outlined text-on-surface-variant text-[18px]">date_range</span>
-                    <p class="font-label-md font-bold text-on-surface">Week</p>
+                    <p class="label-strong">Week</p>
                   </div>
                   <button
                     class="text-on-surface-variant hover:text-primary transition-colors"
@@ -163,7 +108,7 @@
                 <div class="flex items-center justify-between mb-3">
                   <div class="flex items-center gap-2">
                     <span class="material-symbols-outlined text-on-surface-variant text-[18px]">calendar_month</span>
-                    <p class="font-label-md font-bold text-on-surface">Month</p>
+                    <p class="label-strong">Month</p>
                   </div>
                   <button
                     class="text-on-surface-variant hover:text-primary transition-colors"
@@ -233,11 +178,11 @@
                       class="bg-primary text-on-primary w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm"
                       >1</span
                     >
-                    <h3 class="font-headline-md text-headline-md">
+                    <h3 class="section-title">
                       Connect your WhatsApp
                     </h3>
                   </div>
-                  <p class="text-on-surface-variant text-body-md">
+                  <p class="text-body-muted">
                     Scan this QR code with your WhatsApp mobile app to authorize
                     WatoBot and begin automating your messaging workflows.
                   </p>
@@ -346,9 +291,9 @@
                   class="bg-outline text-on-primary w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm"
                   >2</span
                 >
-                <h3 class="font-headline-md text-headline-md">API Access</h3>
+                <h3 class="section-title">API Access</h3>
               </div>
-              <p class="text-on-surface-variant text-body-md">
+              <p class="text-body-muted">
                 Use the API key to send WhatsApp messages from your app or
                 scripts.
               </p>
@@ -417,7 +362,7 @@
                   class="bg-surface-variant p-3 rounded-lg flex items-center justify-between gap-2"
                 >
                   <span
-                    class="text-on-surface-variant font-body-md text-sm"
+                    class="text-muted-sm"
                     id="apikey-expiry-label"
                   ></span>
                   <button
@@ -477,7 +422,7 @@
                   id="apikey-permanent-title"
                   class="text-on-surface font-label-md font-bold text-sm"
                 ></p>
-                <p class="text-on-surface-variant font-body-md text-sm">
+                <p class="text-muted-sm">
                   Click
                   <button
                     type="button"
@@ -520,322 +465,18 @@
               </div>
             </section>
           </div>
-          <!-- Main Automation Area -->
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-stack-gap">
-            <!-- Scheduled Messages Builder -->
-            <section class="lg:col-span-2 space-y-stack-gap">
+          <!-- Logs Section -->
+          <div class="grid grid-cols-1 gap-stack-gap">
+            <section class="space-y-4">
               <div
-                class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden flex flex-col"
-              >
-                <div
-                  class="p-6 border-b border-outline-variant flex justify-between items-center"
-                >
-                  <div>
-                    <h3 class="font-headline-md text-headline-md">
-                      Schedule a Message
-                    </h3>
-                    <p class="text-on-surface-variant text-body-md">
-                      Configure automated messaging triggers
-                    </p>
-                  </div>
-                </div>
-                <div class="p-6 space-y-gutter">
-                  <!-- Form Area -->
-                  <div
-                    class="whatsapp-border bg-surface-container-low p-5 rounded-xl space-y-4"
-                  >
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div class="space-y-2">
-                        <div class="flex items-center gap-1">
-                          <label class="font-label-md text-on-surface-variant"
-                            >Recipient</label
-                          >
-                          <div class="relative group">
-                            <span
-                              class="material-symbols-outlined text-[16px] text-on-surface-variant opacity-50 cursor-default select-none"
-                              >info</span
-                            >
-                            <div
-                              class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-on-surface text-inverse-on-surface text-[12px] leading-relaxed rounded-lg px-3 py-2 shadow-lg hidden group-hover:block z-30 pointer-events-none"
-                            >
-                              Groups are fetched live from WhatsApp each time —
-                              we don't store any of your contacts or group
-                              information. This may take up to a minute via the
-                              residential proxy.
-                              <span
-                                class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-on-surface"
-                              ></span>
-                            </div>
-                          </div>
-                        </div>
-                        <select
-                          id="recipient-type"
-                          class="w-full py-2 px-3 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-                        >
-                          <option value="number" selected>Phone Number</option>
-                          <option value="group">WhatsApp Group</option>
-                        </select>
-                        <input type="hidden" id="recipient-value" />
-                        <!-- Phone number mode (default) -->
-                        <div id="recipient-number-field">
-                          <input
-                            id="recipient-number-input"
-                            class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-                            placeholder="+14155552671 (with country code)"
-                            type="tel"
-                            autocomplete="off"
-                          />
-                        </div>
-                        <!-- Group mode -->
-                        <div id="recipient-group-field" class="hidden">
-                          <div class="relative" id="recipient-combobox">
-                            <span
-                              class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60 z-10"
-                              >search</span
-                            >
-                            <input
-                              id="recipient-input"
-                              class="w-full pl-10 pr-10 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all disabled:opacity-60 disabled:cursor-wait"
-                              placeholder=""
-                              type="text"
-                              autocomplete="off"
-                              disabled
-                            />
-                            <span
-                              id="recipient-spinner"
-                              class="hidden absolute right-3 top-0 bottom-0 flex items-center"
-                              ><span
-                                class="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin block"
-                              ></span
-                            ></span>
-                            <div
-                              id="recipient-dropdown"
-                              class="hidden absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-outline-variant rounded-lg shadow-lg max-h-48 overflow-y-auto"
-                            ></div>
-                          </div>
-                          <p
-                            id="recipient-group-error"
-                            class="hidden text-error font-body-md text-sm mt-1"
-                          >
-                            Error occurred while fetching WhatsApp groups.
-                            Refresh the page and try again.
-                          </p>
-                        </div>
-                      </div>
-                      <div class="space-y-2">
-                        <label class="font-label-md text-on-surface-variant"
-                          >Frequency</label
-                        >
-                        <select
-                          id="frequency-select"
-                          class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all appearance-none"
-                        >
-                          <option>Once</option>
-                          <option>Daily</option>
-                          <option>Weekly</option>
-                          <option>Monthly</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div class="space-y-2">
-                        <label class="font-label-md text-on-surface-variant"
-                          >Date &amp; Time</label
-                        >
-                        <div class="flex gap-2">
-                          <input
-                            id="schedule-date"
-                            class="flex-1 px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 outline-none"
-                            type="date"
-                          />
-                          <input
-                            id="schedule-time"
-                            class="w-32 px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 outline-none"
-                            type="time"
-                          />
-                        </div>
-                      </div>
-                      <div class="space-y-2">
-                        <label class="font-label-md text-on-surface-variant"
-                          >Timezone</label
-                        >
-                        <select
-                          id="schedule-timezone"
-                          class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all appearance-none"
-                        >
-                          <option value="Asia/Kolkata">
-                            Asia/Kolkata — IST (UTC+5:30)
-                          </option>
-                          <option value="Asia/Dubai">
-                            Asia/Dubai — GST (UTC+4)
-                          </option>
-                          <option value="Asia/Singapore">
-                            Asia/Singapore — SGT (UTC+8)
-                          </option>
-                          <option value="Asia/Tokyo">
-                            Asia/Tokyo — JST (UTC+9)
-                          </option>
-                          <option value="Asia/Shanghai">
-                            Asia/Shanghai — CST (UTC+8)
-                          </option>
-                          <option value="Europe/London">
-                            Europe/London — GMT/BST
-                          </option>
-                          <option value="Europe/Paris">
-                            Europe/Paris — CET/CEST
-                          </option>
-                          <option value="America/New_York">
-                            America/New_York — EST/EDT
-                          </option>
-                          <option value="America/Chicago">
-                            America/Chicago — CST/CDT
-                          </option>
-                          <option value="America/Los_Angeles">
-                            America/Los_Angeles — PST/PDT
-                          </option>
-                          <option value="Australia/Sydney">
-                            Australia/Sydney — AEST/AEDT
-                          </option>
-                          <option value="UTC">UTC</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div class="space-y-2">
-                      <label class="font-label-md text-on-surface-variant"
-                        >Message Content</label
-                      >
-                      <textarea
-                        id="schedule-message"
-                        class="w-full px-4 py-3 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all resize-none"
-                        placeholder="Type your message here..."
-                        rows="3"
-                      ></textarea>
-                    </div>
-                    <div class="pt-2 space-y-2">
-                      <div class="flex gap-3">
-                        <button
-                          id="test-send-btn"
-                          class="flex-1 h-[46px] bg-secondary-container text-on-secondary-container rounded-xl font-label-md hover:opacity-90 transition-all flex items-center justify-center gap-2"
-                        >
-                          <span class="material-symbols-outlined text-[20px]"
-                            >send_time_extension</span
-                          >
-                          Test Sending
-                        </button>
-                        <button
-                          id="create-schedule-btn"
-                          class="flex-1 bg-primary text-on-primary py-3 rounded-xl font-label-md flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-md"
-                        >
-                          <span class="material-symbols-outlined"
-                            >add_task</span
-                          >
-                          Create Schedule
-                        </button>
-                      </div>
-                      <button
-                        id="cancel-edit-btn"
-                        onclick="cancelEdit()"
-                        class="hidden w-full text-on-surface-variant border border-outline-variant py-2 rounded-xl font-label-md hover:bg-surface-container transition-all"
-                      >
-                        Cancel Edit
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <!-- Active Schedules Section -->
-              <div
-                class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden flex flex-col"
-              >
-                <div class="p-6 border-b border-outline-variant">
-                  <h3 class="font-headline-md text-headline-md">
-                    Active Schedules
-                  </h3>
-                </div>
-                <div id="schedules-loading" class="p-6 space-y-3">
-                  <div
-                    class="h-4 w-2/3 bg-outline-variant/40 rounded animate-pulse"
-                  ></div>
-                  <div
-                    class="h-4 w-1/2 bg-outline-variant/30 rounded animate-pulse"
-                  ></div>
-                  <div
-                    class="h-4 w-3/4 bg-outline-variant/30 rounded animate-pulse"
-                  ></div>
-                </div>
-                <div
-                  id="schedules-tbody"
-                  class="hidden divide-y divide-outline-variant"
-                ></div>
-                <div
-                  id="schedules-empty"
-                  class="hidden p-6 text-center text-on-surface-variant opacity-50 italic text-body-md"
-                >
-                  <span class="material-symbols-outlined text-4xl mb-2 block"
-                    >event_busy</span
-                  >
-                  No active schedules yet. Use the form above to get started.
-                </div>
-              </div>
-              <!-- WhatsApp Groups (FAQ) Section -->
-              <div
-                class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden flex flex-col"
-              >
-                <div
-                  class="p-6 border-b border-outline-variant flex justify-between items-center"
-                >
-                  <div>
-                    <h3 class="font-headline-md text-headline-md">
-                      WhatsApp Groups
-                    </h3>
-                    <p class="text-on-surface-variant text-body-md">
-                      FAQ pages generated from your WhatsApp groups
-                    </p>
-                  </div>
-                  <a
-                    href="/whatsapp-group-faq"
-                    class="inline-flex items-center gap-1 bg-primary-container text-on-primary-container font-bold text-sm px-3 py-2 rounded-xl hover:opacity-90 transition-all flex-shrink-0"
-                  >
-                    <span class="material-symbols-outlined text-[18px]"
-                      >add</span
-                    >
-                    Add FAQ
-                  </a>
-                </div>
-                <div id="faqs-loading" class="p-6 space-y-3">
-                  <div
-                    class="h-4 w-2/3 bg-outline-variant/40 rounded animate-pulse"
-                  ></div>
-                  <div
-                    class="h-4 w-1/2 bg-outline-variant/30 rounded animate-pulse"
-                  ></div>
-                </div>
-                <div
-                  id="faqs-tbody"
-                  class="hidden divide-y divide-outline-variant"
-                ></div>
-                <div
-                  id="faqs-empty"
-                  class="hidden p-6 text-center text-on-surface-variant opacity-50 italic text-body-md"
-                >
-                  <span class="material-symbols-outlined text-4xl mb-2 block"
-                    >quiz</span
-                  >
-                  No FAQs yet. Create one from a WhatsApp group chat export.
-                </div>
-              </div>
-            </section>
-            <!-- Logs Accordion -->
-            <section class="lg:col-span-1 space-y-4">
-              <div
-                class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden h-full flex flex-col"
+                class="card"
               >
                 <div
                   class="p-6 border-b border-outline-variant flex items-center justify-between"
                 >
                   <div>
-                    <h3 class="font-headline-md text-headline-md">Logs</h3>
-                    <p class="text-on-surface-variant text-body-md">
+                    <h3 class="section-title">Logs</h3>
+                    <p class="text-body-muted">
                       Showing 50 most recent logs
                     </p>
                   </div>
@@ -855,7 +496,7 @@
 
                 <div
                   id="logs-container"
-                  class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-outline-variant"
+                  class="max-h-[28rem] overflow-y-auto custom-scrollbar divide-y divide-outline-variant"
                 >
                   <div id="logs-loading" class="p-6 space-y-3">
                     <div
@@ -873,57 +514,10 @@
             </section>
           </div>
         </div>
-        <!-- Footer: -mx-6 cancels main's own p-6 padding so it spans edge-to-edge -->
-        <div id="site-footer" class="-mx-6 -mb-6"></div>
-        <script src="/assets/footer.js"></script>
+<!--#include partial="dashboard-footer"-->
       </main>
     </div>
-    <!-- Support Modal -->
-    <div
-      id="supportModal"
-      class="fixed inset-0 z-[100] hidden flex items-center justify-center px-4"
-    >
-      <div
-        class="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onclick="closeSupport()"
-      ></div>
-      <div
-        class="bg-surface-container-lowest w-full max-w-sm rounded-xl p-8 shadow-xl relative z-10 border border-outline-variant flex flex-col gap-4"
-      >
-        <div class="flex justify-between items-center">
-          <h3 class="font-headline-md text-headline-md text-on-surface">
-            Support
-          </h3>
-          <button
-            onclick="closeSupport()"
-            class="text-on-surface-variant hover:text-error transition-colors"
-          >
-            <span class="material-symbols-outlined">close</span>
-          </button>
-        </div>
-        <p class="text-on-surface-variant font-body-md">
-          Support is available on WhatsApp between
-          <strong class="text-on-surface">9 AM – 7 PM IST</strong> (Mon–Sat).
-        </p>
-        <div id="support-available" class="hidden">
-          <a
-            href="https://wa.me/919538384545"
-            target="_blank"
-            rel="noopener"
-            class="flex items-center justify-center gap-2 bg-primary-container text-on-primary-container font-bold py-3 rounded-xl hover:opacity-90 transition-all w-full"
-          >
-            <span class="material-symbols-outlined text-[20px]">chat</span>
-            Contact Dev on WhatsApp
-          </a>
-        </div>
-        <div id="support-unavailable" class="hidden">
-          <p class="text-on-surface-variant font-body-md text-sm text-center">
-            Developer is currently offline. Please try again during support
-            hours.
-          </p>
-        </div>
-      </div>
-    </div>
+<!--#include partial="dashboard-support-modal"-->
     <!-- Backend Integration Script -->
     <script>
       // Same origin locally (server.js serves public/ + /api together);
@@ -933,65 +527,31 @@
           ? window.location.origin
           : "https://api.watobot.xyz";
 
-      // Published FAQ pages always live on the real production domain,
-      // regardless of where the dashboard itself is running. Only faqSlug is
-      // ever stored (in faq.json via /api/faq); this is the one place that
-      // turns a slug into an actual URL.
-      const PUBLISHED_FAQ_BASE = "https://watobot.xyz/whatsapp-group-faq/";
-      function buildFaqUrl(faqSlug) {
-        return `${PUBLISHED_FAQ_BASE}${faqSlug}.html`;
-      }
-
       let authToken = null;
-      let schedules = [];
-      let allGroups = [];
-      let editingScheduleId = null;
 
-      function cronToFrequency(cron) {
-        if (!cron) return "Once";
-        const p = cron.trim().split(/\s+/);
-        if (p.length !== 5) return "Once";
-        const [, , dom, month, dow] = p;
-        if (dom !== "*" && month !== "*") return "Once";
-        if (dow !== "*") return "Weekly";
-        if (dom === "1") return "Monthly";
-        return "Daily";
-      }
-
-      function getTzAbbr(timezone) {
-        try {
-          return (
-            new Intl.DateTimeFormat("en", {
-              timeZone: timezone,
-              timeZoneName: "short",
-            })
-              .formatToParts(new Date())
-              .find((p) => p.type === "timeZoneName")?.value || timezone
+      // Highlights the current page in the shared dashboard nav row.
+      (function highlightNav() {
+        const page = (location.pathname.split("/").pop() || "index.html").replace(
+          ".html",
+          "",
+        );
+        const key = page || "index";
+        const link = document.querySelector(
+          `#dashboard-nav a[data-nav="${key}"]`,
+        );
+        if (link) {
+          link.classList.add(
+            "bg-primary-container",
+            "text-on-primary-container",
+            "font-bold",
           );
-        } catch {
-          return timezone;
+          link.classList.remove("text-on-surface-variant");
         }
-      }
-
-      function setTimezoneSelect(tz) {
-        const sel = document.getElementById("schedule-timezone");
-        if (!sel) return;
-        // If the timezone isn't in the list, add it dynamically then select it
-        if (tz && ![...sel.options].some((o) => o.value === tz)) {
-          const opt = document.createElement("option");
-          opt.value = tz;
-          opt.textContent = `${tz} — ${getTzAbbr(tz)}`;
-          sel.insertBefore(opt, sel.firstChild);
-        }
-        if (tz) sel.value = tz;
-      }
+      })();
 
       document.addEventListener("DOMContentLoaded", async () => {
         const urlParams = new URLSearchParams(window.location.search);
         authToken = urlParams.get("token") || localStorage.getItem("authToken");
-
-        // Pre-populate timezone with browser's detected timezone
-        setTimezoneSelect(Intl.DateTimeFormat().resolvedOptions().timeZone);
 
         if (!authToken) {
           alert("Authentication required. Redirecting to home page...");
@@ -1005,15 +565,11 @@
         if (waConnectBtn) waConnectBtn.href = `/verify.html?token=${authToken}`;
 
         await checkConnectionStatus();
-        await claimPendingFaqs();
-        await loadSchedules();
-        await loadFaqEntries();
         await loadMessageStats();
         await loadNotifyEmail();
+        await renderLogs();
 
         setupEventListeners();
-        setupRecipientCombobox();
-        setupRecipientTypeToggle();
       });
 
       async function checkConnectionStatus() {
@@ -1223,22 +779,6 @@
         });
       }
 
-      async function loadSchedules() {
-        try {
-          const response = await fetch(`${API_BASE}/api/schedules`, {
-            headers: { Authorization: `Bearer ${authToken}` },
-          });
-
-          if (response.ok) {
-            schedules = (await response.json()).schedules || [];
-            renderSchedules();
-            await renderLogs();
-          }
-        } catch (error) {
-          console.error("Error loading schedules:", error);
-        }
-      }
-
       async function loadNotifyEmail() {
         try {
           const response = await fetch(`${API_BASE}/api/user/notify-email`, {
@@ -1363,160 +903,6 @@
         chevron.classList.toggle("rotate-180");
       }
 
-      function renderSchedules() {
-        const tbody = document.getElementById("schedules-tbody");
-        const emptyState = document.getElementById("schedules-empty");
-        const loading = document.getElementById("schedules-loading");
-        if (!tbody) return;
-
-        if (loading) loading.classList.add("hidden");
-
-        if (schedules.length === 0) {
-          tbody.classList.add("hidden");
-          if (emptyState) emptyState.classList.remove("hidden");
-          return;
-        }
-
-        if (emptyState) emptyState.classList.add("hidden");
-        tbody.classList.remove("hidden");
-
-        tbody.innerHTML = schedules
-          .map((schedule) => {
-            const name = schedule.name || "Untitled";
-            const truncatedName =
-              name.length > 20 ? name.slice(0, 20) + "…" : name;
-            const frequency =
-              schedule.frequency || cronToFrequency(schedule.cronExpression);
-
-            // Prefer stored localTime + tz abbr; fall back to UTC from cron for old schedules
-            let timeStr = "";
-            if (schedule.localTime) {
-              const tzAbbr = schedule.timezone
-                ? getTzAbbr(schedule.timezone)
-                : "";
-              timeStr = schedule.localTime + (tzAbbr ? " " + tzAbbr : "");
-            } else {
-              const parts = (schedule.cronExpression || "").trim().split(/\s+/);
-              if (parts.length === 5 && parts[1] !== "*" && parts[0] !== "*") {
-                timeStr = `${String(parts[1]).padStart(2, "0")}:${String(parts[0]).padStart(2, "0")} UTC`;
-              }
-            }
-
-            const sid = escapeHtml(schedule.id);
-            const msg = escapeHtml(schedule.message || "");
-
-            return `
-            <div class="flex items-start gap-3 px-5 py-4 hover:bg-surface-container-low/50 transition-colors">
-                <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary flex-shrink-0 mt-0.5">
-                    <span class="material-symbols-outlined text-[18px]">group</span>
-                </div>
-                <div class="flex-1 min-w-0">
-                    <div class="flex items-baseline gap-2">
-                        <span class="font-label-md text-on-surface">${escapeHtml(truncatedName)}</span>
-                        <span class="text-xs text-on-surface-variant">${escapeHtml(frequency)}${timeStr ? " · " + timeStr : ""}</span>
-                    </div>
-                    <p class="text-xs text-on-surface-variant mt-0.5 line-clamp-2 leading-relaxed">${msg}</p>
-                </div>
-                <div class="flex gap-1 flex-shrink-0 mt-0.5">
-                    <button onclick="loadScheduleIntoForm('${sid}')" class="p-1 text-on-surface-variant hover:text-primary transition-colors" title="Edit">
-                        <span class="material-symbols-outlined text-[20px]">edit</span>
-                    </button>
-                    <button onclick="deleteSchedule('${sid}')" class="p-1 text-on-surface-variant hover:text-error transition-colors" title="Delete">
-                        <span class="material-symbols-outlined text-[20px]">delete</span>
-                    </button>
-                </div>
-            </div>
-        `;
-          })
-          .join("");
-      }
-
-      let faqs = [];
-
-      async function loadFaqEntries() {
-        try {
-          const response = await fetch(`${API_BASE}/api/faq`, {
-            headers: { Authorization: `Bearer ${authToken}` },
-          });
-          if (response.ok) {
-            faqs = (await response.json()).faqs || [];
-            renderFaqEntries();
-          }
-        } catch (error) {
-          console.error("Error loading FAQs:", error);
-        }
-      }
-
-      function renderFaqEntries() {
-        const tbody = document.getElementById("faqs-tbody");
-        const emptyState = document.getElementById("faqs-empty");
-        const loading = document.getElementById("faqs-loading");
-        if (!tbody) return;
-
-        if (loading) loading.classList.add("hidden");
-
-        if (faqs.length === 0) {
-          tbody.classList.add("hidden");
-          if (emptyState) emptyState.classList.remove("hidden");
-          return;
-        }
-
-        if (emptyState) emptyState.classList.add("hidden");
-        tbody.classList.remove("hidden");
-
-        tbody.innerHTML = faqs
-          .map((faq) => {
-            const name = faq.groupName || "Untitled group";
-            const editUrl = `/whatsapp-group-faq/?jobId=${encodeURIComponent(faq.jobId)}`;
-            const viewLink = faq.faqSlug
-              ? `<a href="${escapeHtml(buildFaqUrl(faq.faqSlug))}" target="_blank" rel="noopener" class="text-primary font-label-md text-sm hover:underline">View</a>`
-              : "";
-            return `
-            <div class="flex items-center gap-3 px-5 py-4 hover:bg-surface-container-low/50 transition-colors">
-                <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
-                    <span class="material-symbols-outlined text-[18px]">quiz</span>
-                </div>
-                <div class="flex-1 min-w-0">
-                    <span class="font-label-md text-on-surface">${escapeHtml(name)}</span>
-                </div>
-                <div class="flex gap-3 flex-shrink-0">
-                    ${viewLink}
-                    <a href="${escapeHtml(editUrl)}" class="text-primary font-label-md text-sm hover:underline">Edit</a>
-                </div>
-            </div>
-        `;
-          })
-          .join("");
-      }
-
-      // Consumes whatever the FAQ tool (whatsapp-group-faq/index.html) stashed in
-      // localStorage after an anonymous publish + "email me a login link" — this
-      // is the step that actually attaches those FAQs to the now-logged-in
-      // account. No-ops if there's nothing pending (the normal case).
-      async function claimPendingFaqs() {
-        let claims = [];
-        try {
-          claims = JSON.parse(localStorage.getItem("pendingFaqClaims") || "[]");
-        } catch {
-          claims = [];
-        }
-        if (!claims.length) return;
-
-        try {
-          const res = await fetch(`${API_BASE}/api/faq/claim`, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${authToken}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ claims }),
-          });
-          if (res.ok) localStorage.removeItem("pendingFaqClaims");
-        } catch (error) {
-          console.error("Error claiming pending FAQs:", error);
-        }
-      }
-
       async function renderLogs() {
         const container = document.getElementById("logs-container");
         const countBadge = document.getElementById("logs-total-count");
@@ -1631,16 +1017,6 @@
 
       function setupEventListeners() {
         document
-          .getElementById("create-schedule-btn")
-          .addEventListener("click", handleCreateSchedule);
-        document
-          .getElementById("test-send-btn")
-          .addEventListener("click", handleTestMessage);
-        document
-          .getElementById("cancel-edit-btn")
-          ?.addEventListener("click", cancelEdit);
-
-        document
           .getElementById("disconnect-btn")
           ?.addEventListener("click", () => {
             showLogoutModal({ isFullLogout: false });
@@ -1649,360 +1025,6 @@
         document.getElementById("logout-btn").addEventListener("click", () => {
           showLogoutModal({ isFullLogout: true });
         });
-      }
-
-      function setupRecipientCombobox() {
-        const input = document.getElementById("recipient-input");
-        const dropdown = document.getElementById("recipient-dropdown");
-
-        input.addEventListener("focus", () => {
-          if (allGroups.length > 0) showDropdown(allGroups.slice(0, 10));
-        });
-
-        input.addEventListener("input", () => {
-          const q = input.value.toLowerCase();
-          const filtered = allGroups
-            .filter((g) => g.name.toLowerCase().includes(q))
-            .slice(0, 10);
-          showDropdown(filtered);
-        });
-
-        document.addEventListener("click", (e) => {
-          if (
-            !document.getElementById("recipient-combobox").contains(e.target)
-          ) {
-            dropdown.classList.add("hidden");
-          }
-        });
-
-        function showDropdown(groups) {
-          if (groups.length === 0) {
-            dropdown.innerHTML =
-              '<p class="px-4 py-3 text-body-md text-on-surface-variant">No matching groups found.</p>';
-          } else {
-            dropdown.innerHTML = groups
-              .map(
-                (g) =>
-                  `<div class="px-4 py-2 hover:bg-surface-container cursor-pointer text-body-md text-on-surface" data-id="${escapeHtml(g.id)}" data-name="${escapeHtml(g.name)}">${escapeHtml(g.name)}</div>`,
-              )
-              .join("");
-            dropdown.querySelectorAll("[data-id]").forEach((el) => {
-              el.addEventListener("click", () => {
-                input.value = el.dataset.name;
-                document.getElementById("recipient-value").value =
-                  el.dataset.id;
-                dropdown.classList.add("hidden");
-              });
-            });
-          }
-          dropdown.classList.remove("hidden");
-        }
-      }
-
-      // Fetches the full group list once (cached in allGroups for the rest of
-      // the session) as soon as the user switches to "WhatsApp Group" mode —
-      // there's no server-side search, so we load everything up front and
-      // filter client-side as they type.
-      async function loadGroupsIfNeeded() {
-        const input = document.getElementById("recipient-input");
-        const spinner = document.getElementById("recipient-spinner");
-        const errorEl = document.getElementById("recipient-group-error");
-        errorEl.classList.add("hidden");
-
-        if (allGroups.length > 0) {
-          input.disabled = false;
-          input.placeholder = "Start typing to see WhatsApp group names";
-          return;
-        }
-
-        input.disabled = true;
-        input.placeholder = "Loading WhatsApp groups, this can take a minute…";
-        spinner.classList.remove("hidden");
-
-        try {
-          const res = await fetch(`${API_BASE}/api/whatsapp/groups`, {
-            headers: { Authorization: `Bearer ${authToken}` },
-          });
-          if (!res.ok) throw new Error("Failed to fetch groups");
-          const data = await res.json();
-          allGroups = data.groups || [];
-          input.disabled = false;
-          input.placeholder = "Start typing to see WhatsApp group names";
-        } catch (e) {
-          console.error("Failed to fetch groups", e);
-          input.placeholder = "";
-          errorEl.classList.remove("hidden");
-          // leave input disabled — user is told to refresh and try again
-        } finally {
-          spinner.classList.add("hidden");
-        }
-      }
-
-      function setupRecipientTypeToggle() {
-        const typeSelect = document.getElementById("recipient-type");
-        const numberField = document.getElementById("recipient-number-field");
-        const groupField = document.getElementById("recipient-group-field");
-        const numberInput = document.getElementById("recipient-number-input");
-        const groupInput = document.getElementById("recipient-input");
-
-        typeSelect.addEventListener("change", () => {
-          document.getElementById("recipient-value").value = "";
-          if (typeSelect.value === "group") {
-            numberField.classList.add("hidden");
-            groupField.classList.remove("hidden");
-            groupInput.value = "";
-            loadGroupsIfNeeded();
-          } else {
-            groupField.classList.add("hidden");
-            numberField.classList.remove("hidden");
-            numberInput.value = "";
-          }
-        });
-
-        numberInput.addEventListener("input", () => {
-          document.getElementById("recipient-value").value = numberInput.value
-            .trim()
-            .replace(/[\s\-()]/g, "");
-        });
-      }
-
-      function loadScheduleIntoForm(scheduleId) {
-        const schedule = schedules.find((s) => s.id === scheduleId);
-        if (!schedule) return;
-
-        editingScheduleId = scheduleId;
-
-        // Recipient — group ids always end in @g.us; anything else is a phone number.
-        const recipientId =
-          (schedule.recipients && schedule.recipients[0]) || "";
-        const isGroup = recipientId.includes("@g.us");
-        document.getElementById("recipient-value").value = recipientId;
-        document.getElementById("recipient-type").value = isGroup
-          ? "group"
-          : "number";
-        if (isGroup) {
-          document.getElementById("recipient-number-field").classList.add("hidden");
-          document.getElementById("recipient-group-field").classList.remove("hidden");
-          document.getElementById("recipient-input").value =
-            schedule.name || recipientId;
-          loadGroupsIfNeeded();
-        } else {
-          document.getElementById("recipient-group-field").classList.add("hidden");
-          document.getElementById("recipient-number-field").classList.remove("hidden");
-          document.getElementById("recipient-number-input").value = recipientId;
-        }
-
-        // Frequency — use stored value, fall back to inferring from cron for old schedules
-        const freq =
-          schedule.frequency || cronToFrequency(schedule.cronExpression);
-        document.getElementById("frequency-select").value = freq;
-
-        // Time — use stored localTime; fall back to reading UTC from cron for old schedules
-        if (schedule.localTime) {
-          document.getElementById("schedule-time").value = schedule.localTime;
-        } else {
-          const parts = (schedule.cronExpression || "").trim().split(/\s+/);
-          if (parts.length === 5) {
-            const [min, hour] = parts;
-            if (hour !== "*" && min !== "*") {
-              document.getElementById("schedule-time").value =
-                `${String(hour).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
-            }
-          }
-        }
-
-        // Date — use stored localDate; fall back to cron for old schedules
-        if (schedule.localDate) {
-          document.getElementById("schedule-date").value = schedule.localDate;
-        } else {
-          const parts = (schedule.cronExpression || "").trim().split(/\s+/);
-          if (parts.length === 5) {
-            const [, , dom, month] = parts;
-            if (dom !== "*" && month !== "*") {
-              const year = new Date().getFullYear();
-              document.getElementById("schedule-date").value =
-                `${year}-${String(month).padStart(2, "0")}-${String(dom).padStart(2, "0")}`;
-            }
-          }
-        }
-
-        // Timezone
-        setTimezoneSelect(
-          schedule.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
-        );
-
-        document.getElementById("schedule-message").value =
-          schedule.message || "";
-
-        // Update button label and show cancel link
-        document.getElementById("create-schedule-btn").innerHTML =
-          '<span class="material-symbols-outlined">save</span> Update Schedule';
-        document.getElementById("cancel-edit-btn").classList.remove("hidden");
-
-        // Scroll form into view
-        document
-          .getElementById("create-schedule-btn")
-          .scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-
-      function cancelEdit() {
-        editingScheduleId = null;
-        document.getElementById("recipient-type").value = "number";
-        document.getElementById("recipient-group-field").classList.add("hidden");
-        document.getElementById("recipient-number-field").classList.remove("hidden");
-        document.getElementById("recipient-input").value = "";
-        document.getElementById("recipient-number-input").value = "";
-        document.getElementById("recipient-value").value = "";
-        document.getElementById("frequency-select").value = "Once";
-        document.getElementById("schedule-date").value = "";
-        document.getElementById("schedule-time").value = "";
-        document.getElementById("schedule-message").value = "";
-        setTimezoneSelect(Intl.DateTimeFormat().resolvedOptions().timeZone);
-        document.getElementById("create-schedule-btn").innerHTML =
-          '<span class="material-symbols-outlined">add_task</span> Create Schedule';
-        document.getElementById("cancel-edit-btn").classList.add("hidden");
-      }
-
-      async function handleCreateSchedule() {
-        const recipientType = document.getElementById("recipient-type").value;
-        const recipientId = document
-          .getElementById("recipient-value")
-          .value.trim();
-        const recipientName =
-          recipientType === "group"
-            ? document.getElementById("recipient-input").value.trim()
-            : recipientId;
-        const frequency = document.getElementById("frequency-select").value;
-        const date = document.getElementById("schedule-date").value;
-        const time = document.getElementById("schedule-time").value || "09:00";
-        const timezone = document.getElementById("schedule-timezone").value;
-        const message = document
-          .getElementById("schedule-message")
-          .value.trim();
-
-        if (!recipientId || !message) {
-          alert(
-            recipientType === "group"
-              ? "Please select a group from the dropdown and enter a message"
-              : "Please enter a phone number and a message",
-          );
-          return;
-        }
-        if (recipientType === "number" && !/^\+[1-9]\d{6,14}$/.test(recipientId)) {
-          alert(
-            "Please enter a valid phone number with country code, e.g. +14155552671",
-          );
-          return;
-        }
-        if (recipientType === "group" && !recipientId.includes("@g.us")) {
-          alert("Please select a group from the dropdown");
-          return;
-        }
-
-        // Send raw local values — backend converts to UTC cron expression.
-        const payload = {
-          name: recipientName,
-          recipients: [recipientId],
-          message,
-          timezone,
-          localTime: time,
-          localDate: date || null,
-          frequency,
-        };
-        const isEdit = !!editingScheduleId;
-        const url = isEdit
-          ? `${API_BASE}/api/schedules/${editingScheduleId}`
-          : `${API_BASE}/api/schedules`;
-        const method = isEdit ? "PUT" : "POST";
-
-        try {
-          const response = await fetch(url, {
-            method,
-            headers: {
-              Authorization: `Bearer ${authToken}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(payload),
-          });
-
-          if (response.ok) {
-            cancelEdit();
-            await loadSchedules();
-          } else {
-            const err = await response.json();
-            alert(`Error: ${err.error || "Failed to save schedule"}`);
-          }
-        } catch (error) {
-          console.error("Error saving schedule:", error);
-          alert("Failed to save schedule");
-        }
-      }
-
-      async function deleteSchedule(scheduleId) {
-        if (!confirm("Are you sure you want to delete this schedule?")) return;
-
-        try {
-          const response = await fetch(
-            `${API_BASE}/api/schedules/${scheduleId}`,
-            {
-              method: "DELETE",
-              headers: { Authorization: `Bearer ${authToken}` },
-            },
-          );
-
-          if (response.ok) {
-            await loadSchedules();
-          } else {
-            alert("Failed to delete schedule");
-          }
-        } catch (error) {
-          console.error("Error deleting schedule:", error);
-          alert("Failed to delete schedule");
-        }
-      }
-
-      async function handleTestMessage() {
-        const to = document.getElementById("recipient-value").value;
-        const message = document
-          .getElementById("schedule-message")
-          .value.trim();
-
-        if (!to || !message) {
-          alert(
-            "Please select a recipient and enter a message before test sending.",
-          );
-          return;
-        }
-
-        const btn = document.getElementById("test-send-btn");
-        btn.disabled = true;
-        btn.innerHTML =
-          '<span class="material-symbols-outlined text-[20px] animate-spin">progress_activity</span> Sending…';
-
-        try {
-          const response = await fetch(`${API_BASE}/api/message`, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${authToken}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ to, message }),
-          });
-
-          if (response.ok) {
-            alert("Test message sent successfully!");
-          } else {
-            const err = await response.json();
-            alert(`Error: ${err.error || "Failed to send message"}`);
-          }
-        } catch (error) {
-          console.error("Error sending test message:", error);
-          alert("Failed to send test message. Check your connection.");
-        } finally {
-          btn.disabled = false;
-          btn.innerHTML =
-            '<span class="material-symbols-outlined text-[20px]">send_time_extension</span> Test Sending';
-        }
       }
 
       function escapeHtml(text) {
@@ -2117,29 +1139,6 @@
     </script>
 
     <!-- Logout / Disconnect modal -->
-    <div
-      id="logoutModal"
-      class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
-    >
-      <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
-        <h2
-          id="logoutModalTitle"
-          class="font-headline-md text-headline-md text-on-surface"
-        ></h2>
-        <div id="logoutModalBody"></div>
-        <div class="flex gap-3 justify-end pt-2">
-          <button
-            id="logoutModalCancel"
-            class="px-4 py-2 rounded-xl border border-outline-variant text-on-surface-variant font-label-md hover:bg-surface-container transition"
-          >
-            Cancel
-          </button>
-          <button
-            id="logoutModalConfirm"
-            class="px-4 py-2 rounded-xl bg-error text-white font-label-md hover:bg-error/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          ></button>
-        </div>
-      </div>
-    </div>
+<!--#include partial="dashboard-logout-modal"-->
   </body>
 </html>

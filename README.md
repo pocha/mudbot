@@ -40,6 +40,8 @@ P.S. there will be 15-20 seconds delay in connecting your account & sending mess
 | WhatsApp session (`.mudslide.enc`) | AES-256, key = `sha256(token)` | Only you |
 | Cron payload | AES-256, key = `token_hash`, embedded in system crontab | Only accessible with server shell access |
 | API key hash (`api_key_hash`) | `sha256(apiKey)` | Public-safe — one-way hash |
+| Calendly config (`calendly.json`) | AES-256, key = token | Only you (token required to decrypt) |
+| `calendly_key_hash` (`sha256(calendlyKey)`) | `users/<dir>/calendly_key_hash` | Public-safe — one-way hash, useless without the key |
 
 The entire `users/` directory — including `token_hash`, encrypted schedules, and the encrypted WhatsApp session — can be committed to a public repository safely. There is no `SERVER_SECRET`. There is no `tokens.json`. Nothing in the repo can be used to decrypt user data without the token that only the user holds.
 
@@ -155,6 +157,22 @@ DataImpulse maps each port in the range 10000–20000 to a distinct sticky resid
 Sending several messages back-to-back in rapid succession is a pattern WhatsApp's spam detection watches for, independent of where the connection comes from. Watobot serializes all outgoing operations (`sendMessage`, `sendMedia`, group fetches, disconnects) per WhatsApp account through a strict, promise-chained queue (`withSession` in `services/mudslideService.js`) — so a user's messages are always sent one at a time, never concurrently, no matter how many requests hit the API at once (a burst of scheduled sends, several manual API calls, etc.).
 
 This queue also drives the lifecycle of the per-user proxy relay and WhatsApp session cache: both are lazily acquired the moment the first job for a user starts, and released the moment their queue drains back to zero — so a user with no pending work has no lingering open connections.
+
+---
+
+## Calendly Integration
+
+Connect your Calendly account (standard OAuth — click Connect in the dashboard, approve access, done) and Watobot will automatically send a WhatsApp message to every person who books a meeting through it.
+
+This requires one thing on the Calendly side: add a **custom question** to the event type you want covered, asking for the invitee's phone number. The exact question label is configurable per meeting in the Watobot dashboard (it's matched against `phoneQuestionName`), and it's strongly recommended you mark the question **required** — a booking without a phone number is logged as a lead with `status: "no_phone"` but no message is sent.
+
+Once a meeting is configured, embed its one-line script on that event type's booking page, before your existing Calendly embed code (each configured meeting has its own snippet, shown in the dashboard):
+
+```html
+<script src="https://<domain>/api/calendly/code?token=<your-calendly-key>&meetingId=<meeting-id>"></script>
+```
+
+The `<your-calendly-key>` is a separate integration key (not your API key or auth token) generated the first time you connect Calendly — it's scoped only to the Calendly runtime script and webhook-style route, so a leaked key can't be used against `/api/message` or any other endpoint. Every confirmed booking on that page then triggers a WhatsApp message automatically, using the message template and phone-number question configured for that meeting.
 
 ---
 
@@ -275,6 +293,69 @@ curl -X POST https://<domain>/api/schedules \
 ```
 
 The backend converts `localTime` + `timezone` to a UTC cron expression automatically. Supported `frequency` values: `Daily`, `Weekly`, `Monthly`, `Once` (requires `localDate: "YYYY-MM-DD"`).
+
+### Calendly
+
+Endpoints for connecting Calendly, configuring which event types trigger a WhatsApp message, and the runtime endpoint the embedded script calls on every booking. All of these require the regular `Authorization: Bearer <token>` / `x-api-key` auth **except** `POST /api/calendly/:meetingId/lead`, which is authenticated separately via an `x-calendly-key` header or a `?token=` query param (the integration key from `GET /api/calendly/config`) — this is deliberately scoped so a leaked key can't be used against any other endpoint.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/calendly/authorize` | Get the Calendly OAuth consent URL to start connecting |
+| `GET` | `/api/calendly/config` | Get connection status, integration key, and configured meetings |
+| `POST` | `/api/calendly/config` | Create or update a meeting's message template / phone question |
+| `DELETE` | `/api/calendly/config/:meetingId` | Delete a meeting's configuration |
+| `POST` | `/api/calendly/disconnect` | Disconnect the linked Calendly account |
+| `POST` | `/api/calendly/:meetingId/lead` | Called by the embedded script on every booking for that meeting; sends the WhatsApp message |
+
+```bash
+curl https://<domain>/api/calendly/config \
+  -H "x-api-key: <your-api-key>"
+# => {"connected": true, "calendlyKey": "<calendly-key>", "meetings": {"<meetingId>": {...}}}
+
+curl -X POST https://<domain>/api/calendly/config \
+  -H "x-api-key: <your-api-key>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "eventTypeUri": "https://api.calendly.com/event_types/AAAAAAAAAAAAAAAA",
+    "eventTypeName": "30 Minute Meeting",
+    "messageTemplate": "Hi {{name}}, thanks for booking {{eventName}}!",
+    "phoneQuestionName": "WhatsApp number"
+  }'
+# => {"success": true, "meeting": {"id": "<meetingId>", ...}}
+
+curl -X POST https://<domain>/api/calendly/<meetingId>/lead \
+  -H "x-calendly-key: <your-calendly-key>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event_uri": "https://api.calendly.com/scheduled_events/AAAAAAAAAAAAAAAA",
+    "invitee_uri": "https://api.calendly.com/scheduled_events/AAAAAAAAAAAAAAAA/invitees/BBBBBBBBBBBBBBBB"
+  }'
+# => {"success": true, "status": "sent"}
+```
+
+`status` in the response is one of `sent`, `failed` (send attempted but errored), or `no_phone` (the configured custom question had no answer on this booking). A request for an unknown `:meetingId`, or for an event that doesn't belong to the connected Calendly account, returns `404`/`403` respectively instead of a body with `status`. Every successful call to `POST /api/calendly/:meetingId/lead` also writes/updates a lead — see below.
+
+### Leads
+
+Every Calendly booking that runs through `POST /api/calendly/:meetingId/lead` is recorded as a lead, editable from the dashboard.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/leads` | List leads (`?limit=` and `?cursor=` for pagination, default limit 50) |
+| `PATCH` | `/api/leads/:id` | Update a lead's notes |
+| `DELETE` | `/api/leads/:id` | Delete a lead |
+
+```bash
+curl https://<domain>/api/leads?limit=20 \
+  -H "x-api-key: <your-api-key>"
+# => {"leads": [{"id": "...", "name": "...", "phone": "...", "status": "sent", ...}]}
+
+curl -X PATCH https://<domain>/api/leads/<lead-id> \
+  -H "x-api-key: <your-api-key>" \
+  -H "Content-Type: application/json" \
+  -d '{"notes": "Followed up by phone"}'
+# => {"success": true, "lead": {...}}
+```
 
 ---
 

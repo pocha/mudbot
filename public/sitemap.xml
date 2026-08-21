@@ -11,6 +11,16 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://watobot.xyz/free-whatsapp-recurring-messages.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://watobot.xyz/free-calendly-whatsapp-integration.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://watobot.xyz/privacy.html</loc>
     <changefreq>yearly</changefreq>
     <priority>0.2</priority>

@@ -1,0 +1,312 @@
+<!--#var title="WatoBot | Group FAQs"-->
+<!--#include partial="dashboard-head-nav"-->
+          <!-- WhatsApp Groups (FAQ) Section -->
+          <div class="grid grid-cols-1 gap-stack-gap">
+            <div
+              class="card"
+            >
+              <div
+                class="p-6 border-b border-outline-variant flex justify-between items-center"
+              >
+                <div>
+                  <h3 class="section-title">
+                    WhatsApp Groups
+                  </h3>
+                  <p class="text-body-muted">
+                    FAQ pages generated from your WhatsApp groups
+                  </p>
+                </div>
+                <a
+                  href="/whatsapp-group-faq"
+                  class="inline-flex items-center gap-1 bg-primary-container text-on-primary-container font-bold text-sm px-3 py-2 rounded-xl hover:opacity-90 transition-all flex-shrink-0"
+                >
+                  <span class="material-symbols-outlined text-[18px]"
+                    >add</span
+                  >
+                  Add FAQ
+                </a>
+              </div>
+              <div id="faqs-loading" class="p-6 space-y-3">
+                <div
+                  class="h-4 w-2/3 bg-outline-variant/40 rounded animate-pulse"
+                ></div>
+                <div
+                  class="h-4 w-1/2 bg-outline-variant/30 rounded animate-pulse"
+                ></div>
+              </div>
+              <div
+                id="faqs-tbody"
+                class="hidden divide-y divide-outline-variant"
+              ></div>
+              <div
+                id="faqs-empty"
+                class="hidden p-6 text-center text-on-surface-variant opacity-50 italic text-body-md"
+              >
+                <span class="material-symbols-outlined text-4xl mb-2 block"
+                  >quiz</span
+                >
+                No FAQs yet. Create one from a WhatsApp group chat export.
+              </div>
+            </div>
+          </div>
+        </div>
+<!--#include partial="dashboard-footer"-->
+      </main>
+    </div>
+<!--#include partial="dashboard-support-modal"-->
+    <!-- Backend Integration Script -->
+    <script>
+      // Same origin locally (server.js serves public/ + /api together);
+      // split into a dedicated API subdomain once served from GitHub Pages.
+      const API_BASE =
+        location.hostname === "localhost" || location.hostname === "127.0.0.1"
+          ? window.location.origin
+          : "https://api.watobot.xyz";
+
+      // Published FAQ pages always live on the real production domain,
+      // regardless of where the dashboard itself is running. Only faqSlug is
+      // ever stored (in faq.json via /api/faq); this is the one place that
+      // turns a slug into an actual URL.
+      const PUBLISHED_FAQ_BASE = "https://watobot.xyz/whatsapp-group-faq/";
+      function buildFaqUrl(faqSlug) {
+        return `${PUBLISHED_FAQ_BASE}${faqSlug}.html`;
+      }
+
+      let authToken = null;
+      let faqs = [];
+
+      // Highlights the current page in the shared dashboard nav row.
+      (function highlightNav() {
+        const page = (location.pathname.split("/").pop() || "index.html").replace(
+          ".html",
+          "",
+        );
+        const key = page || "index";
+        const link = document.querySelector(
+          `#dashboard-nav a[data-nav="${key}"]`,
+        );
+        if (link) {
+          link.classList.add(
+            "bg-primary-container",
+            "text-on-primary-container",
+            "font-bold",
+          );
+          link.classList.remove("text-on-surface-variant");
+        }
+      })();
+
+      document.addEventListener("DOMContentLoaded", async () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        authToken = urlParams.get("token") || localStorage.getItem("authToken");
+
+        if (!authToken) {
+          alert("Authentication required. Redirecting to home page...");
+          window.location.href = "/";
+          return;
+        }
+
+        localStorage.setItem("authToken", authToken);
+
+        await claimPendingFaqs();
+        await loadFaqEntries();
+
+        document.getElementById("logout-btn").addEventListener("click", () => {
+          showLogoutModal({ isFullLogout: true });
+        });
+      });
+
+      async function loadFaqEntries() {
+        try {
+          const response = await fetch(`${API_BASE}/api/faq`, {
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+          if (response.ok) {
+            faqs = (await response.json()).faqs || [];
+            renderFaqEntries();
+          }
+        } catch (error) {
+          console.error("Error loading FAQs:", error);
+        }
+      }
+
+      function renderFaqEntries() {
+        const tbody = document.getElementById("faqs-tbody");
+        const emptyState = document.getElementById("faqs-empty");
+        const loading = document.getElementById("faqs-loading");
+        if (!tbody) return;
+
+        if (loading) loading.classList.add("hidden");
+
+        if (faqs.length === 0) {
+          tbody.classList.add("hidden");
+          if (emptyState) emptyState.classList.remove("hidden");
+          return;
+        }
+
+        if (emptyState) emptyState.classList.add("hidden");
+        tbody.classList.remove("hidden");
+
+        tbody.innerHTML = faqs
+          .map((faq) => {
+            const name = faq.groupName || "Untitled group";
+            const editUrl = `/whatsapp-group-faq/?jobId=${encodeURIComponent(faq.jobId)}`;
+            const viewLink = faq.faqSlug
+              ? `<a href="${escapeHtml(buildFaqUrl(faq.faqSlug))}" target="_blank" rel="noopener" class="text-primary font-label-md text-sm hover:underline">View</a>`
+              : "";
+            return `
+            <div class="flex items-center gap-3 px-5 py-4 hover:bg-surface-container-low/50 transition-colors">
+                <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+                    <span class="material-symbols-outlined text-[18px]">quiz</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <span class="font-label-md text-on-surface">${escapeHtml(name)}</span>
+                </div>
+                <div class="flex gap-3 flex-shrink-0">
+                    ${viewLink}
+                    <a href="${escapeHtml(editUrl)}" class="text-primary font-label-md text-sm hover:underline">Edit</a>
+                </div>
+            </div>
+        `;
+          })
+          .join("");
+      }
+
+      // Consumes whatever the FAQ tool (whatsapp-group-faq/index.html) stashed in
+      // localStorage after an anonymous publish + "email me a login link" — this
+      // is the step that actually attaches those FAQs to the now-logged-in
+      // account. No-ops if there's nothing pending (the normal case).
+      async function claimPendingFaqs() {
+        let claims = [];
+        try {
+          claims = JSON.parse(localStorage.getItem("pendingFaqClaims") || "[]");
+        } catch {
+          claims = [];
+        }
+        if (!claims.length) return;
+
+        try {
+          const res = await fetch(`${API_BASE}/api/faq/claim`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ claims }),
+          });
+          if (res.ok) localStorage.removeItem("pendingFaqClaims");
+        } catch (error) {
+          console.error("Error claiming pending FAQs:", error);
+        }
+      }
+
+      function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = String(text || "");
+        return div.innerHTML;
+      }
+
+      // ── Logout modal ───────────────────────────────────
+
+      function showLogoutModal({ isFullLogout }) {
+        const modal = document.getElementById("logoutModal");
+        const title = document.getElementById("logoutModalTitle");
+        const body = document.getElementById("logoutModalBody");
+        const confirmBtn = document.getElementById("logoutModalConfirm");
+        const cancelBtn = document.getElementById("logoutModalCancel");
+
+        title.textContent = isFullLogout
+          ? "Log out of WatoBot"
+          : "Disconnect WhatsApp";
+        confirmBtn.dataset.isFullLogout = isFullLogout ? "1" : "0";
+
+        body.innerHTML = `
+        <div class="flex items-center gap-3 text-on-surface-variant">
+            <div class="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
+            <p class="text-body-md">Asking WhatsApp to remove this device… please wait.</p>
+        </div>
+        <p id="logoutModalError" class="hidden mt-3 text-sm text-error">Something went wrong. Please try again.</p>
+    `;
+        confirmBtn.textContent = "Continue — device is removed";
+        confirmBtn.disabled = true;
+        cancelBtn.disabled = false;
+        modal.classList.remove("hidden");
+
+        fetch(`${API_BASE}/api/whatsapp/logout`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${authToken}` },
+        })
+          .catch(() => {})
+          .finally(() => {
+            body.innerHTML = `
+            <p class="text-on-surface-variant text-body-md mb-3">
+                We've asked WhatsApp to remove this device. Please verify on your phone:
+            </p>
+            <ol class="space-y-2 text-body-md text-on-surface-variant list-decimal list-inside">
+                <li>Open WhatsApp → tap <strong>Linked Devices</strong></li>
+                <li>If <strong>"Google Chrome"</strong> is still listed, tap it and choose <strong>Log out</strong></li>
+                <li>Once it's gone, click <strong>Continue</strong> below</li>
+            </ol>
+            <p id="logoutModalError" class="hidden mt-3 text-sm text-error">Something went wrong. Please try again.</p>
+        `;
+            confirmBtn.disabled = false;
+          });
+      }
+
+      async function handleLogoutConfirm() {
+        const confirmBtn = document.getElementById("logoutModalConfirm");
+        const errMsg = document.getElementById("logoutModalError");
+        const isFullLogout = confirmBtn.dataset.isFullLogout === "1";
+
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = "Cleaning up…";
+        errMsg?.classList.add("hidden");
+
+        try {
+          const res = await fetch(`${API_BASE}/api/whatsapp/logout/confirm`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+          if (!res.ok) throw new Error("confirm failed");
+
+          if (isFullLogout) {
+            localStorage.removeItem("authToken");
+            window.location.href = "/";
+          } else {
+            window.location.href = `/verify.html?token=${authToken}`;
+          }
+        } catch {
+          errMsg?.classList.remove("hidden");
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = "Continue — device is removed";
+        }
+      }
+
+      document.addEventListener("click", (e) => {
+        if (e.target.id === "logoutModalConfirm") handleLogoutConfirm();
+        if (e.target.id === "logoutModalCancel")
+          document.getElementById("logoutModal").classList.add("hidden");
+      });
+
+      function openSupport() {
+        const modal = document.getElementById("supportModal");
+        const now = new Date();
+        const istHour =
+          ((now.getUTCHours() * 60 + now.getUTCMinutes() + 330) / 60) % 24;
+        const available = istHour >= 9 && istHour < 19;
+        document
+          .getElementById("support-available")
+          .classList.toggle("hidden", !available);
+        document
+          .getElementById("support-unavailable")
+          .classList.toggle("hidden", available);
+        modal.classList.remove("hidden");
+      }
+      function closeSupport() {
+        document.getElementById("supportModal").classList.add("hidden");
+      }
+    </script>
+
+    <!-- Logout modal -->
+<!--#include partial="dashboard-logout-modal"-->
+  </body>
+</html>

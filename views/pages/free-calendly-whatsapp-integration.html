@@ -1,0 +1,101 @@
+<!--#var title="Free Calendly WhatsApp Integration — Watobot"-->
+<!--#var description="Automatically send a WhatsApp message to everyone who books a Calendly meeting. Works on Calendly's free plan — unlike Zapier, Integrately, and Pabbly Connect, which require a paid Calendly plan."-->
+<!--#var canonical="https://watobot.xyz/free-calendly-whatsapp-integration.html"-->
+<!--#var ogTitle="Free Calendly WhatsApp Integration — Watobot"-->
+<!--#var ogDescription="Automatically send a WhatsApp message to everyone who books a Calendly meeting. Works on Calendly's free plan — no paid Calendly upgrade required."-->
+<!--#var twitterTitle="Free Calendly WhatsApp Integration — Watobot"-->
+<!--#var twitterDescription="Automatically send a WhatsApp message to everyone who books a Calendly meeting. Works on Calendly's free plan — no paid Calendly upgrade required."-->
+<!--#include partial="marketing-head"-->
+<!--#include partial="marketing-header-nav"-->
+
+  <!-- Hero -->
+  <section class="px-gutter md:px-24 py-14 bg-surface-container-low">
+    <div class="max-w-2xl mx-auto text-center flex flex-col gap-4 items-center">
+      <span class="font-label-md text-label-md text-secondary bg-secondary-container/30 px-3 py-1 rounded-full uppercase tracking-widest">Works on Calendly's free plan</span>
+      <h1 class="font-headline-lg text-headline-lg text-on-surface">Send a WhatsApp message on every Calendly booking</h1>
+      <p class="text-on-surface-variant font-body-lg">Connect your Calendly account, add one line of code to your booking page, and every person who books a meeting automatically gets a WhatsApp message — no manual follow-up.</p>
+      <a href="/" class="inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-on-primary px-8 py-4 font-label-md text-label-md font-bold hover:brightness-110 active:scale-95 transition-all">Sign Up Free</a>
+    </div>
+  </section>
+
+  <!-- Free plan differentiator -->
+  <section class="px-gutter md:px-24 py-14 bg-surface">
+    <div class="max-w-3xl mx-auto">
+      <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 md:p-8 flex flex-col gap-4">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings:'FILL' 1;">verified</span>
+          <h2 class="font-headline-md text-headline-md text-on-surface">The one Calendly plan every other tool needs you to upgrade past</h2>
+        </div>
+        <p class="text-muted">Zapier, Integrately, and Pabbly Connect all require Calendly's paid <strong class="text-on-surface">Standard plan or higher</strong> just to connect — they rely on Calendly's Webhook Subscriptions API, which is gated behind a paid plan.</p>
+        <p class="text-muted">Watobot's Calendly integration works on Calendly's <strong class="text-on-surface">completely free plan</strong>. Instead of a server-side webhook, it listens for the booking confirmation directly in the visitor's browser, then reads the booking and invitee details through Calendly's regular read API — which free-plan accounts already have access to.</p>
+        <p class="text-muted-sm">This is a real, live-tested capability, not marketing language: a test against a free Calendly account successfully read a custom phone-number question's answer end to end.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="px-gutter md:px-24 py-14 bg-surface-container-low">
+    <div class="max-w-3xl mx-auto">
+      <h2 class="font-headline-lg text-headline-lg text-on-surface text-center mb-10">How it works</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-surface p-6 rounded-xl border border-outline-variant flex flex-col gap-3">
+          <div class="w-10 h-10 bg-primary-container flex items-center justify-center rounded-lg text-on-primary-container font-bold">1</div>
+          <h3 class="section-title">Connect your Calendly account</h3>
+          <p class="text-muted">One click, standard OAuth — Watobot never sees your Calendly password.</p>
+        </div>
+        <div class="bg-surface p-6 rounded-xl border border-outline-variant flex flex-col gap-3">
+          <div class="w-10 h-10 bg-secondary-container flex items-center justify-center rounded-lg text-on-secondary-container font-bold">2</div>
+          <h3 class="section-title">Configure your message</h3>
+          <p class="text-muted">Write your WhatsApp message template and tell Watobot which Calendly custom question holds the invitee's phone number.</p>
+        </div>
+        <div class="bg-surface p-6 rounded-xl border border-outline-variant flex flex-col gap-3">
+          <div class="w-10 h-10 bg-tertiary-container flex items-center justify-center rounded-lg text-on-tertiary-container font-bold">3</div>
+          <h3 class="section-title">Paste one line of code</h3>
+          <p class="text-muted">Add a single <code class="text-xs bg-surface-container px-1.5 py-0.5 rounded">&lt;script&gt;</code> tag to your website, right before your existing Calendly embed code.</p>
+        </div>
+        <div class="bg-surface p-6 rounded-xl border border-outline-variant flex flex-col gap-3">
+          <div class="w-10 h-10 bg-primary-container flex items-center justify-center rounded-lg text-on-primary-container font-bold">4</div>
+          <h3 class="section-title">Every booking triggers a message</h3>
+          <p class="text-muted">No manual step after setup — each confirmed booking automatically sends the WhatsApp message you configured.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Requirements -->
+  <section class="px-gutter md:px-24 py-14 bg-surface">
+    <div class="max-w-2xl mx-auto flex flex-col gap-6">
+      <div class="flex items-start gap-3">
+        <span class="material-symbols-outlined text-primary flex-shrink-0" style="font-variation-settings:'FILL' 1;">quiz</span>
+        <div>
+          <p class="label-strong">One custom question on your event</p>
+          <p class="text-muted-sm">Add a custom question to your Calendly event type that captures the invitee's phone number (e.g. "WhatsApp number") — mark it required so every booking includes it.</p>
+        </div>
+      </div>
+      <div class="flex items-start gap-3">
+        <span class="material-symbols-outlined text-primary flex-shrink-0" style="font-variation-settings:'FILL' 1;">code</span>
+        <div>
+          <p class="label-strong">One line of code, once</p>
+          <p class="text-muted-sm">No developer needed — copy one script tag from your Watobot dashboard onto your booking page.</p>
+        </div>
+      </div>
+      <div class="flex items-start gap-3">
+        <span class="material-symbols-outlined text-primary flex-shrink-0" style="font-variation-settings:'FILL' 1;">smartphone</span>
+        <div>
+          <p class="label-strong">Sends from your own WhatsApp</p>
+          <p class="text-muted-sm">Messages go out from your connected WhatsApp account, the same way all Watobot messages do — not a separate paid WhatsApp Business API number.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="px-gutter md:px-24 py-14 bg-surface-container-low">
+    <div class="max-w-2xl mx-auto text-center flex flex-col gap-4 items-center">
+      <h2 class="font-headline-lg text-headline-lg text-on-surface">Free forever, no credit card</h2>
+      <p class="text-muted">The Calendly integration is part of the free Watobot dashboard — no limits, no subscription, no Calendly upgrade required.</p>
+      <a href="/" class="inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-on-primary px-8 py-4 font-label-md text-label-md font-bold hover:brightness-110 active:scale-95 transition-all">Sign Up Free</a>
+    </div>
+  </section>
+
+<!--#include partial="marketing-footer"-->
