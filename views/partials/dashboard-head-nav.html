@@ -53,8 +53,14 @@
     </header>
     <div class="flex h-[calc(100vh-64px)] overflow-hidden justify-center">
       <!-- Main Workspace -->
-      <main class="flex-1 overflow-y-auto custom-scrollbar p-6 bg-background">
-        <div class="max-w-6xl mx-auto space-y-stack-gap">
+      <main class="flex-1 overflow-y-auto custom-scrollbar p-6 bg-background flex flex-col">
+        <!-- flex-1 lets this stretch to fill any leftover vertical space when
+             page content is shorter than the viewport, so the footer (a
+             sibling of this div, further down in each page) still ends up
+             pinned to the bottom of the screen instead of floating right
+             below a short section list. When content overflows, this has no
+             effect and the footer just sits at the true end, as normal. -->
+        <div class="max-w-6xl mx-auto space-y-stack-gap flex-1 w-full">
           <!-- Dashboard section nav -->
           <nav id="dashboard-nav" class="flex items-center gap-1 flex-wrap">
             <a href="index.html" data-nav="index" class="px-3 py-1.5 rounded-lg font-label-md text-sm text-on-surface-variant hover:bg-surface-container transition-colors">Overview</a>

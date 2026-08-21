@@ -1,8 +1,8 @@
 <!--#var title="WatoBot | Scheduled Messages"-->
 <!--#include partial="dashboard-head-nav"-->
           <!-- Scheduled Messages Builder -->
-          <div class="grid grid-cols-1 gap-stack-gap">
-            <section class="space-y-stack-gap">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-stack-gap items-start">
+            <section>
               <div
                 class="card"
               >
@@ -23,7 +23,7 @@
                   <div
                     class="whatsapp-border bg-surface-container-low p-5 rounded-xl space-y-4"
                   >
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 gap-4">
                       <div class="space-y-2">
                         <div class="flex items-center gap-1">
                           <label class="label-muted"
@@ -116,7 +116,7 @@
                         </select>
                       </div>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 gap-4">
                       <div class="space-y-2">
                         <label class="label-muted"
                           >Date &amp; Time</label
@@ -222,6 +222,8 @@
                   </div>
                 </div>
               </div>
+            </section>
+            <section>
               <!-- Active Schedules Section -->
               <div
                 class="card"
@@ -259,9 +261,7 @@
             </section>
           </div>
         </div>
-        <!-- Footer: -mx-6 cancels main's own p-6 padding so it spans edge-to-edge -->
-        <div id="site-footer" class="-mx-6 -mb-6"></div>
-        <script src="/assets/footer.js"></script>
+<!--#include partial="dashboard-footer"-->
       </main>
     </div>
 <!--#include partial="dashboard-support-modal"-->
