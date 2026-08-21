@@ -42,6 +42,7 @@ P.S. there will be 15-20 seconds delay in connecting your account & sending mess
 | API key hash (`api_key_hash`) | `sha256(apiKey)` | Public-safe — one-way hash |
 | Calendly config (`calendly.json`) | AES-256, key = token | Only you (token required to decrypt) |
 | `calendly_key_hash` (`sha256(calendlyKey)`) | `users/<dir>/calendly_key_hash` | Public-safe — one-way hash, useless without the key |
+| Leads (`leads` Firestore collection) | Plaintext, access-controlled by Firestore Security Rules | Only you — the VM holds no Firebase credential at all; see [Calendly Integration](#calendly-integration) |
 
 The entire `users/` directory — including `token_hash`, encrypted schedules, and the encrypted WhatsApp session — can be committed to a public repository safely. There is no `SERVER_SECRET`. There is no `tokens.json`. Nothing in the repo can be used to decrypt user data without the token that only the user holds.
 
@@ -173,6 +174,30 @@ Once a meeting is configured, embed its one-line script on that event type's boo
 ```
 
 The `<your-calendly-key>` is a separate integration key (not your API key or auth token) generated the first time you connect Calendly — it's scoped only to the Calendly runtime script and webhook-style route, so a leaked key can't be used against `/api/message` or any other endpoint. Every confirmed booking on that page then triggers a WhatsApp message automatically, using the message template and phone-number question configured for that meeting.
+
+### How leads are stored and accessed
+
+Every booking is recorded as a lead in a Firestore `leads` collection, and the dashboard reads, edits, and deletes leads by talking to Firestore **directly** — not through the VM. The VM's only role is minting a short-lived Firebase identity for you to sign in with:
+
+1. Your browser calls `GET /api/firebase-token` with your normal session token.
+2. The VM verifies that token exactly as it does for every other authenticated route (`userService.verifyToken`), then calls a Cloud Function, `mintFirebaseToken`, to mint a Firebase custom token — **the VM itself holds no Firebase credential**, only the Function does.
+3. Your browser signs in to Firebase with that token and talks to Firestore directly from then on, governed by `firestore.rules` (access is scoped to documents where `userDir` matches your account).
+
+The one exception is lead *creation* from a Calendly booking, which has no legitimate browser session behind it at all (it's fired by whoever's booking the meeting on your site, not you) — that goes through a second Cloud Function, `createLead`, called by the VM. Both Cloud Functions live in `functions/` and are restricted to only accept requests from the VM's static IP (`ALLOWED_VM_IP` in `functions/.env` — see `functions/.env.example`), rather than GCP IAM: simpler to operate, and gives the same practical protection for this threat model (it stops outside callers; like IAM, it does not protect against the VM itself being compromised, since compromised code there would still originate from the allowed IP).
+
+### Deploying the Firebase side
+
+Before the Calendly integration works, the Cloud Functions, Firestore Security Rules, and Firestore indexes all need to be deployed to the `wato-bot` Firebase project:
+
+```bash
+npm install -g firebase-tools   # if you don't already have it
+firebase login
+cd functions && cp .env.example .env   # then fill in ALLOWED_VM_IP with the VM's static IP
+cd ..
+firebase deploy --only functions,firestore:rules,firestore:indexes
+```
+
+Re-run `firebase deploy --only functions` after any change to `functions/index.js` or `functions/.env`, and `firebase deploy --only firestore:rules` (or `firestore:indexes`) after editing `firestore.rules` / `firestore.indexes.json` — none of these are picked up automatically, unlike the VM's own code.
 
 ---
 
@@ -337,25 +362,19 @@ curl -X POST https://<domain>/api/calendly/<meetingId>/lead \
 
 ### Leads
 
-Every Calendly booking that runs through `POST /api/calendly/:meetingId/lead` is recorded as a lead, editable from the dashboard.
+Every Calendly booking that runs through `POST /api/calendly/:meetingId/lead` is recorded as a lead. Listing, editing notes, deleting, and manually adding leads all happen **client-side**, directly against Firestore (see [How leads are stored and accessed](#how-leads-are-stored-and-accessed)) — there's no `/api/leads` REST surface for that anymore. One small server route remains:
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/leads` | List leads (`?limit=` and `?cursor=` for pagination, default limit 50) |
-| `PATCH` | `/api/leads/:id` | Update a lead's notes |
-| `DELETE` | `/api/leads/:id` | Delete a lead |
+| `GET` | `/api/firebase-token` | Mint a Firebase custom token + return your `userDir`, so the dashboard can sign in to Firestore directly |
 
 ```bash
-curl https://<domain>/api/leads?limit=20 \
+curl https://<domain>/api/firebase-token \
   -H "x-api-key: <your-api-key>"
-# => {"leads": [{"id": "...", "name": "...", "phone": "...", "status": "sent", ...}]}
-
-curl -X PATCH https://<domain>/api/leads/<lead-id> \
-  -H "x-api-key: <your-api-key>" \
-  -H "Content-Type: application/json" \
-  -d '{"notes": "Followed up by phone"}'
-# => {"success": true, "lead": {...}}
+# => {"firebaseToken": "...", "userDir": "..."}
 ```
+
+Sending a WhatsApp message to a lead on demand (the dashboard's "Send" button) reuses the existing `POST /api/message` endpoint (see [above](#api)) — no dedicated leads-send route.
 
 ---
 

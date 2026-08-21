@@ -160,6 +160,19 @@
                   People who booked through a configured Calendly event type.
                 </p>
               </div>
+              <div class="p-6 border-b border-outline-variant space-y-3">
+                <h4 class="label-strong">Add a Lead Manually</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <input id="new-lead-name" placeholder="Name" class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" type="text" autocomplete="off" />
+                  <input id="new-lead-email" placeholder="Email" class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" type="email" autocomplete="off" />
+                  <input id="new-lead-phone" placeholder="Phone (with country code)" class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" type="tel" autocomplete="off" />
+                  <input id="new-lead-notes" placeholder="Notes (optional)" class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" type="text" autocomplete="off" />
+                </div>
+                <button id="add-lead-btn" class="inline-flex items-center gap-2 bg-primary-container text-on-primary-container font-bold px-4 py-2 rounded-xl hover:opacity-90 transition-all">
+                  <span class="material-symbols-outlined text-[20px]">person_add</span>
+                  Add Lead
+                </button>
+              </div>
               <div id="leads-loading" class="p-6 space-y-3">
                 <div class="h-4 w-2/3 bg-outline-variant/40 rounded animate-pulse"></div>
                 <div class="h-4 w-1/2 bg-outline-variant/30 rounded animate-pulse"></div>
@@ -179,6 +192,7 @@
                       <th class="px-5 py-3 font-label-md">Date</th>
                       <th class="px-5 py-3 font-label-md">Notes</th>
                       <th class="px-5 py-3 font-label-md"></th>
+                      <th class="px-5 py-3 font-label-md"></th>
                     </tr>
                   </thead>
                   <tbody id="leads-tbody" class="divide-y divide-outline-variant"></tbody>
@@ -192,7 +206,25 @@
     </div>
 <!--#include partial="dashboard-support-modal"-->
     <!-- Backend Integration Script -->
-    <script>
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+      import { getAuth, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+      import {
+        getFirestore, collection, query, where, orderBy, getDocs,
+        doc, setDoc, updateDoc, deleteDoc, serverTimestamp
+      } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+      // Public web config — not a secret, identifies the project only.
+      // Actual access control is Firebase Auth + Firestore Security Rules
+      // (firestore.rules), not this key.
+      const firebaseApp = initializeApp({
+        apiKey: "REPLACE_WITH_FIREBASE_WEB_API_KEY",
+        authDomain: "wato-bot.firebaseapp.com",
+        projectId: "wato-bot"
+      });
+      const firebaseAuth = getAuth(firebaseApp);
+      const db = getFirestore(firebaseApp);
+
       // Same origin locally (server.js serves public/ + /api together);
       // split into a dedicated API subdomain once served from GitHub Pages.
       const API_BASE =
@@ -201,9 +233,49 @@
           : "https://api.watobot.xyz";
 
       let authToken = null;
+      let userDir = null;
       let calendlyKey = null;
       let meetings = {};
       let editingMeetingId = null;
+
+      // Mirrors functions/index.js's buildLeadId, and models/lead.js's
+      // original before it — a lead's ID is deterministic from their
+      // identity so a manually-added lead correctly dedupes against one
+      // created later by the Calendly webhook for the same person (or vice
+      // versa). Keep in sync by hand; functions/ is a separate deploy
+      // target with no shared-code mechanism to this frontend.
+      function normalizeLeadField(str) {
+        return String(str || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+      }
+      function buildLeadId({ name, email, phone }) {
+        const parts = phone
+          ? [normalizeLeadField(email), normalizeLeadField(phone)]
+          : [normalizeLeadField(name), normalizeLeadField(email)];
+        return parts.filter(Boolean).join("_").slice(0, 1400) || `lead_${Date.now()}`;
+      }
+
+      // Firestore Timestamps (createdAt/updatedAt, set via serverTimestamp())
+      // need .toDate(); calendly.eventStartTime is a plain ISO string
+      // straight from Calendly's API — new Date() handles that directly.
+      function toDateSafe(value) {
+        if (!value) return null;
+        return typeof value.toDate === "function" ? value.toDate() : new Date(value);
+      }
+
+      // Called once on page load, after the existing authToken check
+      // succeeds — mints a Firebase custom token via the VM (see the
+      // comment on GET /api/firebase-token in routes/api.js for why that
+      // hop matters) and signs in, so the leads list/edit/delete/manual-add
+      // below can talk to Firestore directly, protected by Security Rules.
+      async function initFirebase() {
+        const res = await fetch(`${API_BASE}/api/firebase-token`, {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+        if (!res.ok) throw new Error("Failed to get Firebase token");
+        const data = await res.json();
+        userDir = data.userDir;
+        await signInWithCustomToken(firebaseAuth, data.firebaseToken);
+      }
 
       // Highlights the current page in the shared dashboard nav row.
       (function highlightNav() {
@@ -237,12 +309,19 @@
 
         localStorage.setItem("authToken", authToken);
 
+        try {
+          await initFirebase();
+        } catch (error) {
+          console.error("Error initializing Firebase:", error);
+        }
+
         await loadCalendlyConfig();
 
         document.getElementById("calendly-connect-btn")?.addEventListener("click", handleConnectCalendly);
         document.getElementById("calendly-disconnect-btn")?.addEventListener("click", handleDisconnectCalendly);
         document.getElementById("meeting-save-btn").addEventListener("click", handleSaveMeeting);
         document.getElementById("meeting-cancel-edit-btn").addEventListener("click", cancelMeetingEdit);
+        document.getElementById("add-lead-btn").addEventListener("click", handleAddLead);
 
         document.getElementById("logout-btn").addEventListener("click", () => {
           showLogoutModal({ isFullLogout: true });
@@ -491,13 +570,15 @@
 
       async function loadLeads() {
         try {
-          const res = await fetch(`${API_BASE}/api/leads`, {
-            headers: { Authorization: `Bearer ${authToken}` },
-          });
+          if (!userDir) throw new Error("Not signed in to Firestore yet");
+          const q = query(
+            collection(db, "leads"),
+            where("userDir", "==", userDir),
+            orderBy("updatedAt", "desc")
+          );
+          const snapshot = await getDocs(q);
           document.getElementById("leads-loading")?.classList.add("hidden");
-          if (!res.ok) throw new Error("Failed to load leads");
-          const data = await res.json();
-          renderLeads(data.leads || []);
+          renderLeads(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
         } catch (error) {
           console.error("Error loading leads:", error);
           document.getElementById("leads-loading")?.classList.add("hidden");
@@ -531,7 +612,8 @@
             );
             const dateVal =
               (lead.calendly && lead.calendly.eventStartTime) || lead.createdAt;
-            const dateStr = dateVal ? new Date(dateVal).toLocaleString() : "";
+            const dateObj = toDateSafe(dateVal);
+            const dateStr = dateObj ? dateObj.toLocaleString() : "";
             const leadId = escapeHtml(lead.id);
 
             return `
@@ -552,6 +634,11 @@
                     />
                 </td>
                 <td class="px-5 py-3">
+                    <button onclick="sendLeadMessage('${leadId}', '${escapeHtml(lead.phone || "")}')" class="p-1 text-on-surface-variant hover:text-primary transition-colors" title="Send a WhatsApp message" ${lead.phone ? "" : "disabled"}>
+                        <span class="material-symbols-outlined text-[20px]">send</span>
+                    </button>
+                </td>
+                <td class="px-5 py-3">
                     <button onclick="deleteLead('${leadId}')" class="p-1 text-on-surface-variant hover:text-error transition-colors" title="Delete">
                         <span class="material-symbols-outlined text-[20px]">delete</span>
                     </button>
@@ -564,15 +651,7 @@
 
       async function saveLeadNotes(leadId, notes) {
         try {
-          const res = await fetch(`${API_BASE}/api/leads/${leadId}`, {
-            method: "PATCH",
-            headers: {
-              Authorization: `Bearer ${authToken}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ notes }),
-          });
-          if (!res.ok) throw new Error("Failed to save notes");
+          await updateDoc(doc(db, "leads", leadId), { notes, updatedAt: serverTimestamp() });
         } catch (error) {
           console.error("Error saving lead notes:", error);
         }
@@ -581,15 +660,83 @@
       async function deleteLead(leadId) {
         if (!confirm("Delete this lead?")) return;
         try {
-          const res = await fetch(`${API_BASE}/api/leads/${leadId}`, {
-            method: "DELETE",
-            headers: { Authorization: `Bearer ${authToken}` },
-          });
-          if (!res.ok) throw new Error("Failed to delete lead");
+          await deleteDoc(doc(db, "leads", leadId));
           await loadLeads();
         } catch (error) {
           console.error("Error deleting lead:", error);
           alert("Failed to delete lead");
+        }
+      }
+
+      async function handleAddLead() {
+        const name = document.getElementById("new-lead-name").value.trim();
+        const email = document.getElementById("new-lead-email").value.trim();
+        const phone = document.getElementById("new-lead-phone").value.trim();
+        const notes = document.getElementById("new-lead-notes").value.trim();
+
+        if (!email && !phone) {
+          alert("Email or phone is required.");
+          return;
+        }
+
+        const btn = document.getElementById("add-lead-btn");
+        btn.disabled = true;
+        try {
+          const id = buildLeadId({ name, email, phone });
+          await setDoc(doc(db, "leads", id), {
+            userDir,
+            name: name || null,
+            email: email || null,
+            phone: phone || null,
+            source: "manual",
+            status: "pending",
+            messageSent: null,
+            sendError: null,
+            notes: notes || null,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          }, { merge: true });
+
+          document.getElementById("new-lead-name").value = "";
+          document.getElementById("new-lead-email").value = "";
+          document.getElementById("new-lead-phone").value = "";
+          document.getElementById("new-lead-notes").value = "";
+          await loadLeads();
+        } catch (error) {
+          console.error("Error adding lead:", error);
+          alert("Failed to add lead");
+        } finally {
+          btn.disabled = false;
+        }
+      }
+
+      // Actually sending the message has to go through the VM (mudslide
+      // needs the user's decrypted WhatsApp session, which Firestore has no
+      // access to) — reuses the existing POST /api/message endpoint rather
+      // than a dedicated leads-send route, since it already does exactly
+      // this. The lead's own status/messageSent are then updated directly
+      // here, since the frontend already has write access to it.
+      async function sendLeadMessage(leadId, phone) {
+        if (!phone) return;
+        const message = prompt("Message to send:", "");
+        if (!message) return;
+        try {
+          const res = await fetch(`${API_BASE}/api/message`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ to: phone, message }),
+          });
+          if (!res.ok) throw new Error("Failed to send message");
+          await updateDoc(doc(db, "leads", leadId), {
+            status: "sent", messageSent: message, sendError: null, updatedAt: serverTimestamp(),
+          });
+          await loadLeads();
+        } catch (error) {
+          console.error("Error sending message:", error);
+          alert("Failed to send message");
         }
       }
 
@@ -698,6 +845,20 @@
       function closeSupport() {
         document.getElementById("supportModal").classList.add("hidden");
       }
+
+      // Inline onclick="..." attributes (in this file's generated HTML, and
+      // in the shared header/support-modal partials) can't see plain
+      // top-level declarations from a type="module" script — module scope,
+      // not global scope — so anything referenced that way has to be
+      // explicitly attached to window.
+      window.loadMeetingIntoForm = loadMeetingIntoForm;
+      window.deleteMeeting = deleteMeeting;
+      window.copyMeetingSnippet = copyMeetingSnippet;
+      window.saveLeadNotes = saveLeadNotes;
+      window.deleteLead = deleteLead;
+      window.sendLeadMessage = sendLeadMessage;
+      window.openSupport = openSupport;
+      window.closeSupport = closeSupport;
     </script>
 
     <!-- Logout modal -->

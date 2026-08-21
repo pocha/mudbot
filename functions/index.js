@@ -281,3 +281,92 @@ exports.getPublishStatus = onRequest({ cors: true }, async (req, res) => {
     res.status(500).json({ error: err.message || 'Status check failed' });
   }
 });
+
+// --- Leads (Calendly integration) ---
+//
+// Both functions below are only ever called by the main Watobot VM (never a
+// browser) — restricted to its static IP via ALLOWED_VM_IP (functions/.env).
+// This is deliberately lighter than GCP IAM invoker restriction: it protects
+// against external callers exactly as well (TCP means a caller can't fake a
+// source IP and still complete the handshake), and — like IAM — does not
+// protect against the VM itself being compromised, since compromised code
+// running there would still originate from the allowed IP. What it *does*
+// close off: a secrets/config leak that doesn't come with the ability to
+// make requests through the VM's own network position no longer yields
+// anything usable here.
+function isAllowedVmCaller(req) {
+  return req.ip === process.env.ALLOWED_VM_IP;
+}
+
+// Mirrors models/lead.js's Lead.buildId on the main app, and a third copy in
+// the dashboard frontend (views/pages/dashboard-calendly.html) for manual
+// lead creation — functions/ is a fully separate deploy target with no
+// shared-code mechanism to the main app, so this small pure function is
+// deliberately duplicated rather than shared. Keep all three in sync by hand
+// if this logic ever changes.
+function normalizeLeadField(str) {
+  return String(str || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+function buildLeadId({ name, email, phone }) {
+  const parts = phone
+    ? [normalizeLeadField(email), normalizeLeadField(phone)]
+    : [normalizeLeadField(name), normalizeLeadField(email)];
+  return parts.filter(Boolean).join('_').slice(0, 1400) || `lead_${Date.now()}`;
+}
+
+// The only path that ever writes to `leads` outside of the frontend's own
+// (Security-Rules-checked) writes — used for bookings coming through the
+// Calendly webhook, where there's no legitimate user browser in the request
+// at all (it's fired by an anonymous site visitor), so there's no Firebase
+// Auth identity to check against Security Rules in the first place.
+exports.createLead = onRequest({ timeoutSeconds: 30 }, async (req, res) => {
+  if (!isAllowedVmCaller(req)) {
+    res.status(403).json({ error: 'Forbidden' });
+    return;
+  }
+
+  const leadData = req.body || {};
+  const id = buildLeadId(leadData);
+
+  await db.collection('leads').doc(id).set({
+    ...leadData,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: admin.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
+
+  res.status(200).json({ success: true, id });
+});
+
+// Mints a Firebase custom token for the dashboard frontend to sign in with.
+// The UID is the caller's actual Watobot session token (never stored in
+// recoverable form anywhere server-side — only its hash, or data encrypted
+// under it — so even a compromised VM can't mint identities for arbitrary or
+// dormant users, only whoever's token happens to be in-flight during the
+// compromise). `userDir` travels as a custom claim rather than the UID,
+// since it's the stable identity `leads` docs are keyed by and Security
+// Rules match against — unlike the token, it doesn't change on
+// re-registration, so a user keeps access to their existing leads even after
+// getting a new login link.
+//
+// This function performs no verification of its own — it can't; that would
+// require the per-user token_hash files that only exist on the VM's local
+// disk. It trusts whatever (token, userDir) pair it's given. That's safe
+// only because the VM itself already ran the real check (userService.
+// verifyToken, via the authenticateUser preHandler) before ever calling
+// here — see the comment on GET /api/firebase-token in routes/api.js for
+// why that ordering matters and can't be skipped by calling this directly.
+exports.mintFirebaseToken = onRequest({ timeoutSeconds: 15 }, async (req, res) => {
+  if (!isAllowedVmCaller(req)) {
+    res.status(403).json({ error: 'Forbidden' });
+    return;
+  }
+
+  const { token, userDir } = req.body || {};
+  if (!token || !userDir) {
+    res.status(400).json({ error: 'token and userDir are required' });
+    return;
+  }
+
+  const firebaseToken = await admin.auth().createCustomToken(token, { userDir });
+  res.status(200).json({ firebaseToken });
+});
