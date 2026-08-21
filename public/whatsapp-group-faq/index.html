@@ -129,7 +129,7 @@
 
       <div id="claim-logged-in" class="hidden flex-col gap-2">
         <div id="claim-logged-in-status" class="font-body-md text-sm text-on-surface-variant"></div>
-        <a href="/dashboard.html" class="inline-flex items-center gap-2 w-fit rounded-xl bg-primary-container text-on-primary-container px-4 py-3 font-label-md text-label-md font-bold hover:opacity-90 active:scale-95 transition-all">
+        <a href="/dashboard/index.html" class="inline-flex items-center gap-2 w-fit rounded-xl bg-primary-container text-on-primary-container px-4 py-3 font-label-md text-label-md font-bold hover:opacity-90 active:scale-95 transition-all">
           Go to your dashboard
         </a>
       </div>
@@ -207,7 +207,7 @@
   const claimError = document.getElementById('claim-error');
 
   // localhost vs the split-off API domain — same pattern already used in
-  // dashboard.html/index.html/verify.html.
+  // dashboard/index.html/index.html/verify.html.
   const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
     ? 'http://localhost:3000'
     : 'https://api.watobot.xyz';
@@ -221,7 +221,7 @@
     return `${PUBLISHED_FAQ_BASE}${faqSlug}.html`;
   }
 
-  // Same origin as dashboard.html in production, so a token stored there by
+  // Same origin as dashboard/index.html in production, so a token stored there by
   // an earlier login is already sitting in this page's localStorage too —
   // no need to route an already-logged-in user through the email flow at
   // all, we can just claim the FAQ directly with their existing token.

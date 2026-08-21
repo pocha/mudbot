@@ -4,6 +4,8 @@ const mudslideService = require('../services/mudslideService');
 const usageService = require('../services/usageService');
 const scheduleService = require('../services/scheduleService');
 const faqService = require('../services/faqService');
+const calendlyService = require('../services/calendlyService');
+const leadsService = require('../services/leadsService');
 const countries = require('../services/countries.json');
 
 async function routes(fastify, options) {
@@ -45,6 +47,25 @@ async function routes(fastify, options) {
     } catch (error) {
       fastify.log.error(error);
       return reply.code(500).send({ error: 'Failed to check WhatsApp connection' });
+    }
+  };
+
+  // Scoped to the Calendly webhook + runtime-script routes only — never
+  // accepted by authenticateUser, so a leaked Calendly key can't be used
+  // against /api/message or any other route.
+  const authenticateCalendlyKey = async (request, reply) => {
+    try {
+      const key = request.query.token || request.headers['x-calendly-key'];
+      if (!key) return reply.code(401).send({ error: 'Integration key required' });
+
+      const user = await userService.verifyCalendlyKey(key);
+      if (!user) return reply.code(401).send({ error: 'Invalid integration key' });
+
+      request.user = user;
+      request.calendlyKey = key;
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Authentication failed' });
     }
   };
 
@@ -344,7 +365,7 @@ async function routes(fastify, options) {
         return reply.code(400).send({ error: 'to and message are required' });
       }
       // Dashboard UI already strips spaces/hyphens/parens from phone numbers
-      // client-side (see recipient-number-input in public/dashboard.html) —
+      // client-side (see recipient-number-input in public/dashboard/schedules.html) —
       // API callers (curl, Zapier, etc.) bypass that, so enforce it here too.
       // No-op for group JIDs (...@g.us), which never contain these chars.
       to = to.replace(/[\s\-()]/g, '');
@@ -368,7 +389,7 @@ async function routes(fastify, options) {
     }
   });
 
-  // Called by dashboard.html on load with whatever's sitting in localStorage
+  // Called by dashboard/faqs.html on load with whatever's sitting in localStorage
   // from an anonymous FAQ-tool publish — this is what actually attaches a
   // jobId to the now-logged-in account.
   fastify.post('/api/faq/claim', { preHandler: authenticateUser }, async (request, reply) => {
@@ -382,6 +403,184 @@ async function routes(fastify, options) {
     } catch (error) {
       fastify.log.error(error);
       return reply.code(500).send({ error: 'Failed to claim FAQs' });
+    }
+  });
+
+  fastify.get('/api/calendly/authorize', { preHandler: authenticateUser }, async (request, reply) => {
+    try {
+      return { url: calendlyService.getAuthorizeUrl(request.user.userDir, request.user.token) };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Failed to start Calendly connection' });
+    }
+  });
+
+  // Calendly redirects the browser here after consent — no session auth
+  // available on this request, so the session token comes from the
+  // short-lived pending-connect entry created by /api/calendly/authorize.
+  fastify.get('/api/calendly/oauth/callback', async (request, reply) => {
+    try {
+      const { code, state } = request.query;
+      const pending = calendlyService.consumePendingConnect(state);
+      if (!code || !pending) return reply.code(400).send({ error: 'Calendly connection expired, please try again' });
+
+      await calendlyService.completeConnection(pending.userDir, pending.token, code);
+      return reply.redirect('/dashboard/calendly.html?connected=1');
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Calendly connection failed' });
+    }
+  });
+
+  fastify.get('/api/calendly/config', { preHandler: authenticateUser }, async (request, reply) => {
+    try {
+      const config = await calendlyService.readConfig(request.user.userDir, request.user.token);
+      return { connected: !!config.connected, calendlyKey: config.calendlyKey || null, meetings: config.meetings || {} };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Failed to get Calendly config' });
+    }
+  });
+
+  fastify.post('/api/calendly/config', { preHandler: authenticateUser }, async (request, reply) => {
+    try {
+      const { meetingId, eventTypeUri, eventTypeName, messageTemplate, phoneQuestionName, allowedOrigin } = request.body || {};
+      if (!eventTypeUri || !messageTemplate) {
+        return reply.code(400).send({ error: 'eventTypeUri and messageTemplate are required' });
+      }
+      const meeting = await calendlyService.upsertMeeting(request.user.userDir, request.user.token, meetingId, {
+        eventTypeUri, eventTypeName, messageTemplate, phoneQuestionName, allowedOrigin
+      });
+      return { success: true, meeting };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Failed to save meeting config' });
+    }
+  });
+
+  fastify.delete('/api/calendly/config/:meetingId', { preHandler: authenticateUser }, async (request, reply) => {
+    try {
+      await calendlyService.deleteMeeting(request.user.userDir, request.user.token, request.params.meetingId);
+      return { success: true };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Failed to delete meeting config' });
+    }
+  });
+
+  fastify.post('/api/calendly/disconnect', { preHandler: authenticateUser }, async (request, reply) => {
+    try {
+      await calendlyService.disconnect(request.user.userDir, request.user.token);
+      return { success: true };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Failed to disconnect Calendly' });
+    }
+  });
+
+  // Returns the tiny runtime script the user embeds as
+  // <script src="/api/calendly/code?token=..."></script>. Deliberately does
+  // NOT use authenticateCalendlyKey — an invalid/missing token here should
+  // never break the visitor's page with a 401, just serve a no-op script.
+  fastify.get('/api/calendly/code', async (request, reply) => {
+    reply.header('Content-Type', 'application/javascript');
+    reply.header('Cache-Control', 'no-store');
+    const key = request.query.token;
+    const user = key && await userService.verifyCalendlyKey(key);
+    return user ? calendlyService.buildCalendlyEmbedScript(key) : '/* invalid calendly integration key */';
+  });
+
+  fastify.post('/api/calendly', { preHandler: [authenticateCalendlyKey, requireWhatsapp] }, async (request, reply) => {
+    try {
+      const { event_uri: eventUri, invitee_uri: inviteeUri } = request.body || {};
+      if (!eventUri || !inviteeUri) return reply.code(400).send({ error: 'event_uri and invitee_uri are required' });
+
+      const { userDir, token } = request.user;
+      const config = await calendlyService.readConfig(userDir, token);
+
+      const event = await calendlyService.fetchEventDetails(userDir, token, eventUri);
+      // Ownership pinning: never trust event_uri/invitee_uri as authorization
+      // on their own — confirm this event actually belongs to the connected
+      // Calendly account before doing anything else with it.
+      const belongsToUser = (event.event_memberships || []).some(m => m.user === config.calendlyUserUri);
+      if (!belongsToUser) return reply.code(403).send({ error: 'Event does not belong to the connected Calendly account' });
+
+      const meeting = calendlyService.findMeetingByEventTypeUri(config.meetings, event.event_type);
+      if (!meeting) return reply.code(404).send({ error: 'No meeting configured for this event type' });
+
+      const invitee = await calendlyService.fetchInviteeDetails(userDir, token, inviteeUri);
+      const { phone, phoneSource } = calendlyService.extractPhone(invitee, meeting.phoneQuestionName);
+
+      const leadData = {
+        userDir,
+        name: invitee.name,
+        email: invitee.email,
+        phone: phone ? calendlyService.normalizePhone(phone) : null,
+        source: 'calendly',
+        calendly: {
+          eventUri, inviteeUri, eventTypeUri: event.event_type,
+          eventName: event.name, eventStartTime: event.start_time, eventEndTime: event.end_time,
+          phoneSource
+        }
+      };
+
+      if (!leadData.phone) {
+        leadData.status = 'no_phone';
+        await leadsService.upsertLead(leadData);
+        return { success: true, status: 'no_phone' };
+      }
+
+      const message = calendlyService.resolveMessageTemplate(meeting.messageTemplate, {
+        name: invitee.name, eventName: event.name, eventStartTime: event.start_time
+      });
+
+      try {
+        await mudslideService.sendMessage(userDir, token, leadData.phone, message);
+        leadData.status = 'sent';
+        leadData.messageSent = message;
+      } catch (sendError) {
+        leadData.status = 'failed';
+        leadData.sendError = sendError.message;
+      }
+
+      await leadsService.upsertLead(leadData);
+      return { success: true, status: leadData.status };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Failed to process Calendly booking' });
+    }
+  });
+
+  fastify.get('/api/leads', { preHandler: authenticateUser }, async (request, reply) => {
+    try {
+      const limit = parseInt(request.query.limit) || 50;
+      const leads = await leadsService.listLeads(request.user.userDir, { limit, cursor: request.query.cursor });
+      return { leads };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Failed to get leads' });
+    }
+  });
+
+  fastify.patch('/api/leads/:id', { preHandler: authenticateUser }, async (request, reply) => {
+    try {
+      const lead = await leadsService.updateLead(request.user.userDir, request.params.id, { notes: request.body?.notes });
+      if (!lead) return reply.code(404).send({ error: 'Lead not found' });
+      return { success: true, lead };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Failed to update lead' });
+    }
+  });
+
+  fastify.delete('/api/leads/:id', { preHandler: authenticateUser }, async (request, reply) => {
+    try {
+      const deleted = await leadsService.deleteLead(request.user.userDir, request.params.id);
+      if (!deleted) return reply.code(404).send({ error: 'Lead not found' });
+      return { success: true };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Failed to delete lead' });
     }
   });
 }

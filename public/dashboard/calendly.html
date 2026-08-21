@@ -1,0 +1,854 @@
+<!doctype html>
+
+<html class="light" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>WatoBot | Calendly</title>
+    <!-- Google Fonts -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700;800&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;family=Plus+Jakarta+Sans:wght@100..900&amp;display=swap"
+      rel="stylesheet"
+    />
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <!-- Style Guidance Implementation -->
+    <script src="/assets/theme.js"></script>
+    <link rel="stylesheet" href="/assets/theme.css" />
+  </head>
+  <body class="bg-surface text-on-surface font-body-md overflow-hidden">
+    <!-- Top Navigation -->
+    <header
+      class="flex justify-between items-center w-full px-gutter py-2 sticky top-0 z-50 bg-surface dark:bg-inverse-surface border-b border-outline-variant dark:border-on-surface-variant shadow-sm h-16"
+    >
+      <div class="flex items-center gap-4">
+        <span class="font-headline-md text-headline-md font-bold"
+          ><span class="text-primary">Wato</span
+          ><span class="text-on-surface">Bot</span></span
+        >
+      </div>
+      <div class="flex items-center gap-4">
+        <button
+          onclick="openSupport()"
+          class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors"
+        >
+          Support
+        </button>
+        <button
+          id="logout-btn"
+          class="flex items-center gap-2 text-error hover:bg-error/10 px-3 py-2 rounded-xl transition-all font-label-md"
+        >
+          <span class="material-symbols-outlined text-[20px]">logout</span>
+          <span class="hidden md:inline">Logout</span>
+        </button>
+      </div>
+    </header>
+    <div class="flex h-[calc(100vh-64px)] overflow-hidden justify-center">
+      <!-- Main Workspace -->
+      <main class="flex-1 overflow-y-auto custom-scrollbar p-6 bg-background">
+        <div class="max-w-6xl mx-auto space-y-stack-gap">
+          <!-- Dashboard section nav -->
+          <nav id="dashboard-nav" class="flex items-center gap-1 flex-wrap">
+            <a href="index.html" data-nav="index" class="px-3 py-1.5 rounded-lg font-label-md text-sm text-on-surface-variant hover:bg-surface-container transition-colors">Overview</a>
+            <a href="schedules.html" data-nav="schedules" class="px-3 py-1.5 rounded-lg font-label-md text-sm text-on-surface-variant hover:bg-surface-container transition-colors">Scheduled Messages</a>
+            <a href="faqs.html" data-nav="faqs" class="px-3 py-1.5 rounded-lg font-label-md text-sm text-on-surface-variant hover:bg-surface-container transition-colors">Group FAQs</a>
+            <a href="calendly.html" data-nav="calendly" class="px-3 py-1.5 rounded-lg font-label-md text-sm text-on-surface-variant hover:bg-surface-container transition-colors">Calendly</a>
+          </nav>
+
+          <!-- Connect Calendly -->
+          <section
+            class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant shadow-sm"
+            id="calendly-connect-section"
+          >
+            <div id="calendly-connect-loading" class="space-y-3">
+              <div class="h-5 w-56 bg-outline-variant/40 rounded animate-pulse"></div>
+              <div class="h-4 w-3/4 bg-outline-variant/30 rounded animate-pulse"></div>
+            </div>
+
+            <!-- Not connected -->
+            <div id="calendly-not-connected" class="hidden flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div class="space-y-1">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-primary" style="font-variation-settings:'FILL' 1;">event_available</span>
+                  <h3 class="font-headline-md text-headline-md">Connect Calendly</h3>
+                </div>
+                <p class="text-on-surface-variant text-body-md max-w-xl">
+                  Connect your Calendly account so bookings on your event types can
+                  automatically trigger a WhatsApp message to the invitee.
+                </p>
+              </div>
+              <button
+                id="calendly-connect-btn"
+                class="inline-flex items-center gap-2 bg-primary-container text-on-primary-container font-bold px-4 py-2 rounded-xl hover:opacity-90 transition-all flex-shrink-0"
+              >
+                <span class="material-symbols-outlined text-[20px]">link</span>
+                Connect Calendly
+              </button>
+            </div>
+
+            <!-- Connected -->
+            <div id="calendly-connected" class="hidden flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div class="flex items-center gap-3">
+                <span
+                  class="material-symbols-outlined text-primary text-3xl"
+                  style="font-variation-settings: &quot;FILL&quot; 1"
+                  >check_circle</span
+                >
+                <div>
+                  <h3 class="font-headline-md text-headline-md text-primary">Calendly Connected</h3>
+                  <p class="text-on-surface-variant text-body-md">
+                    Bookings on configured event types will trigger a WhatsApp message.
+                  </p>
+                </div>
+              </div>
+              <button
+                id="calendly-disconnect-btn"
+                class="flex items-center gap-2 text-error border border-error/50 px-4 py-2 rounded-xl font-label-md hover:bg-error/10 transition-colors flex-shrink-0"
+              >
+                <span class="material-symbols-outlined text-[18px]">link_off</span>
+                Disconnect
+              </button>
+            </div>
+          </section>
+
+          <div id="calendly-connected-only" class="hidden space-y-stack-gap">
+            <!-- Embed snippet -->
+            <section
+              class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant shadow-sm space-y-3"
+              id="calendly-embed-section"
+            >
+              <div>
+                <h3 class="font-headline-md text-headline-md">Embed Snippet</h3>
+                <p class="text-on-surface-variant text-body-md">
+                  Paste this line just before your existing Calendly embed code on your booking page.
+                </p>
+              </div>
+              <div class="relative">
+                <pre
+                  id="calendly-embed-snippet"
+                  class="text-xs font-mono text-on-surface bg-surface-container-low border border-outline-variant rounded-lg p-3 pr-9 overflow-x-auto whitespace-pre-wrap"
+                ></pre>
+                <button
+                  onclick="copyEmbedSnippet()"
+                  class="absolute top-2 right-2 material-symbols-outlined text-primary hover:bg-white p-1 rounded transition-colors text-[16px]"
+                  id="calendly-embed-copy-btn"
+                >
+                  content_copy
+                </button>
+              </div>
+            </section>
+
+            <!-- Meeting configuration -->
+            <section
+              class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden flex flex-col"
+            >
+              <div class="p-6 border-b border-outline-variant">
+                <h3 class="font-headline-md text-headline-md" id="meeting-form-title">Add Meeting</h3>
+                <p class="text-on-surface-variant text-body-md">
+                  Map one Calendly event type to a WhatsApp message template.
+                </p>
+              </div>
+              <div class="p-6 space-y-gutter">
+                <div class="whatsapp-border bg-surface-container-low p-5 rounded-xl space-y-4">
+                  <input type="hidden" id="meeting-id" />
+                  <div class="space-y-2">
+                    <label class="font-label-md text-on-surface-variant">Event Type URL / URI</label>
+                    <input
+                      id="meeting-event-type-uri"
+                      class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                      placeholder="https://calendly.com/your-org/discovery-call"
+                      type="text"
+                      autocomplete="off"
+                    />
+                    <p class="text-xs text-on-surface-variant">
+                      Find this in your Calendly event type's settings, or just paste the event type's booking URL.
+                    </p>
+                  </div>
+                  <div class="space-y-2">
+                    <label class="font-label-md text-on-surface-variant">Event Type Name</label>
+                    <input
+                      id="meeting-event-type-name"
+                      class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                      placeholder="Discovery Call"
+                      type="text"
+                      autocomplete="off"
+                    />
+                  </div>
+                  <div class="space-y-2">
+                    <label class="font-label-md text-on-surface-variant">Message Template</label>
+                    <textarea
+                      id="meeting-message-template"
+                      class="w-full px-4 py-3 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all resize-none"
+                      placeholder="Hi {{name}}, thanks for booking {{event_name}}! See you at {{event_time}}."
+                      rows="3"
+                    ></textarea>
+                    <p class="text-xs text-on-surface-variant">
+                      Supported placeholders: <code class="bg-surface-variant px-1 rounded text-[11px]">{{name}}</code>,
+                      <code class="bg-surface-variant px-1 rounded text-[11px]">{{event_name}}</code>,
+                      <code class="bg-surface-variant px-1 rounded text-[11px]">{{event_time}}</code>.
+                    </p>
+                  </div>
+                  <div class="space-y-2">
+                    <label class="font-label-md text-on-surface-variant">Phone Question Name</label>
+                    <input
+                      id="meeting-phone-question-name"
+                      class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                      placeholder="Phone number"
+                      type="text"
+                      autocomplete="off"
+                    />
+                    <p class="text-xs text-on-surface-variant">
+                      Must exactly match a custom question you've added to this Calendly event type —
+                      mark it required so bookings always capture a phone number.
+                    </p>
+                  </div>
+                  <div class="pt-2 flex gap-3">
+                    <button
+                      id="meeting-save-btn"
+                      class="flex-1 bg-primary text-on-primary py-3 rounded-xl font-label-md flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-md"
+                    >
+                      <span class="material-symbols-outlined">add_task</span>
+                      Save Meeting
+                    </button>
+                    <button
+                      id="meeting-cancel-edit-btn"
+                      class="hidden text-on-surface-variant border border-outline-variant px-4 py-2 rounded-xl font-label-md hover:bg-surface-container transition-all"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="border-t border-outline-variant">
+                <div class="p-6 pb-3">
+                  <h4 class="font-label-md font-bold text-on-surface">Configured Meetings</h4>
+                </div>
+                <div id="meetings-empty" class="hidden px-6 pb-6 text-center text-on-surface-variant opacity-50 italic text-body-md">
+                  No meetings configured yet. Add one above.
+                </div>
+                <div id="meetings-list" class="hidden divide-y divide-outline-variant"></div>
+              </div>
+            </section>
+
+            <!-- Leads table -->
+            <section
+              class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden flex flex-col"
+            >
+              <div class="p-6 border-b border-outline-variant">
+                <h3 class="font-headline-md text-headline-md">Leads</h3>
+                <p class="text-on-surface-variant text-body-md">
+                  People who booked through a configured Calendly event type.
+                </p>
+              </div>
+              <div id="leads-loading" class="p-6 space-y-3">
+                <div class="h-4 w-2/3 bg-outline-variant/40 rounded animate-pulse"></div>
+                <div class="h-4 w-1/2 bg-outline-variant/30 rounded animate-pulse"></div>
+              </div>
+              <div id="leads-empty" class="hidden p-6 text-center text-on-surface-variant opacity-50 italic text-body-md">
+                <span class="material-symbols-outlined text-4xl mb-2 block">group_off</span>
+                No leads yet. They'll show up here after someone books a configured event type.
+              </div>
+              <div id="leads-table-wrap" class="hidden overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                  <thead>
+                    <tr class="text-xs text-on-surface-variant border-b border-outline-variant">
+                      <th class="px-5 py-3 font-label-md">Name</th>
+                      <th class="px-5 py-3 font-label-md">Phone</th>
+                      <th class="px-5 py-3 font-label-md">Event</th>
+                      <th class="px-5 py-3 font-label-md">Status</th>
+                      <th class="px-5 py-3 font-label-md">Date</th>
+                      <th class="px-5 py-3 font-label-md">Notes</th>
+                      <th class="px-5 py-3 font-label-md"></th>
+                    </tr>
+                  </thead>
+                  <tbody id="leads-tbody" class="divide-y divide-outline-variant"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </div>
+        <!-- Footer: -mx-6 cancels main's own p-6 padding so it spans edge-to-edge -->
+        <div id="site-footer" class="-mx-6 -mb-6"></div>
+        <script src="/assets/footer.js"></script>
+      </main>
+    </div>
+    <!-- Support Modal -->
+    <div
+      id="supportModal"
+      class="fixed inset-0 z-[100] hidden flex items-center justify-center px-4"
+    >
+      <div
+        class="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onclick="closeSupport()"
+      ></div>
+      <div
+        class="bg-surface-container-lowest w-full max-w-sm rounded-xl p-8 shadow-xl relative z-10 border border-outline-variant flex flex-col gap-4"
+      >
+        <div class="flex justify-between items-center">
+          <h3 class="font-headline-md text-headline-md text-on-surface">
+            Support
+          </h3>
+          <button
+            onclick="closeSupport()"
+            class="text-on-surface-variant hover:text-error transition-colors"
+          >
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+        <p class="text-on-surface-variant font-body-md">
+          Support is available on WhatsApp between
+          <strong class="text-on-surface">9 AM – 7 PM IST</strong> (Mon–Sat).
+        </p>
+        <div id="support-available" class="hidden">
+          <a
+            href="https://wa.me/919538384545"
+            target="_blank"
+            rel="noopener"
+            class="flex items-center justify-center gap-2 bg-primary-container text-on-primary-container font-bold py-3 rounded-xl hover:opacity-90 transition-all w-full"
+          >
+            <span class="material-symbols-outlined text-[20px]">chat</span>
+            Contact Dev on WhatsApp
+          </a>
+        </div>
+        <div id="support-unavailable" class="hidden">
+          <p class="text-on-surface-variant font-body-md text-sm text-center">
+            Developer is currently offline. Please try again during support
+            hours.
+          </p>
+        </div>
+      </div>
+    </div>
+    <!-- Backend Integration Script -->
+    <script>
+      // Same origin locally (server.js serves public/ + /api together);
+      // split into a dedicated API subdomain once served from GitHub Pages.
+      const API_BASE =
+        location.hostname === "localhost" || location.hostname === "127.0.0.1"
+          ? window.location.origin
+          : "https://api.watobot.xyz";
+
+      let authToken = null;
+      let meetings = {};
+      let editingMeetingId = null;
+
+      // Highlights the current page in the shared dashboard nav row.
+      (function highlightNav() {
+        const page = (location.pathname.split("/").pop() || "index.html").replace(
+          ".html",
+          "",
+        );
+        const key = page || "index";
+        const link = document.querySelector(
+          `#dashboard-nav a[data-nav="${key}"]`,
+        );
+        if (link) {
+          link.classList.add(
+            "bg-primary-container",
+            "text-on-primary-container",
+            "font-bold",
+          );
+          link.classList.remove("text-on-surface-variant");
+        }
+      })();
+
+      document.addEventListener("DOMContentLoaded", async () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        authToken = urlParams.get("token") || localStorage.getItem("authToken");
+
+        if (!authToken) {
+          alert("Authentication required. Redirecting to home page...");
+          window.location.href = "/";
+          return;
+        }
+
+        localStorage.setItem("authToken", authToken);
+
+        await loadCalendlyConfig();
+
+        document.getElementById("calendly-connect-btn")?.addEventListener("click", handleConnectCalendly);
+        document.getElementById("calendly-disconnect-btn")?.addEventListener("click", handleDisconnectCalendly);
+        document.getElementById("meeting-save-btn").addEventListener("click", handleSaveMeeting);
+        document.getElementById("meeting-cancel-edit-btn").addEventListener("click", cancelMeetingEdit);
+
+        document.getElementById("logout-btn").addEventListener("click", () => {
+          showLogoutModal({ isFullLogout: true });
+        });
+      });
+
+      async function loadCalendlyConfig() {
+        try {
+          const res = await fetch(`${API_BASE}/api/calendly/config`, {
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+          if (!res.ok) throw new Error("Failed to load Calendly config");
+          const config = await res.json();
+
+          document.getElementById("calendly-connect-loading")?.classList.add("hidden");
+
+          if (config.connected) {
+            document.getElementById("calendly-not-connected")?.classList.add("hidden");
+            const connected = document.getElementById("calendly-connected");
+            connected?.classList.remove("hidden");
+            connected?.classList.add("flex");
+            document.getElementById("calendly-connected-only")?.classList.remove("hidden");
+
+            if (config.calendlyKey) {
+              const snippet = document.getElementById("calendly-embed-snippet");
+              if (snippet) {
+                snippet.textContent = `<script src="${API_BASE}/api/calendly/code?token=${config.calendlyKey}"><\/script>`;
+              }
+            }
+
+            meetings = config.meetings || {};
+            renderMeetings();
+            await loadLeads();
+          } else {
+            const notConnected = document.getElementById("calendly-not-connected");
+            notConnected?.classList.remove("hidden");
+            notConnected?.classList.add("flex");
+            document.getElementById("calendly-connected-only")?.classList.add("hidden");
+          }
+        } catch (error) {
+          console.error("Error loading Calendly config:", error);
+          document.getElementById("calendly-connect-loading")?.classList.add("hidden");
+        }
+      }
+
+      async function handleConnectCalendly() {
+        const btn = document.getElementById("calendly-connect-btn");
+        btn.disabled = true;
+        try {
+          const res = await fetch(`${API_BASE}/api/calendly/authorize`, {
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+          if (!res.ok) throw new Error("Failed to start Calendly connection");
+          const data = await res.json();
+          if (!data.url) throw new Error("No authorize URL returned");
+          window.location.href = data.url;
+        } catch (error) {
+          console.error("Error connecting Calendly:", error);
+          alert("Failed to start Calendly connection. Please try again.");
+          btn.disabled = false;
+        }
+      }
+
+      async function handleDisconnectCalendly() {
+        if (!confirm("Disconnect Calendly? Configured meetings will stop triggering messages.")) return;
+        const btn = document.getElementById("calendly-disconnect-btn");
+        btn.disabled = true;
+        try {
+          const res = await fetch(`${API_BASE}/api/calendly/disconnect`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+          if (!res.ok) throw new Error("Failed to disconnect");
+          window.location.reload();
+        } catch (error) {
+          console.error("Error disconnecting Calendly:", error);
+          alert("Failed to disconnect Calendly. Please try again.");
+          btn.disabled = false;
+        }
+      }
+
+      function copyEmbedSnippet() {
+        const text = document.getElementById("calendly-embed-snippet")?.textContent;
+        if (!text) return;
+        navigator.clipboard.writeText(text).then(() => {
+          const btn = document.getElementById("calendly-embed-copy-btn");
+          if (!btn) return;
+          btn.textContent = "check";
+          setTimeout(() => {
+            btn.textContent = "content_copy";
+          }, 2000);
+        });
+      }
+
+      function renderMeetings() {
+        const list = document.getElementById("meetings-list");
+        const empty = document.getElementById("meetings-empty");
+        const entries = Object.entries(meetings);
+
+        if (entries.length === 0) {
+          list.classList.add("hidden");
+          empty.classList.remove("hidden");
+          return;
+        }
+
+        empty.classList.add("hidden");
+        list.classList.remove("hidden");
+
+        list.innerHTML = entries
+          .map(([id, m]) => {
+            const name = m.eventTypeName || m.eventTypeUri || "Untitled meeting";
+            return `
+            <div class="flex items-start gap-3 px-6 py-4 hover:bg-surface-container-low/50 transition-colors">
+                <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary flex-shrink-0 mt-0.5">
+                    <span class="material-symbols-outlined text-[18px]">event</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="font-label-md text-on-surface">${escapeHtml(name)}</p>
+                    <p class="text-xs text-on-surface-variant mt-0.5 truncate">${escapeHtml(m.eventTypeUri || "")}</p>
+                    <p class="text-xs text-on-surface-variant mt-0.5 line-clamp-2 leading-relaxed">${escapeHtml(m.messageTemplate || "")}</p>
+                </div>
+                <div class="flex gap-1 flex-shrink-0 mt-0.5">
+                    <button onclick="loadMeetingIntoForm('${escapeHtml(id)}')" class="p-1 text-on-surface-variant hover:text-primary transition-colors" title="Edit">
+                        <span class="material-symbols-outlined text-[20px]">edit</span>
+                    </button>
+                    <button onclick="deleteMeeting('${escapeHtml(id)}')" class="p-1 text-on-surface-variant hover:text-error transition-colors" title="Delete">
+                        <span class="material-symbols-outlined text-[20px]">delete</span>
+                    </button>
+                </div>
+            </div>
+        `;
+          })
+          .join("");
+      }
+
+      function loadMeetingIntoForm(meetingId) {
+        const m = meetings[meetingId];
+        if (!m) return;
+        editingMeetingId = meetingId;
+        document.getElementById("meeting-id").value = meetingId;
+        document.getElementById("meeting-event-type-uri").value = m.eventTypeUri || "";
+        document.getElementById("meeting-event-type-name").value = m.eventTypeName || "";
+        document.getElementById("meeting-message-template").value = m.messageTemplate || "";
+        document.getElementById("meeting-phone-question-name").value = m.phoneQuestionName || "";
+        document.getElementById("meeting-form-title").textContent = "Edit Meeting";
+        document.getElementById("meeting-save-btn").innerHTML =
+          '<span class="material-symbols-outlined">save</span> Update Meeting';
+        document.getElementById("meeting-cancel-edit-btn").classList.remove("hidden");
+        document
+          .getElementById("meeting-save-btn")
+          .scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+
+      function cancelMeetingEdit() {
+        editingMeetingId = null;
+        document.getElementById("meeting-id").value = "";
+        document.getElementById("meeting-event-type-uri").value = "";
+        document.getElementById("meeting-event-type-name").value = "";
+        document.getElementById("meeting-message-template").value = "";
+        document.getElementById("meeting-phone-question-name").value = "";
+        document.getElementById("meeting-form-title").textContent = "Add Meeting";
+        document.getElementById("meeting-save-btn").innerHTML =
+          '<span class="material-symbols-outlined">add_task</span> Save Meeting';
+        document.getElementById("meeting-cancel-edit-btn").classList.add("hidden");
+      }
+
+      async function handleSaveMeeting() {
+        const eventTypeUri = document.getElementById("meeting-event-type-uri").value.trim();
+        const eventTypeName = document.getElementById("meeting-event-type-name").value.trim();
+        const messageTemplate = document.getElementById("meeting-message-template").value.trim();
+        const phoneQuestionName = document.getElementById("meeting-phone-question-name").value.trim();
+
+        if (!eventTypeUri || !messageTemplate) {
+          alert("Please fill in the event type URL and a message template.");
+          return;
+        }
+
+        const btn = document.getElementById("meeting-save-btn");
+        btn.disabled = true;
+
+        try {
+          const res = await fetch(`${API_BASE}/api/calendly/config`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              meetingId: editingMeetingId || undefined,
+              eventTypeUri,
+              eventTypeName,
+              messageTemplate,
+              phoneQuestionName: phoneQuestionName || null,
+            }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || "Failed to save meeting");
+          }
+          cancelMeetingEdit();
+          await loadCalendlyConfig();
+        } catch (error) {
+          console.error("Error saving meeting:", error);
+          alert(error.message || "Failed to save meeting");
+        } finally {
+          btn.disabled = false;
+        }
+      }
+
+      async function deleteMeeting(meetingId) {
+        if (!confirm("Delete this meeting configuration?")) return;
+        try {
+          const res = await fetch(`${API_BASE}/api/calendly/config/${meetingId}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+          if (!res.ok) throw new Error("Failed to delete meeting");
+          await loadCalendlyConfig();
+        } catch (error) {
+          console.error("Error deleting meeting:", error);
+          alert("Failed to delete meeting");
+        }
+      }
+
+      const STATUS_STYLES = {
+        sent: "bg-primary/10 text-primary",
+        failed: "bg-error/10 text-error",
+        no_phone: "bg-amber-100 text-amber-700",
+        pending: "bg-outline-variant/40 text-on-surface-variant",
+      };
+      const STATUS_LABELS = {
+        sent: "Sent",
+        failed: "Failed",
+        no_phone: "No Phone",
+        pending: "Pending",
+      };
+
+      async function loadLeads() {
+        try {
+          const res = await fetch(`${API_BASE}/api/leads`, {
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+          document.getElementById("leads-loading")?.classList.add("hidden");
+          if (!res.ok) throw new Error("Failed to load leads");
+          const data = await res.json();
+          renderLeads(data.leads || []);
+        } catch (error) {
+          console.error("Error loading leads:", error);
+          document.getElementById("leads-loading")?.classList.add("hidden");
+        }
+      }
+
+      function renderLeads(leads) {
+        const wrap = document.getElementById("leads-table-wrap");
+        const empty = document.getElementById("leads-empty");
+        const tbody = document.getElementById("leads-tbody");
+
+        if (leads.length === 0) {
+          wrap.classList.add("hidden");
+          empty.classList.remove("hidden");
+          return;
+        }
+
+        empty.classList.add("hidden");
+        wrap.classList.remove("hidden");
+
+        tbody.innerHTML = leads
+          .map((lead) => {
+            const status = lead.status || "pending";
+            const statusClass = STATUS_STYLES[status] || STATUS_STYLES.pending;
+            const statusLabel = STATUS_LABELS[status] || status;
+            const phoneCell = lead.phone
+              ? escapeHtml(lead.phone)
+              : `<span class="inline-flex items-center gap-1 text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">No phone captured</span>`;
+            const eventName = escapeHtml(
+              (lead.calendly && lead.calendly.eventName) || "",
+            );
+            const dateVal =
+              (lead.calendly && lead.calendly.eventStartTime) || lead.createdAt;
+            const dateStr = dateVal ? new Date(dateVal).toLocaleString() : "";
+            const leadId = escapeHtml(lead.id);
+
+            return `
+            <tr class="align-top">
+                <td class="px-5 py-3 font-label-md text-on-surface whitespace-nowrap">${escapeHtml(lead.name || "—")}</td>
+                <td class="px-5 py-3 text-on-surface-variant whitespace-nowrap">${phoneCell}</td>
+                <td class="px-5 py-3 text-on-surface-variant">${eventName || "—"}</td>
+                <td class="px-5 py-3"><span class="text-xs font-label-md px-2 py-0.5 rounded-full ${statusClass}">${escapeHtml(statusLabel)}</span></td>
+                <td class="px-5 py-3 text-on-surface-variant text-xs whitespace-nowrap">${escapeHtml(dateStr)}</td>
+                <td class="px-5 py-3">
+                    <input
+                        type="text"
+                        value="${escapeHtml(lead.notes || "")}"
+                        placeholder="Add a note…"
+                        class="w-40 px-2 py-1 text-xs bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                        onblur="saveLeadNotes('${leadId}', this.value)"
+                        onkeydown="if(event.key==='Enter'){this.blur()}"
+                    />
+                </td>
+                <td class="px-5 py-3">
+                    <button onclick="deleteLead('${leadId}')" class="p-1 text-on-surface-variant hover:text-error transition-colors" title="Delete">
+                        <span class="material-symbols-outlined text-[20px]">delete</span>
+                    </button>
+                </td>
+            </tr>
+        `;
+          })
+          .join("");
+      }
+
+      async function saveLeadNotes(leadId, notes) {
+        try {
+          const res = await fetch(`${API_BASE}/api/leads/${leadId}`, {
+            method: "PATCH",
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ notes }),
+          });
+          if (!res.ok) throw new Error("Failed to save notes");
+        } catch (error) {
+          console.error("Error saving lead notes:", error);
+        }
+      }
+
+      async function deleteLead(leadId) {
+        if (!confirm("Delete this lead?")) return;
+        try {
+          const res = await fetch(`${API_BASE}/api/leads/${leadId}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+          if (!res.ok) throw new Error("Failed to delete lead");
+          await loadLeads();
+        } catch (error) {
+          console.error("Error deleting lead:", error);
+          alert("Failed to delete lead");
+        }
+      }
+
+      function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = String(text || "");
+        return div.innerHTML;
+      }
+
+      // ── Logout modal ───────────────────────────────────
+
+      function showLogoutModal({ isFullLogout }) {
+        const modal = document.getElementById("logoutModal");
+        const title = document.getElementById("logoutModalTitle");
+        const body = document.getElementById("logoutModalBody");
+        const confirmBtn = document.getElementById("logoutModalConfirm");
+        const cancelBtn = document.getElementById("logoutModalCancel");
+
+        title.textContent = isFullLogout
+          ? "Log out of WatoBot"
+          : "Disconnect WhatsApp";
+        confirmBtn.dataset.isFullLogout = isFullLogout ? "1" : "0";
+
+        body.innerHTML = `
+        <div class="flex items-center gap-3 text-on-surface-variant">
+            <div class="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
+            <p class="text-body-md">Asking WhatsApp to remove this device… please wait.</p>
+        </div>
+        <p id="logoutModalError" class="hidden mt-3 text-sm text-error">Something went wrong. Please try again.</p>
+    `;
+        confirmBtn.textContent = "Continue — device is removed";
+        confirmBtn.disabled = true;
+        cancelBtn.disabled = false;
+        modal.classList.remove("hidden");
+
+        fetch(`${API_BASE}/api/whatsapp/logout`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${authToken}` },
+        })
+          .catch(() => {})
+          .finally(() => {
+            body.innerHTML = `
+            <p class="text-on-surface-variant text-body-md mb-3">
+                We've asked WhatsApp to remove this device. Please verify on your phone:
+            </p>
+            <ol class="space-y-2 text-body-md text-on-surface-variant list-decimal list-inside">
+                <li>Open WhatsApp → tap <strong>Linked Devices</strong></li>
+                <li>If <strong>"Google Chrome"</strong> is still listed, tap it and choose <strong>Log out</strong></li>
+                <li>Once it's gone, click <strong>Continue</strong> below</li>
+            </ol>
+            <p id="logoutModalError" class="hidden mt-3 text-sm text-error">Something went wrong. Please try again.</p>
+        `;
+            confirmBtn.disabled = false;
+          });
+      }
+
+      async function handleLogoutConfirm() {
+        const confirmBtn = document.getElementById("logoutModalConfirm");
+        const errMsg = document.getElementById("logoutModalError");
+        const isFullLogout = confirmBtn.dataset.isFullLogout === "1";
+
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = "Cleaning up…";
+        errMsg?.classList.add("hidden");
+
+        try {
+          const res = await fetch(`${API_BASE}/api/whatsapp/logout/confirm`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+          if (!res.ok) throw new Error("confirm failed");
+
+          if (isFullLogout) {
+            localStorage.removeItem("authToken");
+            window.location.href = "/";
+          } else {
+            window.location.href = `/verify.html?token=${authToken}`;
+          }
+        } catch {
+          errMsg?.classList.remove("hidden");
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = "Continue — device is removed";
+        }
+      }
+
+      document.addEventListener("click", (e) => {
+        if (e.target.id === "logoutModalConfirm") handleLogoutConfirm();
+        if (e.target.id === "logoutModalCancel")
+          document.getElementById("logoutModal").classList.add("hidden");
+      });
+
+      function openSupport() {
+        const modal = document.getElementById("supportModal");
+        const now = new Date();
+        const istHour =
+          ((now.getUTCHours() * 60 + now.getUTCMinutes() + 330) / 60) % 24;
+        const available = istHour >= 9 && istHour < 19;
+        document
+          .getElementById("support-available")
+          .classList.toggle("hidden", !available);
+        document
+          .getElementById("support-unavailable")
+          .classList.toggle("hidden", available);
+        modal.classList.remove("hidden");
+      }
+      function closeSupport() {
+        document.getElementById("supportModal").classList.add("hidden");
+      }
+    </script>
+
+    <!-- Logout modal -->
+    <div
+      id="logoutModal"
+      class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+    >
+      <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+        <h2
+          id="logoutModalTitle"
+          class="font-headline-md text-headline-md text-on-surface"
+        ></h2>
+        <div id="logoutModalBody"></div>
+        <div class="flex gap-3 justify-end pt-2">
+          <button
+            id="logoutModalCancel"
+            class="px-4 py-2 rounded-xl border border-outline-variant text-on-surface-variant font-label-md hover:bg-surface-container transition"
+          >
+            Cancel
+          </button>
+          <button
+            id="logoutModalConfirm"
+            class="px-4 py-2 rounded-xl bg-error text-white font-label-md hover:bg-error/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          ></button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

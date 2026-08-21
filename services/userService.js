@@ -218,6 +218,40 @@ async function verifyApiKey(apiKey) {
   }
 }
 
+// Permanent key embedded in the client-side Calendly snippet (see
+// services/calendlyService.js) — same two-file lookup trick as the API key
+// above, but with no expiry file: this key is never expected to expire or
+// rotate, since it has to keep working unattended on the user's own website.
+async function generateCalendlyKey(userDir, token) {
+  const random = crypto.randomBytes(27).toString('hex');
+  const calendlyKey = userDir + random; // same 64-hex format as token/apiKey
+
+  await fs.writeFile(path.join(CONFIG.USERS_DIR, userDir, 'calendly_key_hash'), computeTokenHash(calendlyKey));
+  await fs.writeFile(path.join(CONFIG.USERS_DIR, userDir, 'token_enc_with_calendly_key'), encryptData(token, calendlyKey));
+
+  return { calendlyKey };
+}
+
+async function verifyCalendlyKey(calendlyKey) {
+  if (!calendlyKey || calendlyKey.length !== 64) return null;
+  const userDir = calendlyKey.slice(0, 10);
+  try {
+    const storedHash = (await fs.readFile(
+      path.join(CONFIG.USERS_DIR, userDir, 'calendly_key_hash'), 'utf8'
+    )).trim();
+    if (computeTokenHash(calendlyKey) !== storedHash) return null;
+
+    const encTokenRaw = (await fs.readFile(
+      path.join(CONFIG.USERS_DIR, userDir, 'token_enc_with_calendly_key'), 'utf8'
+    )).trim();
+    const sessionToken = decryptData(encTokenRaw, calendlyKey);
+
+    return { token: sessionToken, userDir };
+  } catch {
+    return null;
+  }
+}
+
 // Opt-in email for failure notifications (e.g. a scheduled/API send fails) —
 // distinct from the login email, which is deliberately never stored. Encrypted
 // with the user's token like proxy.json/schedules.json, so it's unreadable
@@ -245,6 +279,8 @@ module.exports = {
   generateApiKey,
   getApiKeyStatus,
   verifyApiKey,
+  generateCalendlyKey,
+  verifyCalendlyKey,
   encryptData,
   decryptData,
   writeUserFile,
