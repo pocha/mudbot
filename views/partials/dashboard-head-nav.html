@@ -51,7 +51,32 @@
         </button>
       </div>
     </header>
-    <div class="flex h-[calc(100vh-64px)] overflow-hidden justify-center">
+    <div class="flex h-[calc(100vh-64px)] overflow-hidden">
+      <!-- Dashboard section nav — icon-only rail below lg:, icon+label
+           sidebar at lg: and up. Purely viewport-driven (no JS toggle, no
+           persisted state) — matches the rest of this app's no-framework,
+           no-client-state-beyond-auth-token approach. -->
+      <aside
+        id="dashboard-nav"
+        class="w-16 lg:w-56 flex-shrink-0 border-r border-outline-variant bg-surface-container-lowest flex flex-col gap-1 py-4 px-2 overflow-y-auto"
+      >
+        <a href="index.html" data-nav="index" title="Dashboard" class="flex items-center gap-3 px-2 lg:px-3 py-2.5 rounded-lg font-label-md text-sm text-on-surface-variant hover:bg-surface-container transition-colors justify-center lg:justify-start">
+          <span class="material-symbols-outlined text-[22px] flex-shrink-0">insights</span>
+          <span class="hidden lg:inline truncate">Dashboard</span>
+        </a>
+        <a href="schedules.html" data-nav="schedules" title="Scheduled Messages" class="flex items-center gap-3 px-2 lg:px-3 py-2.5 rounded-lg font-label-md text-sm text-on-surface-variant hover:bg-surface-container transition-colors justify-center lg:justify-start">
+          <span class="material-symbols-outlined text-[22px] flex-shrink-0">schedule_send</span>
+          <span class="hidden lg:inline truncate">Scheduled Messages</span>
+        </a>
+        <a href="faqs.html" data-nav="faqs" title="Group FAQs" class="flex items-center gap-3 px-2 lg:px-3 py-2.5 rounded-lg font-label-md text-sm text-on-surface-variant hover:bg-surface-container transition-colors justify-center lg:justify-start">
+          <span class="material-symbols-outlined text-[22px] flex-shrink-0">quiz</span>
+          <span class="hidden lg:inline truncate">Group FAQs</span>
+        </a>
+        <a href="calendly.html" data-nav="calendly" title="Calendly" class="flex items-center gap-3 px-2 lg:px-3 py-2.5 rounded-lg font-label-md text-sm text-on-surface-variant hover:bg-surface-container transition-colors justify-center lg:justify-start">
+          <span class="material-symbols-outlined text-[22px] flex-shrink-0">calendar_month</span>
+          <span class="hidden lg:inline truncate">Calendly</span>
+        </a>
+      </aside>
       <!-- Main Workspace -->
       <main class="flex-1 overflow-y-auto custom-scrollbar p-6 bg-background flex flex-col">
         <!-- flex-1 lets this stretch to fill any leftover vertical space when
@@ -61,10 +86,3 @@
              below a short section list. When content overflows, this has no
              effect and the footer just sits at the true end, as normal. -->
         <div class="max-w-6xl mx-auto space-y-stack-gap flex-1 w-full">
-          <!-- Dashboard section nav -->
-          <nav id="dashboard-nav" class="flex items-center gap-1 flex-wrap">
-            <a href="index.html" data-nav="index" class="px-3 py-1.5 rounded-lg font-label-md text-sm text-on-surface-variant hover:bg-surface-container transition-colors">Overview</a>
-            <a href="schedules.html" data-nav="schedules" class="px-3 py-1.5 rounded-lg font-label-md text-sm text-on-surface-variant hover:bg-surface-container transition-colors">Scheduled Messages</a>
-            <a href="faqs.html" data-nav="faqs" class="px-3 py-1.5 rounded-lg font-label-md text-sm text-on-surface-variant hover:bg-surface-container transition-colors">Group FAQs</a>
-            <a href="calendly.html" data-nav="calendly" class="px-3 py-1.5 rounded-lg font-label-md text-sm text-on-surface-variant hover:bg-surface-container transition-colors">Calendly</a>
-          </nav>
