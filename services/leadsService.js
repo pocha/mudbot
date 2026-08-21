@@ -7,6 +7,15 @@ async function listLeads(userDir, opts) {
   return Lead.list(userDir, opts);
 }
 
+// For leads added by hand from the dashboard, not captured via an
+// integration — no automatic message send, just a record to track/edit like
+// any other lead.
+async function createManualLead(userDir, { name, email, phone, notes }) {
+  const lead = Lead.new({ userDir, name, email, phone, source: 'manual', sourceData: null, status: 'pending', notes });
+  await lead.save();
+  return lead;
+}
+
 async function updateLead(userDir, leadId, patch) {
   const lead = await Lead.findByIdForUser(userDir, leadId);
   if (!lead) return null;
@@ -78,4 +87,4 @@ async function createLeadFromCalendlyEvent(userDir, token, meetingId, eventUri, 
   return { status };
 }
 
-module.exports = { listLeads, updateLead, deleteLead, createLeadFromCalendlyEvent };
+module.exports = { listLeads, updateLead, deleteLead, createLeadFromCalendlyEvent, createManualLead };

@@ -510,6 +510,19 @@ async function routes(fastify, options) {
     }
   });
 
+  fastify.post('/api/leads', { preHandler: authenticateUser }, async (request, reply) => {
+    try {
+      const { name, email, phone, notes } = request.body || {};
+      if (!email && !phone) return reply.code(400).send({ error: 'email or phone is required' });
+
+      const lead = await leadsService.createManualLead(request.user.userDir, { name, email, phone, notes });
+      return { success: true, lead };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Failed to create lead' });
+    }
+  });
+
   fastify.get('/api/leads', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       const limit = parseInt(request.query.limit) || 50;
