@@ -46,26 +46,7 @@
   </div>
 </div>
 
-<!-- Support Modal -->
-<div id="supportModal" class="fixed inset-0 z-[200] hidden flex items-center justify-center px-4">
-  <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="closeSupport()"></div>
-  <div class="bg-surface-container-lowest w-full max-w-sm rounded-xl p-8 shadow-xl relative z-10 border border-outline-variant flex flex-col gap-4">
-    <div class="flex justify-between items-center">
-      <h3 class="font-headline-md text-headline-md text-on-surface">Support</h3>
-      <button onclick="closeSupport()" class="text-on-surface-variant hover:text-error transition-colors"><span class="material-symbols-outlined">close</span></button>
-    </div>
-    <p class="text-on-surface-variant font-body-md">Support is available on WhatsApp between <strong class="text-on-surface">9 AM – 7 PM IST</strong> (Mon–Sat).</p>
-    <div id="support-available" class="hidden">
-      <a href="https://wa.me/919538384545" target="_blank" rel="noopener"
-        class="flex items-center justify-center gap-2 bg-primary-container text-on-primary-container font-bold py-3 rounded-xl hover:opacity-90 transition-all w-full">
-        <span class="material-symbols-outlined text-[20px]">chat</span> Contact Dev on WhatsApp
-      </a>
-    </div>
-    <div id="support-unavailable" class="hidden">
-      <p class="text-on-surface-variant font-body-md text-sm text-center">Developer is currently offline. Please try again during support hours.</p>
-    </div>
-  </div>
-</div>
+<!--#include partial="support-modal"-->
 
 <script>
     // Same origin locally (server.js serves public/ + /api together);
@@ -176,19 +157,6 @@
         el.addEventListener('mouseup', () => { el.classList.remove('scale-95'); });
         el.addEventListener('mouseleave', () => { el.classList.remove('scale-95'); });
     });
-
-    function openSupport() {
-        const modal = document.getElementById('supportModal');
-        const now = new Date();
-        const istHour = (now.getUTCHours() * 60 + now.getUTCMinutes() + 330) / 60 % 24;
-        const available = istHour >= 9 && istHour < 19;
-        document.getElementById('support-available').classList.toggle('hidden', !available);
-        document.getElementById('support-unavailable').classList.toggle('hidden', available);
-        modal.classList.remove('hidden');
-    }
-    function closeSupport() {
-        document.getElementById('supportModal').classList.add('hidden');
-    }
 </script>
 
 </body>
