@@ -15,9 +15,10 @@
                 <p class="text-body-muted text-sm">On new Calendly booking</p>
               </div>
               <div class="flex items-center gap-1.5">
+                <span id="calendly-box-loading" class="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin flex-shrink-0"></span>
                 <span id="calendly-box-check" class="hidden material-symbols-outlined text-primary text-[20px]" style="font-variation-settings:'FILL' 1;">check_circle</span>
-                <span id="calendly-box-x" class="material-symbols-outlined text-on-surface-variant text-[20px]">cancel</span>
-                <p id="calendly-box-status" class="text-body-muted text-sm">Not connected</p>
+                <span id="calendly-box-x" class="hidden material-symbols-outlined text-on-surface-variant text-[20px]">cancel</span>
+                <p id="calendly-box-status" class="text-body-muted text-sm">Checking…</p>
               </div>
             </button>
 
@@ -32,9 +33,10 @@
                 <p class="text-body-muted text-sm">Send WhatsApp message to invitee</p>
               </div>
               <div class="flex items-center gap-1.5">
+                <span id="watobot-box-loading" class="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin flex-shrink-0"></span>
                 <span id="watobot-box-check" class="hidden material-symbols-outlined text-primary text-[20px]" style="font-variation-settings:'FILL' 1;">check_circle</span>
-                <span id="watobot-box-x" class="material-symbols-outlined text-on-surface-variant text-[20px]">cancel</span>
-                <p id="watobot-box-status" class="text-body-muted text-sm">Not connected</p>
+                <span id="watobot-box-x" class="hidden material-symbols-outlined text-on-surface-variant text-[20px]">cancel</span>
+                <p id="watobot-box-status" class="text-body-muted text-sm">Checking…</p>
               </div>
             </button>
           </div>
@@ -350,12 +352,14 @@
 
       function renderBoxes() {
         const calChecked = calendlyVerified();
+        document.getElementById("calendly-box-loading").classList.add("hidden");
         document.getElementById("calendly-box-status").textContent = calChecked
           ? "Connected & verified"
           : calendlyConfig.connected ? "Connected" : "Not connected";
         document.getElementById("calendly-box-check").classList.toggle("hidden", !calChecked);
         document.getElementById("calendly-box-x").classList.toggle("hidden", calChecked);
 
+        document.getElementById("watobot-box-loading").classList.add("hidden");
         document.getElementById("watobot-box-status").textContent = waLoggedIn
           ? "Connected"
           : "Not connected";
