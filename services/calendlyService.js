@@ -5,7 +5,14 @@ const { writeUserFile, readUserFile, generateCalendlyKey } = require('./userServ
 const mudslideService = require('./mudslideService');
 const ApiError = require('./apiError');
 
-const CREATE_LEAD_FUNCTION_URL = 'https://asia-south1-wato-bot.cloudfunctions.net/createLead';
+// Computed at call time, not module load — CLOUD_FUNCTIONS_BASE_URL (set by
+// scripts/functions-emulator.js when the local Functions emulator is
+// running) may not be known yet when this module is first required.
+// Defaults to the real deployed project.
+function functionUrl(name) {
+  const base = process.env.CLOUD_FUNCTIONS_BASE_URL || 'https://asia-south1-wato-bot.cloudfunctions.net';
+  return `${base}/${name}`;
+}
 
 const CONFIG = {
   USERS_DIR: path.join(__dirname, '..', 'users')
@@ -18,16 +25,24 @@ function calendlyFile(userDir) {
   return path.join(CONFIG.USERS_DIR, userDir, 'calendly.json');
 }
 
+// Holds only what's secret or VM-only (Calendly OAuth tokens, the connected
+// account's own URIs, and the embed-script calendlyKey — kept here too since
+// the VM needs to be able to answer GET /api/calendly/status without a
+// Firestore round-trip). Everything else about a Calendly connection —
+// connection status display, the meetings map — lives in Firestore instead,
+// managed directly by the frontend (see users/{userDir}.calendlyConfig).
 async function readConfig(userDir, token) {
   try {
-    return JSON.parse(await readUserFile(calendlyFile(userDir), token));
+    const config = JSON.parse(await readUserFile(calendlyFile(userDir), token));
+    return { connected: true, ...config };
   } catch {
-    return { connected: false, meetings: {} };
+    return { connected: false };
   }
 }
 
 async function writeConfig(userDir, token, config) {
-  await writeUserFile(calendlyFile(userDir), JSON.stringify(config), token);
+  const { connected, ...rest } = config; // derived from file presence, not persisted
+  await writeUserFile(calendlyFile(userDir), JSON.stringify(rest), token);
 }
 
 // The OAuth callback is a plain browser redirect from Calendly — there's no
@@ -156,33 +171,49 @@ async function completeConnection(userDir, token, code) {
   const me = await fetchCurrentUser(tokenData.access_token);
 
   const existing = await readConfig(userDir, token);
+  const calendlyKey = existing.calendlyKey || (await generateCalendlyKey(userDir, token)).calendlyKey;
   const config = {
-    connected: true,
     calendlyUserUri: me.uri,
     calendlyOrgUri: me.current_organization,
+    calendlyName: me.name,
+    calendlyEmail: me.email,
     accessToken: tokenData.access_token,
     refreshToken: tokenData.refresh_token,
     expiresAt: new Date(Date.now() + tokenData.expires_in * 1000).toISOString(),
-    calendlyKey: existing.calendlyKey || (await generateCalendlyKey(userDir, token)).calendlyKey,
-    meetings: existing.meetings || {}
+    calendlyKey
   };
   await writeConfig(userDir, token, config);
-  return config;
+  return { connected: true, calendlyKey, name: me.name, email: me.email };
 }
 
 async function disconnect(userDir, token) {
   try { await fs.unlink(calendlyFile(userDir)); } catch {}
 }
 
-async function listMeetings(userDir, token) {
-  const config = await readConfig(userDir, token);
-  return config.meetings || {};
+// Finds the custom question Calendly itself typed as a phone number on this
+// event type (real Calendly API field, confirmed against their OpenAPI spec
+// and a live example response) — no booking required, works even before the
+// event type has ever been booked. Deliberately doesn't fall back to
+// matching on a question's name/text: real-world Calendly forms are messy
+// (e.g. a plain `type: 'string'` question named "US Phone Number"), and
+// guessing from that is worse than asking the user to fix the one clean
+// signal when it's missing.
+function detectPhoneQuestion(customQuestions) {
+  const q = (customQuestions || []).find(cq => cq.type === 'phone_number');
+  if (!q) return { phoneQuestionName: null, phoneDetectionStatus: 'not_found' };
+  return {
+    phoneQuestionName: q.name,
+    phoneDetectionStatus: q.required ? 'found_required' : 'found_not_required'
+  };
 }
 
 // Lets the dashboard offer a picker instead of the user pasting a booking
-// URL by hand. Requires the Calendly OAuth app to be granted the
-// event_types:read scope (see README) alongside scheduled_events:read.
-async function listEventTypes(userDir, token) {
+// URL by hand, and — since Calendly's event type objects already carry
+// custom_questions — doubles as the phone-detection source for those same
+// event types, with no separate API call or endpoint needed. Requires the
+// Calendly OAuth app to be granted the event_types:read scope (see README)
+// alongside scheduled_events:read.
+async function getUserCalendars(userDir, token) {
   const config = await readConfig(userDir, token);
   if (!config.connected) throw new ApiError(400, 'Calendly not connected');
 
@@ -191,42 +222,39 @@ async function listEventTypes(userDir, token) {
   while (url) {
     const data = await calendlyApiGet(userDir, token, url);
     for (const et of data.collection || []) {
-      eventTypes.push({ uri: et.uri, name: et.name, schedulingUrl: et.scheduling_url });
+      eventTypes.push({
+        uri: et.uri,
+        name: et.name,
+        schedulingUrl: et.scheduling_url,
+        ...detectPhoneQuestion(et.custom_questions)
+      });
     }
     url = data.pagination?.next_page || null;
   }
   return eventTypes;
 }
 
-async function upsertMeeting(userDir, token, meetingId, meetingData) {
-  const config = await readConfig(userDir, token);
-  const id = meetingId || crypto.randomUUID();
-  const now = new Date().toISOString();
-  config.meetings = config.meetings || {};
-  config.meetings[id] = {
-    eventTypeUri: meetingData.eventTypeUri,
-    eventTypeName: meetingData.eventTypeName,
-    messageTemplate: meetingData.messageTemplate,
-    phoneQuestionName: meetingData.phoneQuestionName || null,
-    allowedOrigin: meetingData.allowedOrigin || null,
-    createdAt: config.meetings[id]?.createdAt || now,
-    updatedAt: now
-  };
-  await writeConfig(userDir, token, config);
-  return { id, ...config.meetings[id] };
+// Calendly's `location` is a nested object whose shape varies by type
+// (physical address, Zoom/Meet/Webex join link, phone call, custom text) —
+// flattened to whichever plain-text field it actually has, since a message
+// template placeholder needs a string, not an object.
+function flattenLocation(location) {
+  if (!location) return '';
+  if (location.location) return location.location;
+  if (location.join_url) return location.join_url;
+  if (location.type) return location.type.replace(/_/g, ' ');
+  return '';
 }
 
-async function deleteMeeting(userDir, token, meetingId) {
-  const config = await readConfig(userDir, token);
-  if (config.meetings) delete config.meetings[meetingId];
-  await writeConfig(userDir, token, config);
-}
-
-function resolveMessageTemplate(template, { name, eventName, eventStartTime }) {
+function resolveMessageTemplate(template, { name, email, eventName, eventStartTime, eventEndTime, timezone, location }) {
   return template
     .replace(/{{\s*name\s*}}/gi, name || '')
+    .replace(/{{\s*email\s*}}/gi, email || '')
     .replace(/{{\s*event_name\s*}}/gi, eventName || '')
-    .replace(/{{\s*event_time\s*}}/gi, eventStartTime ? new Date(eventStartTime).toLocaleString() : '');
+    .replace(/{{\s*event_time\s*}}/gi, eventStartTime ? new Date(eventStartTime).toLocaleString() : '')
+    .replace(/{{\s*event_end_time\s*}}/gi, eventEndTime ? new Date(eventEndTime).toLocaleString() : '')
+    .replace(/{{\s*timezone\s*}}/gi, timezone || '')
+    .replace(/{{\s*location\s*}}/gi, flattenLocation(location));
 }
 
 function extractPhone(invitee, phoneQuestionName) {
@@ -256,6 +284,7 @@ async function getUserPhoneFromEvent(userDir, token, inviteeUri, phoneQuestionNa
   return {
     name: invitee.name,
     email: invitee.email,
+    timezone: invitee.timezone,
     phone: phone ? normalizePhone(phone) : null,
     phoneSource
   };
@@ -293,12 +322,21 @@ function buildCalendlyEmbedScript(calendlyKey, meetingId, apiBase = '') {
 // other lead-management action does). Throws ApiError with the right
 // status for the route to surface directly (not found / ownership
 // mismatch), rather than the route hand-rolling each check.
-async function createLeadFromCalendlyEvent(userDir, token, meetingId, eventUri, inviteeUri) {
+//
+// `meeting` is passed in by the caller (routes/api.js), fetched from
+// Firestore via the getCalendlyMeetingConfig Cloud Function — this function
+// itself has no Firestore access, only the VM-local connection info
+// (calendlyUserUri, for the ownership check) via readConfig.
+//
+// `test: true` is the dashboard's "Test Message" action reusing this same
+// real webhook path (see routes/api.js) instead of a separate endpoint: it
+// sends to 'me' instead of the resolved phone, bypasses the autoSendEnabled
+// gate (an explicit user-triggered test should always attempt a send), and
+// skips postLead entirely — a repeat test-send must never overwrite the
+// real lead's status/messageSent with the test run's outcome.
+async function createLeadFromCalendlyEvent(userDir, token, meeting, eventUri, inviteeUri, { test = false } = {}) {
   const config = await readConfig(userDir, token);
   if (!config.connected) throw new ApiError(404, 'Calendly not connected');
-
-  const meeting = config.meetings?.[meetingId];
-  if (!meeting) throw new ApiError(404, 'Meeting not found');
 
   const event = await fetchEventDetails(userDir, token, eventUri);
 
@@ -311,7 +349,7 @@ async function createLeadFromCalendlyEvent(userDir, token, meetingId, eventUri, 
     throw new ApiError(400, 'Event type does not match this meeting configuration');
   }
 
-  const { name, email, phone, phoneSource } = await getUserPhoneFromEvent(
+  const { name, email, timezone, phone, phoneSource } = await getUserPhoneFromEvent(
     userDir, token, inviteeUri, meeting.phoneQuestionName
   );
 
@@ -322,17 +360,23 @@ async function createLeadFromCalendlyEvent(userDir, token, meetingId, eventUri, 
   };
 
   if (!phone) {
-    await postLead({ userDir, name, email, phone: null, source: 'calendly', calendly: sourceData, status: 'no_phone' });
+    if (!test) await postLead({ userDir, name, email, phone: null, source: 'calendly', calendly: sourceData, status: 'no_phone' });
     return { status: 'no_phone' };
   }
 
+  if (!test && !meeting.autoSendEnabled) {
+    await postLead({ userDir, name, email, phone, source: 'calendly', calendly: sourceData, status: 'pending' });
+    return { status: 'pending' };
+  }
+
   const message = resolveMessageTemplate(meeting.messageTemplate, {
-    name, eventName: event.name, eventStartTime: event.start_time
+    name, email, timezone, eventName: event.name, eventStartTime: event.start_time,
+    eventEndTime: event.end_time, location: event.location
   });
 
   let status, messageSent = null, sendError = null;
   try {
-    await mudslideService.sendMessage(userDir, token, phone, message);
+    await mudslideService.sendMessage(userDir, token, test ? 'me' : phone, message);
     status = 'sent';
     messageSent = message;
   } catch (err) {
@@ -340,12 +384,14 @@ async function createLeadFromCalendlyEvent(userDir, token, meetingId, eventUri, 
     sendError = err.message;
   }
 
-  await postLead({ userDir, name, email, phone, source: 'calendly', calendly: sourceData, status, messageSent, sendError });
+  if (!test) {
+    await postLead({ userDir, name, email, phone, source: 'calendly', calendly: sourceData, status, messageSent, sendError });
+  }
   return { status };
 }
 
 async function postLead(leadData) {
-  const res = await fetch(CREATE_LEAD_FUNCTION_URL, {
+  const res = await fetch(functionUrl('createLead'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(leadData)
@@ -359,14 +405,13 @@ async function postLead(leadData) {
 
 module.exports = {
   readConfig,
+  getValidAccessToken, // exported for test/calendly.e2e.js's direct real-API reads; not used by any route
   getAuthorizeUrl,
   consumePendingConnect,
   completeConnection,
   disconnect,
   fetchEventDetails,
-  upsertMeeting,
-  deleteMeeting,
-  listEventTypes,
+  getUserCalendars,
   resolveMessageTemplate,
   getUserPhoneFromEvent,
   buildCalendlyEmbedScript,

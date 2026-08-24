@@ -295,6 +295,12 @@ exports.getPublishStatus = onRequest({ cors: true }, async (req, res) => {
 // make requests through the VM's own network position no longer yields
 // anything usable here.
 function isAllowedVmCaller(req) {
+  // Firebase sets this automatically under `firebase emulators:start` — a
+  // local emulator is by construction only reachable from the machine
+  // running it, so the IP check exists to protect the real deployed
+  // functions and has nothing to add here. The deployed functions never
+  // see this env var set, so this bypass never applies to them.
+  if (process.env.FUNCTIONS_EMULATOR === 'true') return true;
   return req.ip === process.env.ALLOWED_VM_IP;
 }
 
@@ -325,16 +331,51 @@ exports.createLead = onRequest({ timeoutSeconds: 30 }, async (req, res) => {
     return;
   }
 
-  const leadData = req.body || {};
+  const { userDir, ...leadData } = req.body || {};
+  if (!userDir) {
+    res.status(400).json({ error: 'userDir is required' });
+    return;
+  }
   const id = buildLeadId(leadData);
 
-  await db.collection('leads').doc(id).set({
+  await db.collection('users').doc(userDir).collection('leads').doc(id).set({
     ...leadData,
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    createdAt: admin.firestore.FieldValue.serverTimestamp()
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    ...(leadData.status === 'sent' ? {
+      messageCount: admin.firestore.FieldValue.increment(1),
+      lastSentAt: admin.firestore.FieldValue.serverTimestamp()
+    } : {})
   }, { merge: true });
 
   res.status(200).json({ success: true, id });
+});
+
+// Read-only lookup used solely by the Calendly webhook route
+// (POST /api/calendly/:meetingId/lead) — the one place with no live frontend
+// session to source a meeting's non-secret config (message template,
+// auto-send toggle, detected phone question) from directly. Everywhere else,
+// the dashboard reads/writes this same data straight from Firestore itself.
+exports.getCalendlyMeetingConfig = onRequest({ timeoutSeconds: 15 }, async (req, res) => {
+  if (!isAllowedVmCaller(req)) {
+    res.status(403).json({ error: 'Forbidden' });
+    return;
+  }
+
+  const { userDir, meetingId } = req.body || {};
+  if (!userDir || !meetingId) {
+    res.status(400).json({ error: 'userDir and meetingId are required' });
+    return;
+  }
+
+  const snap = await db.collection('users').doc(userDir).get();
+  const meeting = snap.exists && snap.data().calendlyConfig?.meetings?.[meetingId];
+  if (!meeting) {
+    res.status(404).json({ found: false });
+    return;
+  }
+
+  res.status(200).json({ found: true, meeting });
 });
 
 // Mints a Firebase custom token for the dashboard frontend to sign in with.

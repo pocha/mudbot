@@ -8,6 +8,7 @@ const fastify = buildServer();
 
 const proxyRelayManager = require('./services/proxyRelayManager');
 const mudslideService = require('./services/mudslideService');
+const { startFunctionsEmulatorIfNeeded } = require('./scripts/functions-emulator');
 
 const DAILY_REPORT_CRON_LABEL = '# mudbot-daily-report';
 
@@ -90,6 +91,7 @@ function removeDailyReportCron() {
 
 const start = async () => {
   try {
+    await startFunctionsEmulatorIfNeeded();
     await fastify.listen({ port: process.env.PORT, host: '0.0.0.0' });
     await ensureDailyReportCron();
     if (process.env.DATAIMPULSE_USERNAME) {

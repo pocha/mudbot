@@ -15,6 +15,7 @@ public/.DS_Store
 firebase-debug.log
 functions/*.json
 certs/
+test/.calendly-e2e-tokens.json
 
 # Generated from views/pages/*.html by scripts/build-pages.js (npm run build).
 # views/ is the tracked source of truth for these pages.
@@ -22,5 +23,6 @@ public/dashboard/index.html
 public/dashboard/schedules.html
 public/dashboard/faqs.html
 public/dashboard/calendly.html
+public/dashboard/leads.html
 public/free-whatsapp-recurring-messages.html
 public/free-calendly-whatsapp-integration.html

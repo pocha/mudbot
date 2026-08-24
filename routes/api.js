@@ -7,6 +7,15 @@ const faqService = require('../services/faqService');
 const calendlyService = require('../services/calendlyService');
 const countries = require('../services/countries.json');
 
+// Computed at call time, not module load — CLOUD_FUNCTIONS_BASE_URL (set by
+// scripts/functions-emulator.js when the local Functions emulator is
+// running) may not be known yet when this module is first required.
+// Defaults to the real deployed project.
+function functionUrl(name) {
+  const base = process.env.CLOUD_FUNCTIONS_BASE_URL || 'https://asia-south1-wato-bot.cloudfunctions.net';
+  return `${base}/${name}`;
+}
+
 async function routes(fastify, options) {
 
   const authenticateUser = async (request, reply) => {
@@ -439,52 +448,39 @@ async function routes(fastify, options) {
     }
   });
 
-  fastify.get('/api/calendly/config', { preHandler: authenticateUser }, async (request, reply) => {
+  // Meeting CRUD, connection status display, and leads all live directly in
+  // Firestore now (frontend-managed, see views/pages/dashboard-calendly.html
+  // and firestore.rules) — this route exists only to hand back the two
+  // fields the VM alone can answer (its local encrypted calendly.json), so
+  // the frontend can self-heal its Firestore mirror of them on every load.
+  fastify.get('/api/calendly/status', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       const config = await calendlyService.readConfig(request.user.userDir, request.user.token);
-      return { connected: !!config.connected, calendlyKey: config.calendlyKey || null, meetings: config.meetings || {} };
+      return {
+        connected: !!config.connected,
+        calendlyKey: config.calendlyKey || null,
+        name: config.calendlyName || null,
+        email: config.calendlyEmail || null
+      };
     } catch (error) {
       fastify.log.error(error);
-      return reply.code(500).send({ error: 'Failed to get Calendly config' });
+      return reply.code(500).send({ error: 'Failed to get Calendly status' });
     }
   });
 
   // Backs the dashboard's "Add from Calendly" picker so users select an
-  // event type instead of pasting its booking URL by hand.
+  // event type instead of pasting its booking URL by hand. Response items
+  // also carry phone-detection fields (phoneQuestionName/phoneDetectionStatus)
+  // computed from the same event type data Calendly already returns here —
+  // no separate detection endpoint needed.
   fastify.get('/api/calendly/event-types', { preHandler: authenticateUser }, async (request, reply) => {
     try {
-      const eventTypes = await calendlyService.listEventTypes(request.user.userDir, request.user.token);
+      const eventTypes = await calendlyService.getUserCalendars(request.user.userDir, request.user.token);
       return { eventTypes };
     } catch (error) {
       if (error.statusCode) return reply.code(error.statusCode).send({ error: error.message });
       fastify.log.error(error);
       return reply.code(500).send({ error: 'Failed to load Calendly event types' });
-    }
-  });
-
-  fastify.post('/api/calendly/config', { preHandler: authenticateUser }, async (request, reply) => {
-    try {
-      const { meetingId, eventTypeUri, eventTypeName, messageTemplate, phoneQuestionName, allowedOrigin } = request.body || {};
-      if (!eventTypeUri || !messageTemplate) {
-        return reply.code(400).send({ error: 'eventTypeUri and messageTemplate are required' });
-      }
-      const meeting = await calendlyService.upsertMeeting(request.user.userDir, request.user.token, meetingId, {
-        eventTypeUri, eventTypeName, messageTemplate, phoneQuestionName, allowedOrigin
-      });
-      return { success: true, meeting };
-    } catch (error) {
-      fastify.log.error(error);
-      return reply.code(500).send({ error: 'Failed to save meeting config' });
-    }
-  });
-
-  fastify.delete('/api/calendly/config/:meetingId', { preHandler: authenticateUser }, async (request, reply) => {
-    try {
-      await calendlyService.deleteMeeting(request.user.userDir, request.user.token, request.params.meetingId);
-      return { success: true };
-    } catch (error) {
-      fastify.log.error(error);
-      return reply.code(500).send({ error: 'Failed to delete meeting config' });
     }
   });
 
@@ -515,13 +511,33 @@ async function routes(fastify, options) {
   // match, phone resolution, send, store) lives in
   // calendlyService.createLeadFromCalendlyEvent, which throws ApiError with
   // the right status for not-found/ownership-mismatch cases.
+  //
+  // Doubles as the dashboard's "Test Message" action (Watobot box) via the
+  // optional `test: true` body flag — same route, same authenticateCalendlyKey
+  // check (the dashboard already has its own calendlyKey from
+  // calendlyConfig.calendlyKey), reusing a recently-loaded lead's own
+  // event_uri/invitee_uri instead of a real new booking. No separate
+  // test-send endpoint.
   fastify.post('/api/calendly/:meetingId/lead', { preHandler: [authenticateCalendlyKey, requireWhatsapp] }, async (request, reply) => {
     try {
-      const { event_uri: eventUri, invitee_uri: inviteeUri } = request.body || {};
+      const { event_uri: eventUri, invitee_uri: inviteeUri, test } = request.body || {};
       if (!eventUri || !inviteeUri) return reply.code(400).send({ error: 'event_uri and invitee_uri are required' });
 
       const { userDir, token } = request.user;
-      const result = await calendlyService.createLeadFromCalendlyEvent(userDir, token, request.params.meetingId, eventUri, inviteeUri);
+      const meetingId = request.params.meetingId;
+
+      const configRes = await fetch(functionUrl('getCalendlyMeetingConfig'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userDir, meetingId })
+      });
+      if (!configRes.ok) return reply.code(502).send({ error: 'Failed to load meeting config' });
+      const { found, meeting } = await configRes.json();
+      if (!found) return reply.code(404).send({ error: 'Meeting not found' });
+
+      const result = await calendlyService.createLeadFromCalendlyEvent(
+        userDir, token, meeting, eventUri, inviteeUri, { test: !!test }
+      );
       return { success: true, status: result.status };
     } catch (error) {
       if (error.statusCode) return reply.code(error.statusCode).send({ error: error.message });
@@ -529,8 +545,6 @@ async function routes(fastify, options) {
       return reply.code(500).send({ error: 'Failed to process Calendly booking' });
     }
   });
-
-  const MINT_TOKEN_FUNCTION_URL = 'https://asia-south1-wato-bot.cloudfunctions.net/mintFirebaseToken';
 
   // Leads (listing, editing, deleting, manual creation) are handled directly
   // by the dashboard frontend against Firestore, authenticated with the
@@ -549,7 +563,7 @@ async function routes(fastify, options) {
   fastify.get('/api/firebase-token', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       const { token, userDir } = request.user;
-      const res = await fetch(MINT_TOKEN_FUNCTION_URL, {
+      const res = await fetch(functionUrl('mintFirebaseToken'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, userDir })

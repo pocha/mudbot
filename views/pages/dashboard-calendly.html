@@ -1,234 +1,231 @@
-<!--#var title="WatoBot | Calendly"-->
+<!--#var title="WatoBot | Calendly WhatsApp Integration"-->
 <!--#include partial="dashboard-head-nav"-->
 
-          <!-- Connect Calendly -->
-          <section
-            class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant shadow-sm"
-            id="calendly-connect-section"
-          >
-            <div id="calendly-connect-loading" class="space-y-3">
-              <div class="h-5 w-56 bg-outline-variant/40 rounded animate-pulse"></div>
-              <div class="h-4 w-3/4 bg-outline-variant/30 rounded animate-pulse"></div>
-            </div>
+          <h1 class="font-headline-lg text-headline-lg font-bold text-on-surface text-center mb-2">Calendly WhatsApp Integration</h1>
 
-            <!-- Not connected -->
-            <div id="calendly-not-connected" class="hidden flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div class="space-y-1">
-                <div class="flex items-center gap-2">
-                  <span class="material-symbols-outlined text-primary" style="font-variation-settings:'FILL' 1;">event_available</span>
-                  <h3 class="section-title">Connect Calendly</h3>
-                </div>
-                <p class="text-on-surface-variant text-body-md max-w-xl">
-                  Connect your Calendly account so bookings on your event types can
-                  automatically trigger a WhatsApp message to the invitee.
-                </p>
-              </div>
-              <button
-                id="calendly-connect-btn"
-                class="inline-flex items-center gap-2 bg-primary-container text-on-primary-container font-bold px-4 py-2 rounded-xl hover:opacity-90 transition-all flex-shrink-0"
-              >
-                <span class="material-symbols-outlined text-[20px]">link</span>
-                Connect Calendly
-              </button>
-            </div>
-
-            <!-- Connected -->
-            <div id="calendly-connected" class="hidden flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div class="flex items-center gap-3">
-                <span
-                  class="material-symbols-outlined text-primary text-3xl"
-                  style="font-variation-settings: &quot;FILL&quot; 1"
-                  >check_circle</span
-                >
-                <div>
-                  <h3 class="font-headline-md text-headline-md text-primary">Calendly Connected</h3>
-                  <p class="text-body-muted">
-                    Bookings on configured event types will trigger a WhatsApp message.
-                  </p>
-                </div>
-              </div>
-              <button
-                id="calendly-disconnect-btn"
-                class="flex items-center gap-2 text-error border border-error/50 px-4 py-2 rounded-xl font-label-md hover:bg-error/10 transition-colors flex-shrink-0"
-              >
-                <span class="material-symbols-outlined text-[18px]">link_off</span>
-                Disconnect
-              </button>
-            </div>
-          </section>
-
-          <div id="calendly-connected-only" class="hidden space-y-stack-gap">
-            <!-- Meeting configuration -->
-            <section
-              class="card"
+          <!-- Two connected boxes -->
+          <div class="flex items-center justify-center gap-4 max-w-2xl mx-auto">
+            <button
+              id="calendly-box"
+              class="card p-6 flex-1 flex flex-col items-center gap-3 hover:border-primary/40 hover:shadow-md border border-transparent transition-all"
             >
-              <div class="p-6 border-b border-outline-variant flex items-start justify-between gap-4">
-                <div>
-                  <h3 class="section-title">Configured Meetings</h3>
-                  <p class="text-body-muted">
-                    Pick event types from your Calendly account, then set a WhatsApp message template for each.
-                  </p>
-                </div>
-                <button
-                  id="event-type-picker-open-btn"
-                  class="inline-flex items-center gap-2 bg-primary-container text-on-primary-container font-bold px-4 py-2 rounded-xl hover:opacity-90 transition-all flex-shrink-0"
-                >
-                  <span class="material-symbols-outlined text-[20px]">add</span>
-                  Add from Calendly
-                </button>
+              <h3 class="section-title">Calendly</h3>
+              <img src="/assets/calendly-icon.png" alt="Calendly" class="w-24 h-24 rounded-2xl object-contain shadow-sm bg-white p-2" />
+              <div class="text-center">
+                <p class="text-body-muted text-sm">On new Calendly booking</p>
               </div>
-
-              <!-- Event type picker -->
-              <div id="event-type-picker" class="hidden p-6 border-b border-outline-variant space-y-3 bg-surface-container-low">
-                <h4 class="label-strong">Select event types to add</h4>
-                <div id="event-type-picker-loading" class="hidden text-body-muted text-sm">Loading your event types…</div>
-                <div id="event-type-picker-empty" class="hidden text-body-muted text-sm italic">
-                  No unconfigured event types found in your Calendly account.
-                </div>
-                <div id="event-type-picker-error" class="hidden text-error text-sm"></div>
-                <div id="event-type-picker-list" class="hidden space-y-2 max-h-64 overflow-y-auto"></div>
-                <div class="pt-2 flex gap-3">
-                  <button
-                    id="event-type-picker-add-btn"
-                    class="flex-1 bg-primary text-on-primary py-3 rounded-xl font-label-md flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-md"
-                  >
-                    <span class="material-symbols-outlined">add_task</span>
-                    Add Selected
-                  </button>
-                  <button
-                    id="event-type-picker-cancel-btn"
-                    class="text-on-surface-variant border border-outline-variant px-4 py-2 rounded-xl font-label-md hover:bg-surface-container transition-all"
-                  >
-                    Cancel
-                  </button>
-                </div>
+              <div class="flex items-center gap-1.5">
+                <span id="calendly-box-check" class="hidden material-symbols-outlined text-primary text-[20px]" style="font-variation-settings:'FILL' 1;">check_circle</span>
+                <span id="calendly-box-x" class="material-symbols-outlined text-on-surface-variant text-[20px]">cancel</span>
+                <p id="calendly-box-status" class="text-body-muted text-sm">Not connected</p>
               </div>
+            </button>
 
-              <!-- Edit an already-added meeting -->
-              <div id="meeting-edit-form" class="hidden p-6 border-b border-outline-variant">
-                <div class="whatsapp-border bg-surface-container-low p-5 rounded-xl space-y-4">
-                  <input type="hidden" id="meeting-id" />
-                  <input type="hidden" id="meeting-event-type-uri" />
-                  <div class="space-y-1">
-                    <label class="label-muted">Event Type</label>
-                    <p id="meeting-event-type-name-display" class="font-label-md text-on-surface"></p>
-                  </div>
-                  <div class="space-y-2">
-                    <label class="label-muted">Message Template</label>
-                    <textarea
-                      id="meeting-message-template"
-                      class="w-full px-4 py-3 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all resize-none"
-                      placeholder="Hi {{name}}, thanks for booking {{event_name}}! See you at {{event_time}}."
-                      rows="3"
-                    ></textarea>
-                    <p class="text-xs text-on-surface-variant">
-                      Supported placeholders: <code class="bg-surface-variant px-1 rounded text-[11px]">{{name}}</code>,
-                      <code class="bg-surface-variant px-1 rounded text-[11px]">{{event_name}}</code>,
-                      <code class="bg-surface-variant px-1 rounded text-[11px]">{{event_time}}</code>.
-                    </p>
-                  </div>
-                  <div class="space-y-2">
-                    <label class="label-muted">Phone Question Name</label>
-                    <input
-                      id="meeting-phone-question-name"
-                      class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-                      placeholder="Phone number"
-                      type="text"
-                      autocomplete="off"
-                    />
-                    <p class="text-xs text-on-surface-variant">
-                      Must exactly match a custom question you've added to this Calendly event type —
-                      mark it required so bookings always capture a phone number.
-                    </p>
-                  </div>
-                  <div class="pt-2 flex gap-3">
-                    <button
-                      id="meeting-save-btn"
-                      class="flex-1 bg-primary text-on-primary py-3 rounded-xl font-label-md flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-md"
-                    >
-                      <span class="material-symbols-outlined">save</span>
-                      Update Meeting
-                    </button>
-                    <button
-                      id="meeting-cancel-edit-btn"
-                      class="text-on-surface-variant border border-outline-variant px-4 py-2 rounded-xl font-label-md hover:bg-surface-container transition-all"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              </div>
 
-              <div>
-                <div id="meetings-empty" class="hidden px-6 py-6 text-center text-on-surface-variant opacity-50 italic text-body-md">
-                  No meetings configured yet. Click "Add from Calendly" above.
-                </div>
-                <div id="meetings-list" class="hidden divide-y divide-outline-variant"></div>
-              </div>
-            </section>
-
-            <!-- Leads table -->
-            <section
-              class="card"
+            <button
+              id="watobot-box"
+              class="card p-6 flex-1 flex flex-col items-center gap-3 hover:border-primary/40 hover:shadow-md border border-transparent transition-all"
             >
-              <div class="p-6 border-b border-outline-variant">
-                <h3 class="section-title">Leads</h3>
-                <p class="text-body-muted">
-                  People who booked through a configured Calendly event type.
-                </p>
+              <h3 class="section-title">WhatsApp</h3>
+              <img src="/assets/whatsapp-icon.png" alt="WhatsApp" class="w-24 h-24 rounded-2xl object-contain shadow-sm bg-white p-2" />
+              <div class="text-center">
+                <p class="text-body-muted text-sm">Send WhatsApp message to invitee</p>
               </div>
-              <div class="p-6 border-b border-outline-variant space-y-3">
-                <h4 class="label-strong">Add a Lead Manually</h4>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <input id="new-lead-name" placeholder="Name" class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" type="text" autocomplete="off" />
-                  <input id="new-lead-email" placeholder="Email" class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" type="email" autocomplete="off" />
-                  <input id="new-lead-phone" placeholder="Phone (with country code)" class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" type="tel" autocomplete="off" />
-                  <input id="new-lead-notes" placeholder="Notes (optional)" class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" type="text" autocomplete="off" />
-                </div>
-                <button id="add-lead-btn" class="inline-flex items-center gap-2 bg-primary-container text-on-primary-container font-bold px-4 py-2 rounded-xl hover:opacity-90 transition-all">
-                  <span class="material-symbols-outlined text-[20px]">person_add</span>
-                  Add Lead
-                </button>
+              <div class="flex items-center gap-1.5">
+                <span id="watobot-box-check" class="hidden material-symbols-outlined text-primary text-[20px]" style="font-variation-settings:'FILL' 1;">check_circle</span>
+                <span id="watobot-box-x" class="material-symbols-outlined text-on-surface-variant text-[20px]">cancel</span>
+                <p id="watobot-box-status" class="text-body-muted text-sm">Not connected</p>
               </div>
-              <div id="leads-loading" class="p-6 space-y-3">
-                <div class="h-4 w-2/3 bg-outline-variant/40 rounded animate-pulse"></div>
-                <div class="h-4 w-1/2 bg-outline-variant/30 rounded animate-pulse"></div>
-              </div>
-              <div id="leads-empty" class="hidden p-6 text-center text-on-surface-variant opacity-50 italic text-body-md">
-                <span class="material-symbols-outlined text-4xl mb-2 block">group_off</span>
-                No leads yet. They'll show up here after someone books a configured event type.
-              </div>
-              <div id="leads-table-wrap" class="hidden overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                  <thead>
-                    <tr class="text-xs text-on-surface-variant border-b border-outline-variant">
-                      <th class="px-5 py-3 font-label-md">Name</th>
-                      <th class="px-5 py-3 font-label-md">Phone</th>
-                      <th class="px-5 py-3 font-label-md">Event</th>
-                      <th class="px-5 py-3 font-label-md">Status</th>
-                      <th class="px-5 py-3 font-label-md">Date</th>
-                      <th class="px-5 py-3 font-label-md">Notes</th>
-                      <th class="px-5 py-3 font-label-md"></th>
-                      <th class="px-5 py-3 font-label-md"></th>
-                    </tr>
-                  </thead>
-                  <tbody id="leads-tbody" class="divide-y divide-outline-variant"></tbody>
-                </table>
-              </div>
-            </section>
+            </button>
           </div>
         </div>
 <!--#include partial="dashboard-footer"-->
       </main>
     </div>
 <!--#include partial="dashboard-support-modal"-->
+
+    <!-- Calendly modal -->
+    <div id="calendly-modal" class="hidden fixed inset-0 z-[90] flex items-center justify-center px-4">
+      <div class="absolute inset-0 bg-black/40" onclick="closeCalendlyModal()"></div>
+      <div class="relative z-10 bg-surface-container-lowest rounded-xl shadow-xl border border-outline-variant w-full max-w-2xl max-h-[85vh] overflow-y-auto">
+        <div class="p-6 border-b border-outline-variant flex items-start justify-between gap-4">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-3">
+              <button onclick="showCalendlyStep(1)" data-calendly-tab="1" class="calendly-step-tab w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full text-xs font-label-md border transition-colors">1</button>
+              <div class="w-5 h-px bg-outline-variant flex-shrink-0"></div>
+              <button onclick="showCalendlyStep(2)" data-calendly-tab="2" class="calendly-step-tab w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full text-xs font-label-md border transition-colors">2</button>
+              <div class="w-5 h-px bg-outline-variant flex-shrink-0"></div>
+              <button onclick="showCalendlyStep(3)" data-calendly-tab="3" class="calendly-step-tab w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full text-xs font-label-md border transition-colors">3</button>
+            </div>
+            <h3 id="calendly-modal-title" class="section-title">Step 1</h3>
+            <p id="calendly-modal-subtitle" class="text-body-muted text-sm">Connect</p>
+          </div>
+          <button onclick="closeCalendlyModal()" class="p-1 text-on-surface-variant hover:text-error transition-colors flex-shrink-0">
+            <span class="material-symbols-outlined text-[24px]">close</span>
+          </button>
+        </div>
+
+        <!-- Step 1: Connect -->
+        <div id="calendly-step-1" class="p-6 space-y-4">
+          <p class="text-body-muted">
+            Connect your Calendly account so Watobot can pull the invitee's phone number when a meeting is booked, and
+            trigger a WhatsApp message automatically.
+          </p>
+          <div id="calendly-connected-notice" class="hidden flex items-center gap-2 text-primary bg-primary/5 px-4 py-3 rounded-xl">
+            <span class="material-symbols-outlined text-[20px]" style="font-variation-settings:'FILL' 1;">check_circle</span>
+            <span id="calendly-connected-notice-text" class="text-sm font-label-md">Calendly is connected.</span>
+          </div>
+          <div class="flex gap-3">
+            <button id="calendly-connect-btn" class="inline-flex items-center gap-2 bg-primary-container text-on-primary-container font-bold px-4 py-2 rounded-xl hover:opacity-90 transition-all">
+              <span class="material-symbols-outlined text-[20px]">link</span>
+              Connect Calendly
+            </button>
+            <button id="calendly-disconnect-btn" class="hidden items-center gap-2 text-error border border-error/50 px-4 py-2 rounded-xl font-label-md hover:bg-error/10 transition-colors">
+              <span class="material-symbols-outlined text-[18px]">link_off</span>
+              Disconnect
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 2: Select Calendars -->
+        <div id="calendly-step-2" class="hidden p-6 space-y-4">
+          <p class="text-body-muted">Select a calendar from your Calendly account, then click Next.</p>
+          <div id="calendars-loading" class="hidden text-body-muted text-sm">Loading your calendars…</div>
+          <div id="calendars-error" class="hidden text-error text-sm"></div>
+          <div id="calendars-empty" class="hidden text-center text-on-surface-variant opacity-50 italic text-body-md py-4">
+            No calendars found on your connected Calendly account.
+          </div>
+          <div id="calendars-list" class="hidden space-y-2 max-h-80 overflow-y-auto"></div>
+
+          <div id="calendly-next-error" class="hidden text-sm text-error bg-error/5 px-4 py-3 rounded-xl"></div>
+          <button id="calendly-step2-next-btn" class="w-full bg-primary text-on-primary py-3 rounded-xl font-label-md flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-md">
+            <span class="material-symbols-outlined">arrow_forward</span>
+            Next
+          </button>
+        </div>
+
+        <!-- Step 3: Add Code & Verify -->
+        <div id="calendly-step-3" class="hidden p-6 space-y-4">
+          <div id="calendly-verify-empty" class="hidden text-body-muted text-sm italic">
+            Add a calendar in step 2 first.
+          </div>
+          <div id="calendly-verify-content" class="hidden space-y-4">
+            <div class="space-y-2">
+              <label class="label-muted">Calendar to verify</label>
+              <select id="calendly-verify-meeting-select" class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"></select>
+            </div>
+            <p class="text-xs text-on-surface-variant">
+              Paste this line before your Calendly embed code on this event type's booking page:
+            </p>
+            <div class="relative">
+              <pre id="calendly-verify-snippet" class="text-xs font-mono text-on-surface bg-surface-container-low border border-outline-variant rounded-lg p-3 pr-9 overflow-x-auto whitespace-pre-wrap"></pre>
+              <button onclick="copyVerifySnippet()" id="calendly-verify-snippet-copy" class="absolute top-2 right-2 material-symbols-outlined text-primary hover:bg-white p-1 rounded transition-colors text-[16px]">content_copy</button>
+            </div>
+            <p class="text-body-muted text-sm">
+              Then make one real (dummy) booking on your live page, come back, and click Check.
+            </p>
+            <div id="calendly-verify-result" class="hidden text-sm px-4 py-3 rounded-xl"></div>
+            <div class="flex gap-3">
+              <button id="calendly-verify-check-btn" class="flex-1 bg-primary text-on-primary py-3 rounded-xl font-label-md flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-md">
+                <span class="material-symbols-outlined">fact_check</span>
+                Check
+              </button>
+              <button onclick="closeCalendlyModal()" class="text-on-surface-variant border border-outline-variant px-4 py-2 rounded-xl font-label-md hover:bg-surface-container transition-all">
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Watobot modal -->
+    <div id="watobot-modal" class="hidden fixed inset-0 z-[90] flex items-center justify-center px-4">
+      <div class="absolute inset-0 bg-black/40" onclick="closeWatobotModal()"></div>
+      <div class="relative z-10 bg-surface-container-lowest rounded-xl shadow-xl border border-outline-variant w-full max-w-2xl max-h-[85vh] overflow-y-auto">
+        <div class="p-6 border-b border-outline-variant flex items-start justify-between gap-4">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-3">
+              <button onclick="showWatobotStep(1)" data-watobot-tab="1" class="watobot-step-tab w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full text-xs font-label-md border transition-colors">1</button>
+              <div class="w-5 h-px bg-outline-variant flex-shrink-0"></div>
+              <button onclick="showWatobotStep(2)" data-watobot-tab="2" class="watobot-step-tab w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full text-xs font-label-md border transition-colors">2</button>
+            </div>
+            <h3 id="watobot-modal-title" class="section-title">Step 1</h3>
+            <p id="watobot-modal-subtitle" class="text-body-muted text-sm">Connect WhatsApp</p>
+          </div>
+          <button onclick="closeWatobotModal()" class="p-1 text-on-surface-variant hover:text-error transition-colors flex-shrink-0">
+            <span class="material-symbols-outlined text-[24px]">close</span>
+          </button>
+        </div>
+
+        <!-- Step 1: Connect WhatsApp -->
+        <div id="watobot-step-1" class="p-6 space-y-4">
+          <div id="watobot-wa-not-connected" class="hidden space-y-3">
+            <p class="text-body-muted">Connect WhatsApp to send messages to prospects automatically.</p>
+            <a id="watobot-wa-connect-btn" href="#" target="_blank" rel="noopener" class="inline-flex items-center gap-2 bg-primary-container text-on-primary-container font-bold px-4 py-2 rounded-xl hover:opacity-90 transition-all">
+              <span class="material-symbols-outlined text-[20px]">qr_code_scanner</span>
+              Connect WhatsApp
+            </a>
+            <p class="text-xs text-on-surface-variant">Opens in a new tab. Come back here once you're done — this checks automatically.</p>
+          </div>
+          <div id="watobot-wa-connected" class="hidden flex items-center gap-2 text-primary bg-primary/5 px-4 py-3 rounded-xl">
+            <span class="material-symbols-outlined text-[20px]" style="font-variation-settings:'FILL' 1;">check_circle</span>
+            <span class="text-sm font-label-md">WhatsApp is connected.</span>
+          </div>
+        </div>
+
+        <!-- Step 2: Send WhatsApp message on booking -->
+        <div id="watobot-step-2" class="hidden p-6 space-y-4">
+          <div id="watobot-calendars-empty" class="hidden text-center text-on-surface-variant opacity-50 italic text-body-md py-4">
+            No calendars configured yet — add one in the Calendly box first.
+          </div>
+          <div id="watobot-calendar-content" class="hidden space-y-4">
+            <div class="space-y-2">
+              <label class="label-muted">Calendar</label>
+              <select id="watobot-meeting-select" class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"></select>
+            </div>
+            <div id="watobot-phone-warning" class="hidden text-sm text-error bg-error/5 px-4 py-3 rounded-xl"></div>
+            <div class="border border-outline-variant rounded-xl overflow-hidden">
+              <label class="flex items-center gap-3 p-4 cursor-pointer">
+                <input type="checkbox" id="watobot-autosend-checkbox" />
+                <span class="font-label-md text-on-surface flex-1">Automatically send message to prospect</span>
+              </label>
+              <div id="watobot-template-section" class="hidden px-4 pb-4 space-y-3">
+                <textarea
+                  id="watobot-message-template"
+                  class="w-full px-4 py-3 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all resize-none"
+                  rows="3"
+                ></textarea>
+                <p class="text-xs text-on-surface-variant">
+                  Placeholders: <code class="bg-surface-variant px-1 rounded text-[11px]">{{name}}</code>,
+                  <code class="bg-surface-variant px-1 rounded text-[11px]">{{email}}</code>,
+                  <code class="bg-surface-variant px-1 rounded text-[11px]">{{event_name}}</code>,
+                  <code class="bg-surface-variant px-1 rounded text-[11px]">{{event_time}}</code>,
+                  <code class="bg-surface-variant px-1 rounded text-[11px]">{{event_end_time}}</code>,
+                  <code class="bg-surface-variant px-1 rounded text-[11px]">{{timezone}}</code>,
+                  <code class="bg-surface-variant px-1 rounded text-[11px]">{{location}}</code>.
+                </p>
+                <p class="text-xs text-amber-700 bg-amber-50 px-3 py-2 rounded-lg">
+                  Test Message won't message the prospect — a copy goes to your own WhatsApp instead.
+                </p>
+                <div class="flex items-center gap-3">
+                  <button id="watobot-save-btn" class="bg-primary text-on-primary px-4 py-2 rounded-xl font-label-md hover:brightness-110 transition-all">Save</button>
+                  <button id="watobot-test-btn" class="text-on-surface-variant border border-outline-variant px-4 py-2 rounded-xl font-label-md hover:bg-surface-container transition-all">Test Message</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Backend Integration Script -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
       import { getAuth, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
       import {
-        getFirestore, collection, query, where, orderBy, getDocs,
-        doc, setDoc, updateDoc, deleteDoc, serverTimestamp
+        getFirestore, doc, getDoc, setDoc, updateDoc, deleteField,
+        collection, query, orderBy, limit, getDocs, serverTimestamp
       } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
       // Public web config — not a secret, identifies the project only.
@@ -251,39 +248,14 @@
 
       let authToken = null;
       let userDir = null;
-      let calendlyKey = null;
-      let meetings = {};
-      let editingMeetingId = null;
+      let calendlyConfig = { connected: false, calendlyKey: null, meetings: {} };
+      let waLoggedIn = false;
+      let waPollInterval = null;
 
-      // Mirrors functions/index.js's buildLeadId, and models/lead.js's
-      // original before it — a lead's ID is deterministic from their
-      // identity so a manually-added lead correctly dedupes against one
-      // created later by the Calendly webhook for the same person (or vice
-      // versa). Keep in sync by hand; functions/ is a separate deploy
-      // target with no shared-code mechanism to this frontend.
-      function normalizeLeadField(str) {
-        return String(str || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
-      }
-      function buildLeadId({ name, email, phone }) {
-        const parts = phone
-          ? [normalizeLeadField(email), normalizeLeadField(phone)]
-          : [normalizeLeadField(name), normalizeLeadField(email)];
-        return parts.filter(Boolean).join("_").slice(0, 1400) || `lead_${Date.now()}`;
+      function userRef() {
+        return doc(db, "users", userDir);
       }
 
-      // Firestore Timestamps (createdAt/updatedAt, set via serverTimestamp())
-      // need .toDate(); calendly.eventStartTime is a plain ISO string
-      // straight from Calendly's API — new Date() handles that directly.
-      function toDateSafe(value) {
-        if (!value) return null;
-        return typeof value.toDate === "function" ? value.toDate() : new Date(value);
-      }
-
-      // Called once on page load, after the existing authToken check
-      // succeeds — mints a Firebase custom token via the VM (see the
-      // comment on GET /api/firebase-token in routes/api.js for why that
-      // hop matters) and signs in, so the leads list/edit/delete/manual-add
-      // below can talk to Firestore directly, protected by Security Rules.
       async function initFirebase() {
         const res = await fetch(`${API_BASE}/api/firebase-token`, {
           headers: { Authorization: `Bearer ${authToken}` },
@@ -294,22 +266,12 @@
         await signInWithCustomToken(firebaseAuth, data.firebaseToken);
       }
 
-      // Highlights the current page in the shared dashboard nav row.
       (function highlightNav() {
-        const page = (location.pathname.split("/").pop() || "index.html").replace(
-          ".html",
-          "",
-        );
+        const page = (location.pathname.split("/").pop() || "index.html").replace(".html", "");
         const key = page || "index";
-        const link = document.querySelector(
-          `#dashboard-nav a[data-nav="${key}"]`,
-        );
+        const link = document.querySelector(`#dashboard-nav a[data-nav="${key}"]`);
         if (link) {
-          link.classList.add(
-            "bg-primary-container",
-            "text-on-primary-container",
-            "font-bold",
-          );
+          link.classList.add("bg-primary-container", "text-on-primary-container", "font-bold");
           link.classList.remove("text-on-surface-variant");
         }
       })();
@@ -323,62 +285,126 @@
           window.location.href = "/";
           return;
         }
-
         localStorage.setItem("authToken", authToken);
 
         try {
           await initFirebase();
+          await syncCalendlyStatus();
+          await loadCalendlyConfig();
         } catch (error) {
-          console.error("Error initializing Firebase:", error);
+          console.error("Error initializing:", error);
         }
 
-        await loadCalendlyConfig();
+        await checkWhatsAppStatus();
+        renderBoxes();
 
-        document.getElementById("calendly-connect-btn")?.addEventListener("click", handleConnectCalendly);
-        document.getElementById("calendly-disconnect-btn")?.addEventListener("click", handleDisconnectCalendly);
-        document.getElementById("meeting-save-btn").addEventListener("click", handleSaveMeeting);
-        document.getElementById("meeting-cancel-edit-btn").addEventListener("click", cancelMeetingEdit);
-        document.getElementById("event-type-picker-open-btn").addEventListener("click", openEventTypePicker);
-        document.getElementById("event-type-picker-cancel-btn").addEventListener("click", closeEventTypePicker);
-        document.getElementById("event-type-picker-add-btn").addEventListener("click", handleAddSelectedEventTypes);
-        document.getElementById("add-lead-btn").addEventListener("click", handleAddLead);
+        if (urlParams.get("connected") === "1") {
+          openCalendlyModal();
+          showCalendlyStep(2);
+        }
+
+        document.getElementById("calendly-box").addEventListener("click", openCalendlyModal);
+        document.getElementById("watobot-box").addEventListener("click", openWatobotModal);
+        document.getElementById("calendly-connect-btn").addEventListener("click", handleConnectCalendly);
+        document.getElementById("calendly-disconnect-btn").addEventListener("click", handleDisconnectCalendly);
+        document.getElementById("calendly-step2-next-btn").addEventListener("click", handleCalendlyStep2Next);
+        document.getElementById("calendly-verify-check-btn").addEventListener("click", handleVerifyCheck);
+        document.getElementById("calendly-verify-meeting-select").addEventListener("change", renderVerifyStep);
+        document.getElementById("watobot-meeting-select").addEventListener("change", renderWatobotMeetingPanel);
+        document.getElementById("watobot-autosend-checkbox").addEventListener("change", handleWatobotCheckboxChange);
+        document.getElementById("watobot-save-btn").addEventListener("click", () => saveWatobotMeeting());
+        document.getElementById("watobot-test-btn").addEventListener("click", testWatobotMessage);
 
         document.getElementById("logout-btn").addEventListener("click", () => {
           showLogoutModal({ isFullLogout: true });
         });
       });
 
+      // ── Calendly connection status: VM is the only source of truth for
+      // {connected, calendlyKey} (local encrypted calendly.json) — this
+      // mirrors it into Firestore on every load, self-healing after a fresh
+      // connect/disconnect that a previous page load might have missed.
+      async function syncCalendlyStatus() {
+        const res = await fetch(`${API_BASE}/api/calendly/status`, {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+        if (!res.ok) return;
+        const { connected, calendlyKey, name, email } = await res.json();
+        await setDoc(userRef(), { calendlyConfig: { connected, calendlyKey, name, email } }, { merge: true });
+      }
+
       async function loadCalendlyConfig() {
-        try {
-          const res = await fetch(`${API_BASE}/api/calendly/config`, {
-            headers: { Authorization: `Bearer ${authToken}` },
-          });
-          if (!res.ok) throw new Error("Failed to load Calendly config");
-          const config = await res.json();
+        const snap = await getDoc(userRef());
+        const data = snap.exists() ? snap.data().calendlyConfig : null;
+        calendlyConfig = { connected: false, calendlyKey: null, meetings: {}, ...(data || {}) };
+        if (!calendlyConfig.meetings) calendlyConfig.meetings = {};
+      }
 
-          document.getElementById("calendly-connect-loading")?.classList.add("hidden");
+      function meetings() {
+        return calendlyConfig.meetings || {};
+      }
 
-          if (config.connected) {
-            document.getElementById("calendly-not-connected")?.classList.add("hidden");
-            const connected = document.getElementById("calendly-connected");
-            connected?.classList.remove("hidden");
-            connected?.classList.add("flex");
-            document.getElementById("calendly-connected-only")?.classList.remove("hidden");
+      function calendlyVerified() {
+        return calendlyConfig.connected && Object.values(meetings()).some((m) => m.embedVerified);
+      }
 
-            calendlyKey = config.calendlyKey || null;
-            meetings = config.meetings || {};
-            renderMeetings();
-            await loadLeads();
-          } else {
-            const notConnected = document.getElementById("calendly-not-connected");
-            notConnected?.classList.remove("hidden");
-            notConnected?.classList.add("flex");
-            document.getElementById("calendly-connected-only")?.classList.add("hidden");
-          }
-        } catch (error) {
-          console.error("Error loading Calendly config:", error);
-          document.getElementById("calendly-connect-loading")?.classList.add("hidden");
+      function renderBoxes() {
+        const calChecked = calendlyVerified();
+        document.getElementById("calendly-box-status").textContent = calChecked
+          ? "Connected & verified"
+          : calendlyConfig.connected ? "Connected" : "Not connected";
+        document.getElementById("calendly-box-check").classList.toggle("hidden", !calChecked);
+        document.getElementById("calendly-box-x").classList.toggle("hidden", calChecked);
+
+        document.getElementById("watobot-box-status").textContent = waLoggedIn
+          ? "Connected"
+          : "Not connected";
+        document.getElementById("watobot-box-check").classList.toggle("hidden", !waLoggedIn);
+        document.getElementById("watobot-box-x").classList.toggle("hidden", waLoggedIn);
+      }
+
+      // ── Calendly modal ──────────────────────────────────
+
+      function openCalendlyModal() {
+        document.getElementById("calendly-modal").classList.remove("hidden");
+        showCalendlyStep(1);
+      }
+      function closeCalendlyModal() {
+        document.getElementById("calendly-modal").classList.add("hidden");
+      }
+
+      const CALENDLY_STEP_LABELS = { 1: "Connect", 2: "Select Calendars", 3: "Add Code & Verify" };
+
+      function showCalendlyStep(step) {
+        for (let i = 1; i <= 3; i++) {
+          document.getElementById(`calendly-step-${i}`).classList.toggle("hidden", i !== step);
+          const tab = document.querySelector(`[data-calendly-tab="${i}"]`);
+          tab.classList.toggle("bg-primary", i === step);
+          tab.classList.toggle("text-on-primary", i === step);
+          tab.classList.toggle("border-primary", i === step);
+          tab.classList.toggle("text-on-surface-variant", i !== step);
+          tab.classList.toggle("border-outline-variant", i !== step);
+          tab.classList.toggle("opacity-50", (i === 2 || i === 3) && !calendlyConfig.connected);
         }
+        document.getElementById("calendly-modal-title").textContent = `Step ${step}`;
+        document.getElementById("calendly-modal-subtitle").textContent = CALENDLY_STEP_LABELS[step];
+        renderCalendlyStep1();
+        if (step === 2) loadCalendarsStep2();
+        if (step === 3) renderVerifyStep();
+      }
+
+      function renderCalendlyStep1() {
+        const connected = calendlyConfig.connected;
+        document.getElementById("calendly-connected-notice").classList.toggle("hidden", !connected);
+        if (connected) {
+          const who = [calendlyConfig.name, calendlyConfig.email].filter(Boolean).join(" — ");
+          document.getElementById("calendly-connected-notice-text").textContent = who
+            ? `Connected as ${who}`
+            : "Calendly is connected.";
+        }
+        document.getElementById("calendly-connect-btn").classList.toggle("hidden", connected);
+        document.getElementById("calendly-disconnect-btn").classList.toggle("hidden", !connected);
+        document.getElementById("calendly-disconnect-btn").classList.toggle("flex", connected);
       }
 
       async function handleConnectCalendly() {
@@ -400,7 +426,7 @@
       }
 
       async function handleDisconnectCalendly() {
-        if (!confirm("Disconnect Calendly? Configured meetings will stop triggering messages.")) return;
+        if (!confirm("Disconnect Calendly? Configured calendars will stop triggering messages.")) return;
         const btn = document.getElementById("calendly-disconnect-btn");
         btn.disabled = true;
         try {
@@ -409,6 +435,7 @@
             headers: { Authorization: `Bearer ${authToken}` },
           });
           if (!res.ok) throw new Error("Failed to disconnect");
+          await setDoc(userRef(), { calendlyConfig: { connected: false } }, { merge: true });
           window.location.reload();
         } catch (error) {
           console.error("Error disconnecting Calendly:", error);
@@ -417,168 +444,39 @@
         }
       }
 
+      // ── Step 2: Select Calendars ────────────────────────
+      // UI only ever surfaces one configured calendar at a time — the
+      // backend/data model (meetings map) can hold several, but this step
+      // deliberately shows a single-select list and replaces whichever
+      // calendar was previously configured when a different one is picked,
+      // rather than accumulating several.
+
       function meetingEmbedSnippet(meetingId) {
-        return `<script src="${API_BASE}/api/calendly/code?token=${calendlyKey}&meetingId=${meetingId}"><\/script>`;
-      }
-
-      function copyMeetingSnippet(meetingId) {
-        navigator.clipboard.writeText(meetingEmbedSnippet(meetingId)).then(() => {
-          const btn = document.getElementById(`meeting-snippet-copy-${meetingId}`);
-          if (!btn) return;
-          btn.textContent = "check";
-          setTimeout(() => {
-            btn.textContent = "content_copy";
-          }, 2000);
-        });
-      }
-
-      function renderMeetings() {
-        const list = document.getElementById("meetings-list");
-        const empty = document.getElementById("meetings-empty");
-        const entries = Object.entries(meetings);
-
-        if (entries.length === 0) {
-          list.classList.add("hidden");
-          empty.classList.remove("hidden");
-          return;
-        }
-
-        empty.classList.add("hidden");
-        list.classList.remove("hidden");
-
-        list.innerHTML = entries
-          .map(([id, m]) => {
-            const name = m.eventTypeName || m.eventTypeUri || "Untitled meeting";
-            return `
-            <div class="px-6 py-4 hover:bg-surface-container-low/50 transition-colors space-y-3">
-              <div class="flex items-start gap-3">
-                <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary flex-shrink-0 mt-0.5">
-                    <span class="material-symbols-outlined text-[18px]">event</span>
-                </div>
-                <div class="flex-1 min-w-0">
-                    <p class="font-label-md text-on-surface">${escapeHtml(name)}</p>
-                    <p class="text-xs text-on-surface-variant mt-0.5 truncate">${escapeHtml(m.eventTypeUri || "")}</p>
-                    <p class="text-xs text-on-surface-variant mt-0.5 line-clamp-2 leading-relaxed">${escapeHtml(m.messageTemplate || "")}</p>
-                </div>
-                <div class="flex gap-1 flex-shrink-0 mt-0.5">
-                    <button onclick="loadMeetingIntoForm('${escapeHtml(id)}')" class="p-1 text-on-surface-variant hover:text-primary transition-colors" title="Edit">
-                        <span class="material-symbols-outlined text-[20px]">edit</span>
-                    </button>
-                    <button onclick="deleteMeeting('${escapeHtml(id)}')" class="p-1 text-on-surface-variant hover:text-error transition-colors" title="Delete">
-                        <span class="material-symbols-outlined text-[20px]">delete</span>
-                    </button>
-                </div>
-              </div>
-              <div class="pl-12 space-y-1">
-                <p class="text-xs text-on-surface-variant">Paste this line before your Calendly embed code on this event type's booking page:</p>
-                <div class="relative">
-                  <pre class="text-xs font-mono text-on-surface bg-surface-container-low border border-outline-variant rounded-lg p-3 pr-9 overflow-x-auto whitespace-pre-wrap">${escapeHtml(meetingEmbedSnippet(id))}</pre>
-                  <button
-                    onclick="copyMeetingSnippet('${escapeHtml(id)}')"
-                    id="meeting-snippet-copy-${escapeHtml(id)}"
-                    class="absolute top-2 right-2 material-symbols-outlined text-primary hover:bg-white p-1 rounded transition-colors text-[16px]"
-                  >content_copy</button>
-                </div>
-              </div>
-            </div>
-        `;
-          })
-          .join("");
-      }
-
-      function loadMeetingIntoForm(meetingId) {
-        const m = meetings[meetingId];
-        if (!m) return;
-        closeEventTypePicker();
-        editingMeetingId = meetingId;
-        document.getElementById("meeting-id").value = meetingId;
-        document.getElementById("meeting-event-type-uri").value = m.eventTypeUri || "";
-        document.getElementById("meeting-event-type-name-display").textContent =
-          m.eventTypeName || m.eventTypeUri || "";
-        document.getElementById("meeting-message-template").value = m.messageTemplate || "";
-        document.getElementById("meeting-phone-question-name").value = m.phoneQuestionName || "";
-        document.getElementById("meeting-edit-form").classList.remove("hidden");
-        document
-          .getElementById("meeting-save-btn")
-          .scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-
-      function cancelMeetingEdit() {
-        editingMeetingId = null;
-        document.getElementById("meeting-id").value = "";
-        document.getElementById("meeting-event-type-uri").value = "";
-        document.getElementById("meeting-event-type-name-display").textContent = "";
-        document.getElementById("meeting-message-template").value = "";
-        document.getElementById("meeting-phone-question-name").value = "";
-        document.getElementById("meeting-edit-form").classList.add("hidden");
-      }
-
-      async function handleSaveMeeting() {
-        const eventTypeUri = document.getElementById("meeting-event-type-uri").value;
-        const messageTemplate = document.getElementById("meeting-message-template").value.trim();
-        const phoneQuestionName = document.getElementById("meeting-phone-question-name").value.trim();
-
-        if (!messageTemplate) {
-          alert("Please fill in a message template.");
-          return;
-        }
-
-        const btn = document.getElementById("meeting-save-btn");
-        btn.disabled = true;
-
-        try {
-          const res = await fetch(`${API_BASE}/api/calendly/config`, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${authToken}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              meetingId: editingMeetingId,
-              eventTypeUri,
-              eventTypeName: meetings[editingMeetingId]?.eventTypeName || "",
-              messageTemplate,
-              phoneQuestionName: phoneQuestionName || null,
-            }),
-          });
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.error || "Failed to save meeting");
-          }
-          cancelMeetingEdit();
-          await loadCalendlyConfig();
-        } catch (error) {
-          console.error("Error saving meeting:", error);
-          alert(error.message || "Failed to save meeting");
-        } finally {
-          btn.disabled = false;
-        }
+        return `<script src="${API_BASE}/api/calendly/code?token=${calendlyConfig.calendlyKey}&meetingId=${meetingId}"><\/script>`;
       }
 
       const DEFAULT_MESSAGE_TEMPLATE =
         "Hi {{name}}, thanks for booking {{event_name}}! See you at {{event_time}}.";
 
-      function openEventTypePicker() {
-        cancelMeetingEdit();
-        document.getElementById("event-type-picker").classList.remove("hidden");
-        document.getElementById("event-type-picker").scrollIntoView({ behavior: "smooth", block: "center" });
-        loadEventTypesForPicker();
+      let stepTwoEventTypes = [];
+      let selectedEventTypeUri = null;
+
+      function currentMeetingEntry() {
+        return Object.entries(meetings())[0] || null;
       }
 
-      function closeEventTypePicker() {
-        document.getElementById("event-type-picker").classList.add("hidden");
-      }
-
-      async function loadEventTypesForPicker() {
-        const loading = document.getElementById("event-type-picker-loading");
-        const empty = document.getElementById("event-type-picker-empty");
-        const errorBox = document.getElementById("event-type-picker-error");
-        const list = document.getElementById("event-type-picker-list");
-        list.classList.add("hidden");
-        empty.classList.add("hidden");
+      async function loadCalendarsStep2() {
+        const loading = document.getElementById("calendars-loading");
+        const errorBox = document.getElementById("calendars-error");
+        const empty = document.getElementById("calendars-empty");
+        const list = document.getElementById("calendars-list");
         errorBox.classList.add("hidden");
+        empty.classList.add("hidden");
+        list.classList.add("hidden");
         loading.classList.remove("hidden");
-        list.innerHTML = "";
+
+        const existing = currentMeetingEntry();
+        selectedEventTypeUri = existing ? existing[1].eventTypeUri : null;
 
         try {
           const res = await fetch(`${API_BASE}/api/calendly/event-types`, {
@@ -586,278 +484,382 @@
           });
           if (!res.ok) {
             const err = await res.json().catch(() => ({}));
-            throw new Error(err.error || "Failed to load event types");
+            throw new Error(err.error || "Failed to load calendars");
           }
-          const { eventTypes } = await res.json();
-          const configuredUris = new Set(Object.values(meetings).map((m) => m.eventTypeUri));
-          const available = eventTypes.filter((et) => !configuredUris.has(et.uri));
-
+          stepTwoEventTypes = (await res.json()).eventTypes || [];
           loading.classList.add("hidden");
-          if (available.length === 0) {
+
+          if (stepTwoEventTypes.length === 0) {
             empty.classList.remove("hidden");
             return;
           }
-
-          list.classList.remove("hidden");
-          list.innerHTML = available
-            .map(
-              (et, i) => `
-            <label class="flex items-center gap-3 p-2 rounded-lg hover:bg-white cursor-pointer">
-              <input type="checkbox" class="event-type-checkbox" data-index="${i}" />
-              <span class="text-sm text-on-surface">${escapeHtml(et.name || et.uri)}</span>
-            </label>
-          `
-            )
-            .join("");
-          list.dataset.eventTypes = JSON.stringify(available);
+          renderCalendarsStep2List();
         } catch (error) {
-          console.error("Error loading event types:", error);
+          console.error("Error loading calendars:", error);
           loading.classList.add("hidden");
-          errorBox.textContent = error.message || "Failed to load event types";
+          errorBox.textContent = error.message || "Failed to load calendars";
           errorBox.classList.remove("hidden");
         }
       }
 
-      async function handleAddSelectedEventTypes() {
-        const list = document.getElementById("event-type-picker-list");
-        const eventTypes = JSON.parse(list.dataset.eventTypes || "[]");
-        const checked = Array.from(document.querySelectorAll(".event-type-checkbox:checked")).map(
-          (cb) => eventTypes[Number(cb.dataset.index)]
-        );
-        if (checked.length === 0) {
-          alert("Select at least one event type.");
-          return;
-        }
-
-        const btn = document.getElementById("event-type-picker-add-btn");
-        btn.disabled = true;
-        try {
-          for (const et of checked) {
-            const res = await fetch(`${API_BASE}/api/calendly/config`, {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${authToken}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                eventTypeUri: et.uri,
-                eventTypeName: et.name,
-                messageTemplate: DEFAULT_MESSAGE_TEMPLATE,
-                phoneQuestionName: null,
-              }),
-            });
-            if (!res.ok) {
-              const err = await res.json().catch(() => ({}));
-              throw new Error(err.error || `Failed to add ${et.name || et.uri}`);
-            }
-          }
-          closeEventTypePicker();
-          await loadCalendlyConfig();
-        } catch (error) {
-          console.error("Error adding event types:", error);
-          alert(error.message || "Failed to add selected event types");
-        } finally {
-          btn.disabled = false;
-        }
+      function selectCalendar(uri) {
+        selectedEventTypeUri = uri;
+        renderCalendarsStep2List();
       }
 
-      async function deleteMeeting(meetingId) {
-        if (!confirm("Delete this meeting configuration?")) return;
-        try {
-          const res = await fetch(`${API_BASE}/api/calendly/config/${meetingId}`, {
-            method: "DELETE",
-            headers: { Authorization: `Bearer ${authToken}` },
-          });
-          if (!res.ok) throw new Error("Failed to delete meeting");
-          await loadCalendlyConfig();
-        } catch (error) {
-          console.error("Error deleting meeting:", error);
-          alert("Failed to delete meeting");
-        }
-      }
-
-      const STATUS_STYLES = {
-        sent: "bg-primary/10 text-primary",
-        failed: "bg-error/10 text-error",
-        no_phone: "bg-amber-100 text-amber-700",
-        pending: "bg-outline-variant/40 text-on-surface-variant",
-      };
-      const STATUS_LABELS = {
-        sent: "Sent",
-        failed: "Failed",
-        no_phone: "No Phone",
-        pending: "Pending",
-      };
-
-      async function loadLeads() {
-        try {
-          if (!userDir) throw new Error("Not signed in to Firestore yet");
-          const q = query(
-            collection(db, "leads"),
-            where("userDir", "==", userDir),
-            orderBy("updatedAt", "desc")
-          );
-          const snapshot = await getDocs(q);
-          document.getElementById("leads-loading")?.classList.add("hidden");
-          renderLeads(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
-        } catch (error) {
-          console.error("Error loading leads:", error);
-          document.getElementById("leads-loading")?.classList.add("hidden");
-        }
-      }
-
-      function renderLeads(leads) {
-        const wrap = document.getElementById("leads-table-wrap");
-        const empty = document.getElementById("leads-empty");
-        const tbody = document.getElementById("leads-tbody");
-
-        if (leads.length === 0) {
-          wrap.classList.add("hidden");
-          empty.classList.remove("hidden");
-          return;
-        }
-
-        empty.classList.add("hidden");
-        wrap.classList.remove("hidden");
-
-        tbody.innerHTML = leads
-          .map((lead) => {
-            const status = lead.status || "pending";
-            const statusClass = STATUS_STYLES[status] || STATUS_STYLES.pending;
-            const statusLabel = STATUS_LABELS[status] || status;
-            const phoneCell = lead.phone
-              ? escapeHtml(lead.phone)
-              : `<span class="inline-flex items-center gap-1 text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">No phone captured</span>`;
-            const eventName = escapeHtml(
-              (lead.calendly && lead.calendly.eventName) || "",
-            );
-            const dateVal =
-              (lead.calendly && lead.calendly.eventStartTime) || lead.createdAt;
-            const dateObj = toDateSafe(dateVal);
-            const dateStr = dateObj ? dateObj.toLocaleString() : "";
-            const leadId = escapeHtml(lead.id);
-
+      function renderCalendarsStep2List() {
+        const list = document.getElementById("calendars-list");
+        list.classList.remove("hidden");
+        list.innerHTML = stepTwoEventTypes
+          .map((et) => {
+            const selected = et.uri === selectedEventTypeUri;
             return `
-            <tr class="align-top">
-                <td class="px-5 py-3 font-label-md text-on-surface whitespace-nowrap">${escapeHtml(lead.name || "—")}</td>
-                <td class="px-5 py-3 text-on-surface-variant whitespace-nowrap">${phoneCell}</td>
-                <td class="px-5 py-3 text-on-surface-variant">${eventName || "—"}</td>
-                <td class="px-5 py-3"><span class="text-xs font-label-md px-2 py-0.5 rounded-full ${statusClass}">${escapeHtml(statusLabel)}</span></td>
-                <td class="px-5 py-3 text-on-surface-variant text-xs whitespace-nowrap">${escapeHtml(dateStr)}</td>
-                <td class="px-5 py-3">
-                    <input
-                        type="text"
-                        value="${escapeHtml(lead.notes || "")}"
-                        placeholder="Add a note…"
-                        class="w-40 px-2 py-1 text-xs bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-                        onblur="saveLeadNotes('${leadId}', this.value)"
-                        onkeydown="if(event.key==='Enter'){this.blur()}"
-                    />
-                </td>
-                <td class="px-5 py-3">
-                    <button onclick="sendLeadMessage('${leadId}', '${escapeHtml(lead.phone || "")}')" class="p-1 text-on-surface-variant hover:text-primary transition-colors" title="Send a WhatsApp message" ${lead.phone ? "" : "disabled"}>
-                        <span class="material-symbols-outlined text-[20px]">send</span>
-                    </button>
-                </td>
-                <td class="px-5 py-3">
-                    <button onclick="deleteLead('${leadId}')" class="p-1 text-on-surface-variant hover:text-error transition-colors" title="Delete">
-                        <span class="material-symbols-outlined text-[20px]">delete</span>
-                    </button>
-                </td>
-            </tr>
-        `;
+            <button
+              onclick="selectCalendar('${escapeHtml(et.uri)}')"
+              class="w-full flex items-center gap-3 p-3 border rounded-xl text-left transition-all ${selected ? "border-primary bg-primary/5" : "border-outline-variant hover:bg-surface-container-low"}"
+            >
+              <img src="/assets/calendly-icon.png" alt="" class="w-6 h-6 rounded-md flex-shrink-0" />
+              <span class="flex-1 min-w-0 font-label-md text-on-surface truncate">${escapeHtml(et.name || et.uri)}</span>
+              <span class="material-symbols-outlined text-[20px] ${selected ? "text-primary" : "text-on-surface-variant/30"}">${selected ? "radio_button_checked" : "radio_button_unchecked"}</span>
+            </button>
+          `;
           })
           .join("");
       }
 
-      async function saveLeadNotes(leadId, notes) {
-        try {
-          await updateDoc(doc(db, "leads", leadId), { notes, updatedAt: serverTimestamp() });
-        } catch (error) {
-          console.error("Error saving lead notes:", error);
-        }
-      }
+      // "Next" gates progress into step 3 — re-checks phone detection fresh
+      // for the selected calendar (in case the user just fixed their
+      // Calendly form) before allowing the user through, then adds it as
+      // the configured meeting (replacing any previously configured one).
+      async function handleCalendlyStep2Next() {
+        const errorBox = document.getElementById("calendly-next-error");
+        errorBox.classList.add("hidden");
 
-      async function deleteLead(leadId) {
-        if (!confirm("Delete this lead?")) return;
-        try {
-          await deleteDoc(doc(db, "leads", leadId));
-          await loadLeads();
-        } catch (error) {
-          console.error("Error deleting lead:", error);
-          alert("Failed to delete lead");
-        }
-      }
-
-      async function handleAddLead() {
-        const name = document.getElementById("new-lead-name").value.trim();
-        const email = document.getElementById("new-lead-email").value.trim();
-        const phone = document.getElementById("new-lead-phone").value.trim();
-        const notes = document.getElementById("new-lead-notes").value.trim();
-
-        if (!email && !phone) {
-          alert("Email or phone is required.");
+        if (!selectedEventTypeUri) {
+          alert("No calendar selected.");
           return;
         }
 
-        const btn = document.getElementById("add-lead-btn");
+        const btn = document.getElementById("calendly-step2-next-btn");
+        btn.disabled = true;
+        btn.textContent = "Checking…";
+
+        try {
+          const res = await fetch(`${API_BASE}/api/calendly/event-types`, {
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+          if (!res.ok) throw new Error("Failed to check calendar");
+          const { eventTypes } = await res.json();
+          const fresh = eventTypes.find((et) => et.uri === selectedEventTypeUri);
+          if (!fresh) throw new Error("Selected calendar is no longer available on your Calendly account.");
+
+          if (fresh.phoneDetectionStatus === "not_found") {
+            errorBox.textContent = `No phone-number field found on "${fresh.name}". Add a "Phone Number" question in Calendly's event type settings, then click Next again.`;
+            errorBox.classList.remove("hidden");
+            return;
+          }
+
+          const existing = currentMeetingEntry();
+          const now = new Date().toISOString();
+          const updates = {};
+
+          if (existing && existing[1].eventTypeUri === fresh.uri) {
+            // Same calendar as before — just refresh its phone-detection fields.
+            const [id, m] = existing;
+            const updated = { ...m, phoneQuestionName: fresh.phoneQuestionName, phoneDetectionStatus: fresh.phoneDetectionStatus, updatedAt: now };
+            updates[`calendlyConfig.meetings.${id}`] = updated;
+            calendlyConfig.meetings[id] = updated;
+          } else {
+            if (existing) {
+              const [oldId] = existing;
+              updates[`calendlyConfig.meetings.${oldId}`] = deleteField();
+              delete calendlyConfig.meetings[oldId];
+            }
+            const id = crypto.randomUUID();
+            const meeting = {
+              eventTypeUri: fresh.uri,
+              eventTypeName: fresh.name,
+              phoneQuestionName: fresh.phoneQuestionName,
+              phoneDetectionStatus: fresh.phoneDetectionStatus,
+              autoSendEnabled: true,
+              messageTemplate: DEFAULT_MESSAGE_TEMPLATE,
+              embedVerified: false,
+              embedVerifiedAt: null,
+              createdAt: now,
+              updatedAt: now,
+            };
+            updates[`calendlyConfig.meetings.${id}`] = meeting;
+            calendlyConfig.meetings[id] = meeting;
+          }
+
+          await updateDoc(userRef(), updates);
+          renderBoxes();
+          showCalendlyStep(3);
+        } catch (error) {
+          console.error("Error checking calendar:", error);
+          errorBox.textContent = error.message || "Failed to check calendar. Please try again.";
+          errorBox.classList.remove("hidden");
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = '<span class="material-symbols-outlined">arrow_forward</span> Next';
+        }
+      }
+
+      // ── Step 3: Add Code & Verify ───────────────────────
+
+      let verifyStartedAt = null;
+
+      function renderVerifyStep() {
+        const entries = Object.entries(meetings());
+        const empty = document.getElementById("calendly-verify-empty");
+        const content = document.getElementById("calendly-verify-content");
+        if (entries.length === 0) {
+          empty.classList.remove("hidden");
+          content.classList.add("hidden");
+          return;
+        }
+        empty.classList.add("hidden");
+        content.classList.remove("hidden");
+
+        const select = document.getElementById("calendly-verify-meeting-select");
+        if (select.options.length === 0 || select.dataset.count != entries.length) {
+          select.innerHTML = entries
+            .map(([id, m]) => `<option value="${escapeHtml(id)}">${escapeHtml(m.eventTypeName || m.eventTypeUri)}</option>`)
+            .join("");
+          select.dataset.count = entries.length;
+        }
+
+        document.getElementById("calendly-verify-snippet").textContent = meetingEmbedSnippet(select.value);
+        document.getElementById("calendly-verify-result").classList.add("hidden");
+        verifyStartedAt = new Date();
+      }
+
+      function copyVerifySnippet() {
+        const text = document.getElementById("calendly-verify-snippet").textContent;
+        navigator.clipboard.writeText(text).then(() => {
+          const btn = document.getElementById("calendly-verify-snippet-copy");
+          btn.textContent = "check";
+          setTimeout(() => { btn.textContent = "content_copy"; }, 2000);
+        });
+      }
+
+      async function handleVerifyCheck() {
+        const meetingId = document.getElementById("calendly-verify-meeting-select").value;
+        const meeting = meetings()[meetingId];
+        if (!meeting) return;
+
+        const btn = document.getElementById("calendly-verify-check-btn");
+        const result = document.getElementById("calendly-verify-result");
         btn.disabled = true;
         try {
-          const id = buildLeadId({ name, email, phone });
-          await setDoc(doc(db, "leads", id), {
-            userDir,
-            name: name || null,
-            email: email || null,
-            phone: phone || null,
-            source: "manual",
-            status: "pending",
-            messageSent: null,
-            sendError: null,
-            notes: notes || null,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          }, { merge: true });
+          const q = query(collection(db, "users", userDir, "leads"), orderBy("createdAt", "desc"), limit(10));
+          const snapshot = await getDocs(q);
+          const found = snapshot.docs
+            .map((d) => ({ id: d.id, ...d.data() }))
+            .find((lead) => {
+              const matchesMeeting = lead.calendly && lead.calendly.eventTypeUri === meeting.eventTypeUri;
+              const createdAt = lead.createdAt && typeof lead.createdAt.toDate === "function" ? lead.createdAt.toDate() : null;
+              return matchesMeeting && createdAt && verifyStartedAt && createdAt >= verifyStartedAt;
+            });
 
-          document.getElementById("new-lead-name").value = "";
-          document.getElementById("new-lead-email").value = "";
-          document.getElementById("new-lead-phone").value = "";
-          document.getElementById("new-lead-notes").value = "";
-          await loadLeads();
+          if (found) {
+            result.className = "text-sm px-4 py-3 rounded-xl bg-primary/5 text-primary";
+            result.textContent = `Booking detected: ${found.name || "Unknown"} — phone ${found.phone || "not captured"} (status: ${found.status || "pending"}).`;
+            result.classList.remove("hidden");
+
+            const updated = { ...meeting, embedVerified: true, embedVerifiedAt: new Date().toISOString() };
+            await updateDoc(userRef(), { [`calendlyConfig.meetings.${meetingId}`]: updated });
+            calendlyConfig.meetings[meetingId] = updated;
+            renderBoxes();
+          } else {
+            result.className = "text-sm px-4 py-3 rounded-xl bg-amber-50 text-amber-700";
+            result.textContent = "No booking detected yet — confirm the snippet is live on your page, make a booking, then click Check again.";
+            result.classList.remove("hidden");
+          }
         } catch (error) {
-          console.error("Error adding lead:", error);
-          alert("Failed to add lead");
+          console.error("Error checking for a lead:", error);
+          result.className = "text-sm px-4 py-3 rounded-xl bg-error/5 text-error";
+          result.textContent = "Something went wrong checking for a booking. Please try again.";
+          result.classList.remove("hidden");
         } finally {
           btn.disabled = false;
         }
       }
 
-      // Actually sending the message has to go through the VM (mudslide
-      // needs the user's decrypted WhatsApp session, which Firestore has no
-      // access to) — reuses the existing POST /api/message endpoint rather
-      // than a dedicated leads-send route, since it already does exactly
-      // this. The lead's own status/messageSent are then updated directly
-      // here, since the frontend already has write access to it.
-      async function sendLeadMessage(leadId, phone) {
-        if (!phone) return;
-        const message = prompt("Message to send:", "");
-        if (!message) return;
+      // ── WhatsApp status (shared by two-box row + Watobot modal step 1) ─
+
+      async function checkWhatsAppStatus() {
         try {
-          const res = await fetch(`${API_BASE}/api/message`, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${authToken}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ to: phone, message }),
+          const res = await fetch(`${API_BASE}/api/whatsapp/status`, {
+            headers: { Authorization: `Bearer ${authToken}` },
           });
-          if (!res.ok) throw new Error("Failed to send message");
-          await updateDoc(doc(db, "leads", leadId), {
-            status: "sent", messageSent: message, sendError: null, updatedAt: serverTimestamp(),
-          });
-          await loadLeads();
+          if (!res.ok) return;
+          const data = await res.json();
+          waLoggedIn = !!data.loggedIn;
         } catch (error) {
-          console.error("Error sending message:", error);
-          alert("Failed to send message");
+          console.error("Error checking WhatsApp status:", error);
+        }
+      }
+
+      // ── Watobot modal ───────────────────────────────────
+
+      function openWatobotModal() {
+        document.getElementById("watobot-modal").classList.remove("hidden");
+        document.getElementById("watobot-wa-connect-btn").href = `/verify.html?token=${authToken}`;
+        showWatobotStep(1);
+      }
+      function closeWatobotModal() {
+        document.getElementById("watobot-modal").classList.add("hidden");
+        if (waPollInterval) { clearInterval(waPollInterval); waPollInterval = null; }
+      }
+
+      const WATOBOT_STEP_LABELS = { 1: "Connect WhatsApp", 2: "Send WhatsApp message on booking" };
+
+      function showWatobotStep(step) {
+        for (let i = 1; i <= 2; i++) {
+          document.getElementById(`watobot-step-${i}`).classList.toggle("hidden", i !== step);
+          const tab = document.querySelector(`[data-watobot-tab="${i}"]`);
+          tab.classList.toggle("bg-primary", i === step);
+          tab.classList.toggle("text-on-primary", i === step);
+          tab.classList.toggle("border-primary", i === step);
+          tab.classList.toggle("text-on-surface-variant", i !== step);
+          tab.classList.toggle("border-outline-variant", i !== step);
+        }
+        document.getElementById("watobot-modal-title").textContent = `Step ${step}`;
+        document.getElementById("watobot-modal-subtitle").textContent = WATOBOT_STEP_LABELS[step];
+        renderWatobotStep1();
+        if (step === 2) renderWatobotStep2();
+      }
+
+      function renderWatobotStep1() {
+        document.getElementById("watobot-wa-not-connected").classList.toggle("hidden", waLoggedIn);
+        document.getElementById("watobot-wa-connected").classList.toggle("hidden", !waLoggedIn);
+
+        if (!waLoggedIn && !waPollInterval) {
+          waPollInterval = setInterval(async () => {
+            await checkWhatsAppStatus();
+            if (waLoggedIn) {
+              clearInterval(waPollInterval);
+              waPollInterval = null;
+              renderWatobotStep1();
+              renderBoxes();
+            }
+          }, 3000);
+        }
+      }
+
+      // Dropdown-driven, mirroring the Calendly modal's step 3 pattern —
+      // one settings panel for whichever calendar is selected, rather than
+      // a list of per-calendar rows (today's UI only ever has one
+      // configured calendar anyway; this scales cleanly if that changes).
+      function renderWatobotStep2() {
+        const empty = document.getElementById("watobot-calendars-empty");
+        const content = document.getElementById("watobot-calendar-content");
+        const entries = Object.entries(meetings());
+
+        if (entries.length === 0) {
+          content.classList.add("hidden");
+          empty.classList.remove("hidden");
+          return;
+        }
+        empty.classList.add("hidden");
+        content.classList.remove("hidden");
+
+        const select = document.getElementById("watobot-meeting-select");
+        const previousValue = select.value;
+        select.innerHTML = entries
+          .map(([id, m]) => `<option value="${escapeHtml(id)}">${escapeHtml(m.eventTypeName || m.eventTypeUri)}</option>`)
+          .join("");
+        select.value = entries.some(([id]) => id === previousValue) ? previousValue : entries[0][0];
+
+        renderWatobotMeetingPanel();
+      }
+
+      function renderWatobotMeetingPanel() {
+        const meetingId = document.getElementById("watobot-meeting-select").value;
+        const m = meetings()[meetingId];
+        if (!m) return;
+
+        const phoneOk = m.phoneDetectionStatus === "found_required" || m.phoneDetectionStatus === "found_not_required";
+        const warning = document.getElementById("watobot-phone-warning");
+        warning.classList.toggle("hidden", phoneOk);
+        if (!phoneOk) warning.textContent = "Phone number for this calendar wasn't found. Go to the Calendly box to fix this first.";
+
+        const checkbox = document.getElementById("watobot-autosend-checkbox");
+        checkbox.checked = !!m.autoSendEnabled && phoneOk;
+        checkbox.disabled = !phoneOk;
+
+        document.getElementById("watobot-message-template").value = m.messageTemplate || DEFAULT_MESSAGE_TEMPLATE;
+        document.getElementById("watobot-template-section").classList.toggle("hidden", !checkbox.checked);
+      }
+
+      function handleWatobotCheckboxChange() {
+        const checkbox = document.getElementById("watobot-autosend-checkbox");
+        document.getElementById("watobot-template-section").classList.toggle("hidden", !checkbox.checked);
+        saveWatobotMeeting({ autoSendEnabledOverride: checkbox.checked });
+      }
+
+      async function saveWatobotMeeting({ autoSendEnabledOverride } = {}) {
+        const meetingId = document.getElementById("watobot-meeting-select").value;
+        const m = meetings()[meetingId];
+        if (!m) return;
+
+        const messageTemplate = document.getElementById("watobot-message-template").value.trim();
+        const checkbox = document.getElementById("watobot-autosend-checkbox");
+        const autoSendEnabled = autoSendEnabledOverride !== undefined ? autoSendEnabledOverride : checkbox.checked;
+
+        const updated = { ...m, autoSendEnabled, messageTemplate: messageTemplate || m.messageTemplate, updatedAt: new Date().toISOString() };
+        try {
+          await updateDoc(userRef(), { [`calendlyConfig.meetings.${meetingId}`]: updated });
+          calendlyConfig.meetings[meetingId] = updated;
+        } catch (error) {
+          console.error("Error saving message settings:", error);
+          alert("Failed to save message settings");
+        }
+      }
+
+      // Reuses the real webhook route (POST /api/calendly/:meetingId/lead)
+      // with test:true instead of a dedicated test-send endpoint — same
+      // authenticateCalendlyKey check the real embed script goes through,
+      // using event_uri/invitee_uri from a recently-loaded lead for this
+      // calendar. Sends to 'me', never writes to Firestore in test mode.
+      async function testWatobotMessage() {
+        const meetingId = document.getElementById("watobot-meeting-select").value;
+        const m = meetings()[meetingId];
+        if (!m) return;
+        const btn = document.getElementById("watobot-test-btn");
+        btn.disabled = true;
+        try {
+          const q = query(collection(db, "users", userDir, "leads"), orderBy("createdAt", "desc"), limit(20));
+          const snapshot = await getDocs(q);
+          const lead = snapshot.docs
+            .map((d) => d.data())
+            .find((l) => l.calendly && l.calendly.eventTypeUri === m.eventTypeUri && l.calendly.eventUri && l.calendly.inviteeUri);
+
+          if (!lead) {
+            alert("Make a booking on this calendar first (see the Calendly box) before testing.");
+            return;
+          }
+
+          const res = await fetch(`${API_BASE}/api/calendly/${meetingId}/lead?token=${calendlyConfig.calendlyKey}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              event_uri: lead.calendly.eventUri,
+              invitee_uri: lead.calendly.inviteeUri,
+              test: true,
+            }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || "Failed to send test message");
+          }
+          alert("Check WhatsApp on your own number for a copy of the message.");
+        } catch (error) {
+          console.error("Error sending test message:", error);
+          alert(error.message || "Failed to send test message");
+        } finally {
+          btn.disabled = false;
         }
       }
 
@@ -876,9 +878,7 @@
         const confirmBtn = document.getElementById("logoutModalConfirm");
         const cancelBtn = document.getElementById("logoutModalCancel");
 
-        title.textContent = isFullLogout
-          ? "Log out of WatoBot"
-          : "Disconnect WhatsApp";
+        title.textContent = isFullLogout ? "Log out of WatoBot" : "Disconnect WhatsApp";
         confirmBtn.dataset.isFullLogout = isFullLogout ? "1" : "0";
 
         body.innerHTML = `
@@ -952,32 +952,25 @@
       function openSupport() {
         const modal = document.getElementById("supportModal");
         const now = new Date();
-        const istHour =
-          ((now.getUTCHours() * 60 + now.getUTCMinutes() + 330) / 60) % 24;
+        const istHour = ((now.getUTCHours() * 60 + now.getUTCMinutes() + 330) / 60) % 24;
         const available = istHour >= 9 && istHour < 19;
-        document
-          .getElementById("support-available")
-          .classList.toggle("hidden", !available);
-        document
-          .getElementById("support-unavailable")
-          .classList.toggle("hidden", available);
+        document.getElementById("support-available").classList.toggle("hidden", !available);
+        document.getElementById("support-unavailable").classList.toggle("hidden", available);
         modal.classList.remove("hidden");
       }
       function closeSupport() {
         document.getElementById("supportModal").classList.add("hidden");
       }
 
-      // Inline onclick="..." attributes (in this file's generated HTML, and
-      // in the shared header/support-modal partials) can't see plain
-      // top-level declarations from a type="module" script — module scope,
-      // not global scope — so anything referenced that way has to be
-      // explicitly attached to window.
-      window.loadMeetingIntoForm = loadMeetingIntoForm;
-      window.deleteMeeting = deleteMeeting;
-      window.copyMeetingSnippet = copyMeetingSnippet;
-      window.saveLeadNotes = saveLeadNotes;
-      window.deleteLead = deleteLead;
-      window.sendLeadMessage = sendLeadMessage;
+      // Inline onclick="..." attributes can't see plain top-level
+      // declarations from a type="module" script — module scope, not
+      // global scope — so anything referenced that way is attached here.
+      window.closeCalendlyModal = closeCalendlyModal;
+      window.showCalendlyStep = showCalendlyStep;
+      window.selectCalendar = selectCalendar;
+      window.copyVerifySnippet = copyVerifySnippet;
+      window.closeWatobotModal = closeWatobotModal;
+      window.showWatobotStep = showWatobotStep;
       window.openSupport = openSupport;
       window.closeSupport = closeSupport;
     </script>

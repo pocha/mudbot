@@ -7,7 +7,8 @@
     "prestart": "npm run build",
     "start": "node server.js",
     "build": "node scripts/build-pages.js",
-    "test": "node test/flow.test.js && jest",
+    "test": "node test/flow.test.js",
+    "test-calendly-e2e": "node test/calendly.e2e.js",
     "test-mudslide-proxy": "node scripts/test-mudslide-proxy.js"
   },
   "repository": {
@@ -36,7 +37,8 @@
   "jest": {
     "testPathIgnorePatterns": [
       "/node_modules/",
-      "<rootDir>/test/flow.test.js"
+      "<rootDir>/test/flow.test.js",
+      "<rootDir>/test/calendly.e2e.js"
     ]
   }
 }
