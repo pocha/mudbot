@@ -47,10 +47,18 @@ function buildServer() {
   // cross-origin frontend (e.g. watobot.xyz calling api.watobot.xyz).
   fastify.register(require('@fastify/cors'), { origin: true, methods: ['GET', 'HEAD', 'POST', 'PUT', 'DELETE'] });
 
-  fastify.register(require('@fastify/static'), {
-    root: path.join(__dirname, '..', 'public'),
-    prefix: '/'
-  });
+  // In production the real frontend is served from GitHub Pages
+  // (watobot.xyz), not this VM — this API server only needs to answer
+  // /api/* routes. Serving public/ here too is redundant and needlessly
+  // widens the attack surface (static file/directory serving on the
+  // API-only domain). Local dev is the one place this stays on by default:
+  // server.js there serves public/ + /api together on the same origin.
+  if (process.env.DISABLE_PUBLIC_STATIC !== 'true') {
+    fastify.register(require('@fastify/static'), {
+      root: path.join(__dirname, '..', 'public'),
+      prefix: '/'
+    });
+  }
 
   fastify.register(require('../routes/api'));
 

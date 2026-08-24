@@ -96,7 +96,7 @@ BASE_URL=http://localhost:3000
 MUDSLIDE_PATH=/usr/local/bin/mudslide
 ```
 
-For **production**, point `SMTP_*` at a real mail provider (e.g. SendGrid, SES) and set `BASE_URL` to your public domain.
+For **production**, point `SMTP_*` at a real mail provider (e.g. SendGrid, SES) and set `BASE_URL` to your public domain. Also set `DISABLE_PUBLIC_STATIC=true` — the real frontend is served from GitHub Pages in production, not this VM, so there's no reason for the API server to also serve `public/`.
 
 For **local development**, MailDev is started automatically by the test suite (see [Running tests](#running-tests)).
 

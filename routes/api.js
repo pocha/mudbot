@@ -504,7 +504,17 @@ async function routes(fastify, options) {
     reply.header('Cache-Control', 'no-store');
     const { token: key, meetingId } = request.query;
     const user = key && meetingId && await userService.verifyCalendlyKey(key);
-    return user ? calendlyService.buildCalendlyEmbedScript(key, meetingId) : '/* invalid calendly integration key */';
+    if (!user) return '/* invalid calendly integration key */';
+
+    // This script runs on the *customer's* site, not ours — a relative
+    // fetch() URL would resolve against their page's own origin, not this
+    // API server, and silently never fire (the fetch is wrapped in a bare
+    // .catch() so visitors never see the failure). Same domain convention
+    // the dashboard frontend already uses for API_BASE.
+    const host = request.headers.host || '';
+    const isLocal = host.startsWith('localhost') || host.startsWith('127.0.0.1');
+    const apiBase = isLocal ? `${request.protocol}://${host}` : 'https://api.watobot.xyz';
+    return calendlyService.buildCalendlyEmbedScript(key, meetingId, apiBase);
   });
 
   // Thin by design — all booking→lead logic (ownership check, meeting
