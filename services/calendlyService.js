@@ -56,9 +56,9 @@ async function writeConfig(userDir, token, config) {
 const PENDING_TTL_MS = 10 * 60 * 1000;
 const pendingConnects = new Map();
 
-function createPendingConnect(userDir, token) {
+function createPendingConnect(userDir, token, returnTo) {
   const nonce = crypto.randomBytes(16).toString('hex');
-  pendingConnects.set(nonce, { userDir, token, expiresAt: Date.now() + PENDING_TTL_MS });
+  pendingConnects.set(nonce, { userDir, token, returnTo: returnTo || null, expiresAt: Date.now() + PENDING_TTL_MS });
   return nonce;
 }
 
@@ -69,8 +69,12 @@ function consumePendingConnect(nonce) {
   return entry;
 }
 
-function getAuthorizeUrl(userDir, token) {
-  const state = createPendingConnect(userDir, token);
+// returnTo lets the Calendly box be opened from more than one page (the
+// dashboard, or the embedded widget on the marketing page) and land back on
+// whichever one the user actually started from — see routes/api.js's
+// /api/calendly/authorize and /api/calendly/oauth/callback.
+function getAuthorizeUrl(userDir, token, returnTo) {
+  const state = createPendingConnect(userDir, token, returnTo);
   const params = new URLSearchParams({
     client_id: process.env.CALENDLY_CLIENT_ID,
     response_type: 'code',

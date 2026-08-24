@@ -4,5 +4,160 @@
 <div id="site-footer"></div>
 <script src="/assets/footer.js"></script>
 
+<!-- Login Modal -->
+<div class="fixed inset-0 z-[100] hidden flex items-center justify-center px-4" id="loginModal">
+  <div class="modal-overlay absolute inset-0" onclick="toggleModal()"></div>
+  <div class="bg-surface-container-lowest w-full max-w-md rounded-xl p-8 whatsapp-shadow relative z-10 border border-outline-variant">
+    <div class="flex justify-between items-center mb-6">
+      <h3 class="font-headline-md text-headline-md text-on-surface" id="modalTitle">Before you continue</h3>
+      <button class="text-on-surface-variant hover:text-error transition-colors" onclick="toggleModal()">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <!-- Step 1: Warning -->
+    <div id="modal-warning">
+      <div class="flex gap-3 bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+        <span class="material-symbols-outlined text-amber-500 flex-shrink-0">warning</span>
+        <p class="text-on-surface font-body-md text-sm">If you have already received a login link to your email, please use that link to sign in — <strong>requesting a new link will invalidate your existing session and any linked WhatsApp account.</strong></p>
+      </div>
+      <p class="text-on-surface-variant font-body-md mb-6">Only click <em>Send New Link</em> if you are signing up for the first time or have lost access to your previous link.</p>
+      <div class="flex gap-3">
+        <button class="flex-1 border border-outline-variant text-on-surface-variant font-bold py-3 rounded-xl hover:bg-surface-container transition-all" onclick="toggleModal()">Cancel</button>
+        <button class="flex-1 bg-primary-container text-on-primary-container font-bold py-3 rounded-xl hover:opacity-90 active:scale-95 transition-all" onclick="showRegistrationForm()">Send New Link</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Registration form (hidden until user confirms) -->
+    <div id="modal-form" class="hidden">
+      <p class="text-on-surface-variant font-body-md mb-6">Enter your email to receive a secure login link.</p>
+      <form class="flex flex-col gap-4" onsubmit="handleRegistration(event)">
+        <div class="flex flex-col gap-1">
+          <label class="font-label-md text-label-md text-on-surface-variant">Email Address</label>
+          <input id="emailInput" class="bg-surface-container-low border-b-2 border-transparent focus:border-primary focus:ring-0 rounded-lg p-3 transition-all outline-none" placeholder="name@company.com" type="email" required/>
+        </div>
+        <div id="message" class="min-h-[20px]"></div>
+        <button id="submitBtn" type="submit" class="bg-primary-container text-on-primary-container font-bold py-4 rounded-xl hover:opacity-90 active:scale-95 transition-all">Send Login Link</button>
+        <p class="text-center font-body-md text-on-surface-variant mt-2">By continuing, you agree to our
+          <a class="text-primary font-bold" href="#">Terms of Service</a>.
+        </p>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!--#include partial="support-modal"-->
+
+<script>
+    // Same origin locally (server.js serves public/ + /api together);
+    // split into a dedicated API subdomain once served from GitHub Pages.
+    const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+        ? ''
+        : 'https://api.watobot.xyz';
+
+    function toggleModal() {
+        const modal = document.getElementById('loginModal');
+        modal.classList.toggle('hidden');
+        if (!modal.classList.contains('hidden')) {
+            document.body.style.overflow = 'hidden';
+            // Always start at the warning step when opening
+            document.getElementById('modal-warning').classList.remove('hidden');
+            document.getElementById('modal-form').classList.add('hidden');
+            document.getElementById('modalTitle').textContent = 'Before you continue';
+        } else {
+            document.body.style.overflow = 'auto';
+        }
+    }
+
+    function showRegistrationForm() {
+        document.getElementById('modal-warning').classList.add('hidden');
+        document.getElementById('modal-form').classList.remove('hidden');
+        document.getElementById('modalTitle').textContent = 'Get Started';
+    }
+
+    // Marketing pages show a "Sign Up Free"/"Login" CTA for anonymous
+    // visitors, swapped for "Go to Dashboard" once a session already
+    // exists — every marketing page shares this same header/footer pair,
+    // so the swap lives here once instead of per-page.
+    document.addEventListener('DOMContentLoaded', () => {
+        const token = localStorage.getItem('authToken');
+        if (!token) return;
+
+        document.querySelectorAll('[data-auth-cta]').forEach((el) => {
+            el.textContent = 'Go to Dashboard';
+            if (el.tagName === 'A') {
+                el.href = '/dashboard/';
+            } else {
+                el.onclick = () => { window.location.href = '/dashboard/'; };
+            }
+        });
+    });
+
+    async function handleRegistration(event) {
+        event.preventDefault();
+
+        const emailInput = document.getElementById('emailInput');
+        const submitBtn = document.getElementById('submitBtn');
+        const messageDiv = document.getElementById('message');
+        const email = emailInput.value.trim();
+
+        if (!email) {
+            showMessage('Please enter a valid email address', 'error');
+            return;
+        }
+
+        // Disable button and show loading state
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Sending...';
+        messageDiv.textContent = '';
+
+        try {
+            const response = await fetch(`${API_BASE}/api/register`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ email })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                showMessage(`Success! Check your email (${email}) for the login link.`, 'success');
+                emailInput.value = '';
+
+                // Close modal after 3 seconds
+                setTimeout(() => {
+                    toggleModal();
+                    messageDiv.textContent = '';
+                }, 3000);
+            } else {
+                showMessage(data.message || 'Registration failed. Please try again.', 'error');
+            }
+        } catch (error) {
+            console.error('Registration error:', error);
+            showMessage('Network error. Please check your connection and try again.', 'error');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Send Login Link';
+        }
+    }
+
+    function showMessage(text, type) {
+        const messageDiv = document.getElementById('message');
+        messageDiv.textContent = text;
+        messageDiv.className = type === 'error'
+            ? 'text-error font-body-md mt-2'
+            : 'text-primary font-body-md mt-2';
+    }
+
+    // Micro-interactions
+    document.querySelectorAll('button, a').forEach(el => {
+        el.addEventListener('mousedown', () => { el.classList.add('scale-95'); });
+        el.addEventListener('mouseup', () => { el.classList.remove('scale-95'); });
+        el.addEventListener('mouseleave', () => { el.classList.remove('scale-95'); });
+    });
+</script>
+
 </body>
 </html>

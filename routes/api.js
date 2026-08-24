@@ -85,12 +85,21 @@ async function routes(fastify, options) {
 
   fastify.post('/api/register', async (request, reply) => {
     try {
-      const { email, skipWhatsappConnect } = request.body;
+      const { email, skipWhatsappConnect, next } = request.body;
       if (!email || !email.includes('@')) {
         return reply.code(400).send({ error: 'Valid email is required' });
       }
+      // `next` only ever needs to survive a same-origin redirect after the
+      // magic link is clicked — reject anything that isn't a bare relative
+      // path so this can't be turned into an open redirect via the email.
+      let safeNext = typeof next === 'string' && /^\/[^/\\].*$/.test(next) && !next.startsWith('//') ? next : null;
+      // Legacy flag from callers (e.g. the FAQ tool) that don't need the
+      // WhatsApp QR wizard at all — verify.html no longer branches on
+      // whatsappConnected itself, so this now just becomes an explicit
+      // `next` straight to the dashboard, same mechanism as any other caller.
+      if (!safeNext && skipWhatsappConnect) safeNext = '/dashboard/';
       const { token, userDir } = await userService.registerUser(email);
-      await emailService.sendRegistrationEmail(email, token, { skipWhatsappConnect: !!skipWhatsappConnect });
+      await emailService.sendRegistrationEmail(email, token, { next: safeNext });
       emailService.sendOwnerNotification('new_registration', { userDir, email }).catch(() => {});
       return { success: true, message: 'Registration email sent. Please check your inbox.' };
     } catch (error) {
@@ -99,18 +108,15 @@ async function routes(fastify, options) {
     }
   });
 
+  // Deliberately doesn't report whatsappConnected — verify.html is a thin
+  // gate now (just proves the token and redirects); whatsapp-connect.html
+  // is the one place that cares about connection status, and it checks
+  // GET /api/whatsapp/status itself once it's actually loaded.
   fastify.get('/api/verify/:token', async (request, reply) => {
     try {
       const user = await userService.verifyToken(request.params.token);
       if (!user) return reply.code(401).send({ error: 'Invalid or expired token' });
-
-      const whatsappStatus = await mudslideService.confirmWhatsappLogin(user.userDir, user.token);
-      return {
-        success: true,
-        user: {
-          whatsappConnected: whatsappStatus.loggedIn
-        }
-      };
+      return { success: true };
     } catch (error) {
       fastify.log.error(error);
       return reply.code(500).send({ error: 'Verification failed' });
@@ -416,7 +422,12 @@ async function routes(fastify, options) {
 
   fastify.get('/api/calendly/authorize', { preHandler: authenticateUser }, async (request, reply) => {
     try {
-      return { url: calendlyService.getAuthorizeUrl(request.user.userDir, request.user.token) };
+      const { returnTo } = request.query || {};
+      // Same relative-path-only rule as /api/register's `next` — this
+      // round-trips through Calendly's own redirect, so it's exactly as
+      // exposed to tampering as an emailed link.
+      const safeReturnTo = typeof returnTo === 'string' && /^\/[^/\\].*$/.test(returnTo) && !returnTo.startsWith('//') ? returnTo : null;
+      return { url: calendlyService.getAuthorizeUrl(request.user.userDir, request.user.token, safeReturnTo) };
     } catch (error) {
       fastify.log.error(error);
       return reply.code(500).send({ error: 'Failed to start Calendly connection' });
@@ -441,7 +452,9 @@ async function routes(fastify, options) {
       const host = request.headers.host || '';
       const isLocal = host.startsWith('localhost') || host.startsWith('127.0.0.1');
       const frontendBase = isLocal ? '' : 'https://watobot.xyz';
-      return reply.redirect(`${frontendBase}/dashboard/calendly.html?connected=1`);
+      const returnTo = pending.returnTo || '/dashboard/calendly.html';
+      const separator = returnTo.includes('?') ? '&' : '?';
+      return reply.redirect(`${frontendBase}${returnTo}${separator}connected=1`);
     } catch (error) {
       fastify.log.error(error);
       return reply.code(500).send({ error: 'Calendly connection failed' });

@@ -176,7 +176,6 @@ test('verify token', async () => {
   const { status, body } = await get(`${BASE_URL}/api/verify/${token}`);
   assert.equal(status, 200);
   assert.equal(body.success, true);
-  assert.equal(typeof body.user.whatsappConnected, 'boolean');
 });
 
 test('GET /api/countries returns the static country list', async () => {

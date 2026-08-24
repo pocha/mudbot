@@ -44,3 +44,21 @@
         </div>
       </div>
     </div>
+
+    <script type="module">
+      function openSupport() {
+        const modal = document.getElementById("supportModal");
+        const now = new Date();
+        const istHour = ((now.getUTCHours() * 60 + now.getUTCMinutes() + 330) / 60) % 24;
+        const available = istHour >= 9 && istHour < 19;
+        document.getElementById("support-available").classList.toggle("hidden", !available);
+        document.getElementById("support-unavailable").classList.toggle("hidden", available);
+        modal.classList.remove("hidden");
+      }
+      function closeSupport() {
+        document.getElementById("supportModal").classList.add("hidden");
+      }
+
+      window.openSupport = openSupport;
+      window.closeSupport = closeSupport;
+    </script>

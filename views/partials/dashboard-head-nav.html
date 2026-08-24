@@ -81,6 +81,20 @@
           <span class="hidden lg:inline truncate">Leads</span>
         </a>
       </aside>
+      <script type="module">
+        // Highlights the current page's link in the nav row above — every
+        // dashboard page includes this partial, so this runs once per page
+        // load regardless of which page it is.
+        (function highlightNav() {
+          const page = (location.pathname.split("/").pop() || "index.html").replace(".html", "");
+          const key = page || "index";
+          const link = document.querySelector(`#dashboard-nav a[data-nav="${key}"]`);
+          if (link) {
+            link.classList.add("bg-primary-container", "text-on-primary-container", "font-bold");
+            link.classList.remove("text-on-surface-variant");
+          }
+        })();
+      </script>
       <!-- Main Workspace -->
       <main class="flex-1 overflow-y-auto custom-scrollbar p-6 bg-background flex flex-col">
         <!-- flex-1 lets this stretch to fill any leftover vertical space when
