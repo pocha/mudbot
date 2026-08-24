@@ -405,15 +405,12 @@ async function postLead(leadData) {
 
 module.exports = {
   readConfig,
-  getValidAccessToken, // exported for test/calendly.e2e.js's direct real-API reads; not used by any route
   getAuthorizeUrl,
   consumePendingConnect,
   completeConnection,
   disconnect,
-  fetchEventDetails,
   getUserCalendars,
   resolveMessageTemplate,
-  getUserPhoneFromEvent,
   buildCalendlyEmbedScript,
   createLeadFromCalendlyEvent
 };
