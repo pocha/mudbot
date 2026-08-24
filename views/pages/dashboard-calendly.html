@@ -68,6 +68,15 @@
           </button>
         </div>
 
+        <!-- Shown while the initial status/config load is still in flight —
+             see openCalendlyModal(). Steps only ever render once real data
+             is ready, so there's no flash of stale/default state. -->
+        <div id="calendly-modal-loading" class="hidden p-10 flex flex-col items-center gap-3">
+          <div class="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+          <p class="text-body-muted text-sm">Loading your connection status…</p>
+        </div>
+
+        <div id="calendly-modal-steps">
         <!-- Step 1: Connect -->
         <div id="calendly-step-1" class="p-6 space-y-4">
           <p class="text-body-muted">
@@ -138,6 +147,7 @@
             </button>
           </div>
         </div>
+        </div>
       </div>
     </div>
 
@@ -161,6 +171,14 @@
           </button>
         </div>
 
+        <!-- Shown while the initial status/config load is still in flight —
+             see openWatobotModal(). -->
+        <div id="watobot-modal-loading" class="hidden p-10 flex flex-col items-center gap-3">
+          <div class="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+          <p class="text-body-muted text-sm">Loading your connection status…</p>
+        </div>
+
+        <div id="watobot-modal-steps">
         <!-- Step 1: Connect WhatsApp -->
         <div id="watobot-step-1" class="p-6 space-y-4">
           <div id="watobot-wa-not-connected" class="hidden space-y-3">
@@ -225,6 +243,7 @@
             </div>
           </div>
         </div>
+        </div>
       </div>
     </div>
 
@@ -285,7 +304,15 @@
         }
       })();
 
-      document.addEventListener("DOMContentLoaded", async () => {
+      // The four initial calls (Firebase sign-in, Calendly status/config,
+      // WhatsApp status) can take a few seconds on a slow connection —
+      // stashing this as a promise (rather than just awaiting it inline)
+      // lets openCalendlyModal/openWatobotModal show a loading state
+      // immediately if a user opens a modal (or returns from an OAuth
+      // redirect) before it resolves, instead of the click doing nothing.
+      let initialLoadPromise;
+
+      document.addEventListener("DOMContentLoaded", () => {
         const urlParams = new URLSearchParams(window.location.search);
         authToken = urlParams.get("token") || localStorage.getItem("authToken");
 
@@ -296,24 +323,24 @@
         }
         localStorage.setItem("authToken", authToken);
 
-        try {
-          await initFirebase();
-          await syncCalendlyStatus();
-          await loadCalendlyConfig();
-        } catch (error) {
-          console.error("Error initializing:", error);
-        }
-
-        await checkWhatsAppStatus();
-        renderBoxes();
+        initialLoadPromise = (async () => {
+          try {
+            await initFirebase();
+            await syncCalendlyStatus();
+            await loadCalendlyConfig();
+          } catch (error) {
+            console.error("Error initializing:", error);
+          }
+          await checkWhatsAppStatus();
+          renderBoxes();
+        })();
 
         if (urlParams.get("connected") === "1") {
-          openCalendlyModal();
-          showCalendlyStep(2);
+          openCalendlyModal(2);
         }
 
-        document.getElementById("calendly-box").addEventListener("click", openCalendlyModal);
-        document.getElementById("watobot-box").addEventListener("click", openWatobotModal);
+        document.getElementById("calendly-box").addEventListener("click", () => openCalendlyModal());
+        document.getElementById("watobot-box").addEventListener("click", () => openWatobotModal());
         document.getElementById("calendly-connect-btn").addEventListener("click", handleConnectCalendly);
         document.getElementById("calendly-disconnect-btn").addEventListener("click", handleDisconnectCalendly);
         document.getElementById("calendly-step1-next-btn").addEventListener("click", () => showCalendlyStep(2));
@@ -378,9 +405,19 @@
 
       // ── Calendly modal ──────────────────────────────────
 
-      function openCalendlyModal() {
+      // Shows the modal right away with a loading state — rather than
+      // waiting for initialLoadPromise to resolve before the modal even
+      // appears — so a click (or a return from the Calendly OAuth
+      // redirect) gets instant feedback instead of feeling like nothing
+      // happened. Once real data is ready, jumps straight to targetStep.
+      async function openCalendlyModal(targetStep = 1) {
         document.getElementById("calendly-modal").classList.remove("hidden");
-        showCalendlyStep(1);
+        document.getElementById("calendly-modal-loading").classList.remove("hidden");
+        document.getElementById("calendly-modal-steps").classList.add("hidden");
+        await initialLoadPromise;
+        document.getElementById("calendly-modal-loading").classList.add("hidden");
+        document.getElementById("calendly-modal-steps").classList.remove("hidden");
+        showCalendlyStep(targetStep);
       }
       function closeCalendlyModal() {
         document.getElementById("calendly-modal").classList.add("hidden");
@@ -717,10 +754,15 @@
 
       // ── Watobot modal ───────────────────────────────────
 
-      function openWatobotModal() {
+      async function openWatobotModal(targetStep = 1) {
         document.getElementById("watobot-modal").classList.remove("hidden");
+        document.getElementById("watobot-modal-loading").classList.remove("hidden");
+        document.getElementById("watobot-modal-steps").classList.add("hidden");
+        await initialLoadPromise;
+        document.getElementById("watobot-modal-loading").classList.add("hidden");
+        document.getElementById("watobot-modal-steps").classList.remove("hidden");
         document.getElementById("watobot-wa-connect-btn").href = `/verify.html?token=${authToken}`;
-        showWatobotStep(1);
+        showWatobotStep(targetStep);
       }
       function closeWatobotModal() {
         document.getElementById("watobot-modal").classList.add("hidden");
