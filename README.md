@@ -221,21 +221,6 @@ With that key present, `npm start` picks it up automatically: `createCustomToken
 
 Without that key present, `npm start` just logs a warning and falls back to the real deployed functions (so local dev still works for everything *not* needing a Firebase sign-in). Never runs in production (`NODE_ENV=production` skips it entirely) or if `SKIP_FUNCTIONS_EMULATOR=true` is set.
 
-### Testing the Calendly integration
-
-`npm test` doesn't cover Calendly at all — see [Running tests](#running-tests) below for why. Instead, `test/calendly.e2e.js` (`npm run test-calendly-e2e`) drives the *real* app server against a *real* Calendly account, so it's testing actual behavior rather than a hand-built guess at Calendly's API shape.
-
-This test talks to whatever `BASE_URL`/`PORT` your own `.env` already configures — same as `npm start` — rather than a special test-only port; if a server is already running there, it reuses it directly instead of starting a second one, which is what makes it safe to run against a real, persistently-running server too.
-
-**One-time setup:**
-1. Create a second Calendly OAuth app (e.g. "Watobot-test") in the [developer console](https://developer.calendly.com/) — don't reuse your production app's credentials. Environment type **Production** (not Sandbox — Sandbox's real-account behavior is unconfirmed), redirect URI `<your .env's BASE_URL>/api/calendly/oauth/callback` (e.g. `https://localhost/api/calendly/oauth/callback` if `BASE_URL=https://localhost`) — this test reuses the app's own real OAuth callback route, not a separate one, so the path has to match it exactly (Calendly also requires HTTPS here even for `localhost`).
-2. Make sure local HTTPS certs exist: `certs/localhost.pem` / `certs/localhost-key.pem` (generate with `mkcert -cert-file certs/localhost.pem -key-file certs/localhost-key.pem localhost 127.0.0.1 ::1` if missing — `mkcert -install` first if you've never used mkcert on this machine). Binding to port 443 does *not* require root on macOS.
-3. Point your local `.env.calendly` (see `.env.calendly.example`) at that test app — `CALENDLY_CLIENT_ID`/`CALENDLY_CLIENT_SECRET` from it, and `CALENDLY_REDIRECT_URI` matching step 1. This is the same file `server.js` loads for normal local dev, so local `npm start` will also use the test app's credentials — that's expected, since this file never leaves your machine (the deployed VM has its own separate `.env.calendly`).
-
-**Running it:** `npm run test-calendly-e2e`. The first run registers a dedicated, persistent test user and prints a Calendly authorize URL — open it and approve access once. Every run after that reuses the cached session (`test/.calendly-e2e-tokens.json`, gitignored) and Calendly's own token refresh, so no further manual steps are needed unless that refresh token goes stale.
-
-**What it checks, against your real account:** `GET /api/calendly/event-types`'s phone-detection fields (validates the `custom_questions`/`phone_number`/`required` assumption against real data, not a guess), and — reading directly via `services/calendlyService.js` in-process, not through the VM's REST surface — a real past booking's invitee data run through the same phone-extraction logic the webhook uses. It deliberately does **not** exercise the Cloud Function boundary (`getCalendlyMeetingConfig`/`createLead` are IP-allowlisted to the VM and unreachable from a dev machine) or send a real WhatsApp message — those stay outside this test's scope on purpose.
-
 ---
 
 ## Running the app
@@ -417,7 +402,9 @@ MailDev is started and stopped automatically by the test suite — no manual set
 npm test
 ```
 
-The test suite (`test/flow.test.js`, run via `npm test`) covers:
+`npm test` runs two suites:
+
+**`test/flow.test.js`** (Node's built-in test runner) covers:
 - Register → verify → API key generation
 - Token structure (`token.slice(0,10) === sha256(email).slice(0,10)`)
 - `token_hash` written to disk; `tokens.json` does not exist
@@ -425,7 +412,7 @@ The test suite (`test/flow.test.js`, run via `npm test`) covers:
 - Encrypted-at-rest verification (schedule files are not plaintext)
 - Re-registration: new token, same user directory, old token invalidated
 
-**Calendly is deliberately not covered here.** Its actual behavior depends on Calendly's real API responses (custom question types, event/invitee shapes) in ways a hand-built mock can drift out of sync with silently — this app previously had a heavily-mocked Jest suite for it, since removed in favor of `test/calendly.e2e.js`: a separate, manually-invoked script (`npm run test-calendly-e2e`) that drives the real app server against a real Calendly test account. See [Testing the Calendly integration](#testing-the-calendly-integration) for setup and what it does and doesn't cover.
+**`test/calendly.test.js`** (Jest) covers the happy path of `services/calendlyService.js`'s exported functions directly — OAuth connect, listing calendars with phone-detection fields, message-template placeholder resolution, the embed snippet, and a full webhook-style lead creation (mocked WhatsApp send + mocked Calendly API responses, real local per-user encrypted storage). Meeting CRUD and leads have no server-side surface to test anymore (frontend-direct Firestore, see [How Calendly data is stored and accessed](#how-calendly-data-is-stored-and-accessed)).
 
 ---
 
