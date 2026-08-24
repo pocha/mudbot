@@ -22,6 +22,7 @@
  *     that page pulls in.
  *
  * Output mapping (views/pages/<name>.html -> public/<path>):
+ *   index.html                -> index.html
  *   dashboard-index.html      -> dashboard/index.html
  *   dashboard-schedules.html  -> dashboard/schedules.html
  *   dashboard-faqs.html       -> dashboard/faqs.html
@@ -45,6 +46,7 @@ const PUBLIC_DIR = path.join(ROOT_DIR, "public");
 
 // views/pages/<key> -> public/<value>
 const PAGE_MAP = {
+  "index.html": "index.html",
   "dashboard-index.html": "dashboard/index.html",
   "dashboard-schedules.html": "dashboard/schedules.html",
   "dashboard-faqs.html": "dashboard/faqs.html",

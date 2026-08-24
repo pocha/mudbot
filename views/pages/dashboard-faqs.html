@@ -272,7 +272,7 @@
             localStorage.removeItem("authToken");
             window.location.href = "/";
           } else {
-            window.location.href = `/verify.html?token=${authToken}`;
+            window.location.href = `/whatsapp-connect.html?token=${authToken}`;
           }
         } catch {
           errMsg?.classList.remove("hidden");

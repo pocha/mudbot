@@ -96,7 +96,7 @@ BASE_URL=http://localhost:3000
 MUDSLIDE_PATH=/usr/local/bin/mudslide
 ```
 
-For **production**, point `SMTP_*` at a real mail provider (e.g. SendGrid, SES) and set `BASE_URL` to your public domain. Also set `DISABLE_PUBLIC_STATIC=true` — the real frontend is served from GitHub Pages in production, not this VM, so there's no reason for the API server to also serve `public/`.
+For **production**, point `SMTP_*` at a real mail provider (e.g. SendGrid, SES) and set `BASE_URL` to your public domain. Also set `DISABLE_PUBLIC_STATIC=true` — the real frontend is served from GitHub Pages in production, not this VM, so there's no reason for the API server to also serve `public/`. Set `FRONTEND_BASE_URL` to the frontend's own domain (e.g. `https://watobot.xyz`) — this is where registration emails link to (`verify.html`), which is separate from `BASE_URL` (the VM's own domain) precisely because of `DISABLE_PUBLIC_STATIC`: once the VM stops serving `public/`, an emailed link pointing at the VM's own domain would 404.
 
 For **local development**, MailDev is started automatically by the test suite (see [Running tests](#running-tests)).
 
@@ -273,8 +273,8 @@ Registration, login, API key, and WhatsApp connection lifecycle.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/register` | Send magic link to email |
-| `GET` | `/api/verify/:token` | Verify token, get user info |
+| `POST` | `/api/register` | Send magic link to email. Accepts an optional `next` (a same-origin relative path) — `verify.html` redirects there after verifying instead of the default `whatsapp-connect.html` |
+| `GET` | `/api/verify/:token` | Verify a magic-link token is valid |
 | `POST` | `/api/apikey/generate` | Generate a 1-hour API key |
 | `GET` | `/api/apikey/status` | Check if a key exists and whether it has expired |
 | `GET` | `/api/whatsapp/status` | Check WhatsApp connection status |

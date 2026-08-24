@@ -9,7 +9,11 @@ const CONFIG = {
   SMTP_PASS: process.env.SMTP_PASS || '',
   EMAIL_FROM: process.env.EMAIL_FROM || 'noreply@mudbot.local',
   REPLY_TO: process.env.REPLY_TO || '',
-  BASE_URL: process.env.BASE_URL || 'http://localhost:3000'
+  BASE_URL: process.env.BASE_URL || 'http://localhost:3000',
+  // Where verify.html/logo.png actually live — the frontend (GitHub Pages
+  // in production), not this VM's own BASE_URL (api.watobot.xyz). Locally
+  // the VM still serves public/ on the same origin, so BASE_URL is reused.
+  FRONTEND_BASE_URL: process.env.FRONTEND_BASE_URL || process.env.BASE_URL || 'http://localhost:3000'
 };
 
 // Create transporter
@@ -30,8 +34,8 @@ function getTransporter() {
   return transporter;
 }
 
-async function sendRegistrationEmail(email, token, { skipWhatsappConnect = false } = {}) {
-  const loginLink = `${CONFIG.BASE_URL}/verify.html?token=${token}&email=${encodeURIComponent(email)}${skipWhatsappConnect ? '&skip-whatsapp-connect=true' : ''}`;
+async function sendRegistrationEmail(email, token, { next = null } = {}) {
+  const loginLink = `${CONFIG.FRONTEND_BASE_URL}/verify.html?token=${token}&email=${encodeURIComponent(email)}${next ? `&next=${encodeURIComponent(next)}` : ''}`;
 
   const mailOptions = {
     from: `Watobot <${CONFIG.EMAIL_FROM}>`,
@@ -47,7 +51,7 @@ async function sendRegistrationEmail(email, token, { skipWhatsappConnect = false
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="text-align: center; padding: 10px 0 20px;">
-          <img src="${CONFIG.BASE_URL}/logo.png" alt="Watobot" style="max-width: 180px; width: 100%; height: auto;" />
+          <img src="${CONFIG.FRONTEND_BASE_URL}/logo.png" alt="Watobot" style="max-width: 180px; width: 100%; height: auto;" />
         </div>
         <div style="background: #f9f9f9; padding: 30px; border-radius: 10px;">
           <p style="font-size: 16px;">Hello,</p>

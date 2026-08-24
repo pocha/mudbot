@@ -562,7 +562,7 @@
         localStorage.setItem("authToken", authToken);
 
         const waConnectBtn = document.getElementById("wa-connect-btn");
-        if (waConnectBtn) waConnectBtn.href = `/verify.html?token=${authToken}`;
+        if (waConnectBtn) waConnectBtn.href = `/whatsapp-connect.html?token=${authToken}`;
 
         await checkConnectionStatus();
         await loadMessageStats();
@@ -1103,7 +1103,7 @@
             localStorage.removeItem("authToken");
             window.location.href = "/";
           } else {
-            window.location.href = `/verify.html?token=${authToken}`;
+            window.location.href = `/whatsapp-connect.html?token=${authToken}`;
           }
         } catch {
           errMsg?.classList.remove("hidden");
