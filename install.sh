@@ -191,8 +191,10 @@ REPLY_TO=
 NOTIFY_EMAIL=
 
 BASE_URL=http://localhost
+FRONTEND_BASE_URL=
 PORT=80
 NODE_ENV=production
+DISABLE_PUBLIC_STATIC=
 
 # Residential proxy (optional — leave blank to disable)
 DATAIMPULSE_USERNAME=
