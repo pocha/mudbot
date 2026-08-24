@@ -3,21 +3,23 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // request.auth.token.userDir is a custom claim set at mint time
-    // (functions/index.js: mintFirebaseToken) — the stable identity leads
-    // are keyed by. request.auth.uid is the caller's raw session token,
-    // never compared against here directly (it rotates on re-registration;
-    // userDir doesn't).
-    match /leads/{leadId} {
-      allow read, delete: if request.auth != null && request.auth.token.userDir == resource.data.userDir;
-      allow create: if request.auth != null && request.auth.token.userDir == request.resource.data.userDir;
-      allow update: if request.auth != null
-                    && request.auth.token.userDir == resource.data.userDir
-                    && request.auth.token.userDir == request.resource.data.userDir;
+    // (functions/index.js: mintFirebaseToken) — the stable identity a
+    // user's own data is keyed by. request.auth.uid is the caller's raw
+    // session token, never compared against here directly (it rotates on
+    // re-registration; userDir doesn't). Ownership is checked against the
+    // {userDir} path segment itself, not a field inside each document — a
+    // doc structurally can't be created under the wrong user's path.
+    match /users/{userDir} {
+      allow read, write: if request.auth != null && request.auth.token.userDir == userDir;
+
+      match /leads/{leadId} {
+        allow read, write: if request.auth != null && request.auth.token.userDir == userDir;
+      }
     }
 
-    // createLead (the Calendly-webhook path, functions/index.js) writes via
-    // the Admin SDK, which bypasses these rules entirely — this deny-all
-    // only governs direct client access.
+    // createLead / getCalendlyMeetingConfig (functions/index.js) write/read
+    // via the Admin SDK, which bypasses these rules entirely — this
+    // deny-all only governs direct client access.
     match /{document=**} {
       allow read, write: if false;
     }

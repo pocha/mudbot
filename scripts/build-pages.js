@@ -49,6 +49,7 @@ const PAGE_MAP = {
   "dashboard-schedules.html": "dashboard/schedules.html",
   "dashboard-faqs.html": "dashboard/faqs.html",
   "dashboard-calendly.html": "dashboard/calendly.html",
+  "dashboard-leads.html": "dashboard/leads.html",
   "free-whatsapp-recurring-messages.html":
     "free-whatsapp-recurring-messages.html",
   "free-calendly-whatsapp-integration.html":

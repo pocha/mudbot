@@ -1,0 +1,489 @@
+<!--#var title="WatoBot | Leads"-->
+<!--#include partial="dashboard-head-nav"-->
+
+          <section class="card">
+            <div class="p-6 border-b border-outline-variant">
+              <h3 class="section-title">Leads</h3>
+              <p class="text-body-muted">
+                Everyone who's booked through a configured Calendly calendar, plus anyone you've added manually.
+              </p>
+            </div>
+            <div class="p-6 border-b border-outline-variant space-y-3">
+              <h4 class="label-strong">Add a Lead Manually</h4>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <input id="new-lead-name" placeholder="Name" class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" type="text" autocomplete="off" />
+                <input id="new-lead-email" placeholder="Email" class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" type="email" autocomplete="off" />
+                <input id="new-lead-phone" placeholder="Phone (with country code)" class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" type="tel" autocomplete="off" />
+                <input id="new-lead-notes" placeholder="Notes (optional)" class="w-full px-4 py-2 bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" type="text" autocomplete="off" />
+              </div>
+              <button id="add-lead-btn" class="inline-flex items-center gap-2 bg-primary-container text-on-primary-container font-bold px-4 py-2 rounded-xl hover:opacity-90 transition-all">
+                <span class="material-symbols-outlined text-[20px]">person_add</span>
+                Add Lead
+              </button>
+            </div>
+            <div id="leads-loading" class="p-6 space-y-3">
+              <div class="h-4 w-2/3 bg-outline-variant/40 rounded animate-pulse"></div>
+              <div class="h-4 w-1/2 bg-outline-variant/30 rounded animate-pulse"></div>
+            </div>
+            <div id="leads-empty" class="hidden p-6 text-center text-on-surface-variant opacity-50 italic text-body-md">
+              <span class="material-symbols-outlined text-4xl mb-2 block">group_off</span>
+              No leads yet. They'll show up here after someone books a configured Calendly calendar.
+            </div>
+            <div id="leads-table-wrap" class="hidden overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="text-xs text-on-surface-variant border-b border-outline-variant">
+                    <th class="px-5 py-3 font-label-md">Name</th>
+                    <th class="px-5 py-3 font-label-md">Phone</th>
+                    <th class="px-5 py-3 font-label-md">Source</th>
+                    <th class="px-5 py-3 font-label-md">Status</th>
+                    <th class="px-5 py-3 font-label-md">Sent</th>
+                    <th class="px-5 py-3 font-label-md">Last Sent</th>
+                    <th class="px-5 py-3 font-label-md">Added on</th>
+                    <th class="px-5 py-3 font-label-md">Notes</th>
+                    <th class="px-5 py-3 font-label-md"></th>
+                    <th class="px-5 py-3 font-label-md"></th>
+                  </tr>
+                </thead>
+                <tbody id="leads-tbody" class="divide-y divide-outline-variant"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+<!--#include partial="dashboard-footer"-->
+      </main>
+    </div>
+<!--#include partial="dashboard-support-modal"-->
+    <!-- Backend Integration Script -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+      import { getAuth, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+      import {
+        getFirestore, collection, query, orderBy, getDocs,
+        doc, setDoc, updateDoc, deleteDoc, serverTimestamp, increment
+      } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+      // Public web config — not a secret, identifies the project only.
+      // Actual access control is Firebase Auth + Firestore Security Rules
+      // (firestore.rules), not this key.
+      const firebaseApp = initializeApp({
+        apiKey: "AIzaSyAS5JByGuznjQBmRL4s8KSsmQKpxDnkA34",
+        authDomain: "wato-bot.firebaseapp.com",
+        projectId: "wato-bot"
+      });
+      const firebaseAuth = getAuth(firebaseApp);
+      const db = getFirestore(firebaseApp);
+
+      // Same origin locally (server.js serves public/ + /api together);
+      // split into a dedicated API subdomain once served from GitHub Pages.
+      const API_BASE =
+        location.hostname === "localhost" || location.hostname === "127.0.0.1"
+          ? window.location.origin
+          : "https://api.watobot.xyz";
+
+      let authToken = null;
+      let userDir = null;
+
+      function leadsCollection() {
+        return collection(db, "users", userDir, "leads");
+      }
+      function leadDoc(leadId) {
+        return doc(db, "users", userDir, "leads", leadId);
+      }
+
+      // Mirrors functions/index.js's buildLeadId — a lead's ID is
+      // deterministic from their identity so a manually-added lead correctly
+      // dedupes against one created later by the Calendly webhook for the
+      // same person (or vice versa). Keep in sync by hand; functions/ is a
+      // separate deploy target with no shared-code mechanism to this
+      // frontend.
+      function normalizeLeadField(str) {
+        return String(str || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+      }
+      function buildLeadId({ name, email, phone }) {
+        const parts = phone
+          ? [normalizeLeadField(email), normalizeLeadField(phone)]
+          : [normalizeLeadField(name), normalizeLeadField(email)];
+        return parts.filter(Boolean).join("_").slice(0, 1400) || `lead_${Date.now()}`;
+      }
+
+      // Firestore Timestamps (createdAt/updatedAt/lastSentAt, set via
+      // serverTimestamp()) need .toDate(); calendly.eventStartTime is a
+      // plain ISO string straight from Calendly's API — new Date() handles
+      // that directly.
+      function toDateSafe(value) {
+        if (!value) return null;
+        return typeof value.toDate === "function" ? value.toDate() : new Date(value);
+      }
+
+      // Called once on page load, after the existing authToken check
+      // succeeds — mints a Firebase custom token via the VM (see the
+      // comment on GET /api/firebase-token in routes/api.js for why that
+      // hop matters) and signs in, so the leads list/edit/delete/manual-add
+      // below can talk to Firestore directly, protected by Security Rules.
+      async function initFirebase() {
+        const res = await fetch(`${API_BASE}/api/firebase-token`, {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+        if (!res.ok) throw new Error("Failed to get Firebase token");
+        const data = await res.json();
+        userDir = data.userDir;
+        await signInWithCustomToken(firebaseAuth, data.firebaseToken);
+      }
+
+      // Highlights the current page in the shared dashboard nav row.
+      (function highlightNav() {
+        const page = (location.pathname.split("/").pop() || "index.html").replace(
+          ".html",
+          "",
+        );
+        const key = page || "index";
+        const link = document.querySelector(
+          `#dashboard-nav a[data-nav="${key}"]`,
+        );
+        if (link) {
+          link.classList.add(
+            "bg-primary-container",
+            "text-on-primary-container",
+            "font-bold",
+          );
+          link.classList.remove("text-on-surface-variant");
+        }
+      })();
+
+      document.addEventListener("DOMContentLoaded", async () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        authToken = urlParams.get("token") || localStorage.getItem("authToken");
+
+        if (!authToken) {
+          alert("Authentication required. Redirecting to home page...");
+          window.location.href = "/";
+          return;
+        }
+
+        localStorage.setItem("authToken", authToken);
+
+        try {
+          await initFirebase();
+          await loadLeads();
+        } catch (error) {
+          console.error("Error initializing Firebase:", error);
+          document.getElementById("leads-loading")?.classList.add("hidden");
+        }
+
+        document.getElementById("add-lead-btn").addEventListener("click", handleAddLead);
+
+        document.getElementById("logout-btn").addEventListener("click", () => {
+          showLogoutModal({ isFullLogout: true });
+        });
+      });
+
+      const STATUS_STYLES = {
+        sent: "bg-primary/10 text-primary",
+        failed: "bg-error/10 text-error",
+        no_phone: "bg-amber-100 text-amber-700",
+        pending: "bg-outline-variant/40 text-on-surface-variant",
+      };
+      const STATUS_LABELS = {
+        sent: "Sent",
+        failed: "Failed",
+        no_phone: "No Phone",
+        pending: "Pending",
+      };
+
+      async function loadLeads() {
+        try {
+          const q = query(leadsCollection(), orderBy("updatedAt", "desc"));
+          const snapshot = await getDocs(q);
+          document.getElementById("leads-loading")?.classList.add("hidden");
+          renderLeads(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+        } catch (error) {
+          console.error("Error loading leads:", error);
+          document.getElementById("leads-loading")?.classList.add("hidden");
+        }
+      }
+
+      function renderLeads(leads) {
+        const wrap = document.getElementById("leads-table-wrap");
+        const empty = document.getElementById("leads-empty");
+        const tbody = document.getElementById("leads-tbody");
+
+        if (leads.length === 0) {
+          wrap.classList.add("hidden");
+          empty.classList.remove("hidden");
+          return;
+        }
+
+        empty.classList.add("hidden");
+        wrap.classList.remove("hidden");
+
+        tbody.innerHTML = leads
+          .map((lead) => {
+            const status = lead.status || "pending";
+            const statusClass = STATUS_STYLES[status] || STATUS_STYLES.pending;
+            const statusLabel = STATUS_LABELS[status] || status;
+            const phoneCell = lead.phone
+              ? escapeHtml(lead.phone)
+              : `<span class="inline-flex items-center gap-1 text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">No phone captured</span>`;
+            const eventName = escapeHtml(
+              (lead.calendly && lead.calendly.eventName) || "",
+            );
+            const dateVal =
+              (lead.calendly && lead.calendly.eventStartTime) || lead.createdAt;
+            const dateObj = toDateSafe(dateVal);
+            const dateStr = dateObj ? dateObj.toLocaleString() : "";
+            const lastSentObj = toDateSafe(lead.lastSentAt);
+            const lastSentStr = lastSentObj ? lastSentObj.toLocaleString() : "—";
+            const messageCount = lead.messageCount || 0;
+            const leadId = escapeHtml(lead.id);
+
+            return `
+            <tr class="align-middle">
+                <td class="px-5 py-3 font-label-md text-on-surface whitespace-nowrap">${escapeHtml(lead.name || "—")}</td>
+                <td class="px-5 py-3 text-on-surface-variant whitespace-nowrap">${phoneCell}</td>
+                <td class="px-5 py-3 text-on-surface-variant">${eventName || "Manual"}</td>
+                <td class="px-5 py-3"><span class="text-xs font-label-md px-2 py-0.5 rounded-full ${statusClass}">${escapeHtml(statusLabel)}</span></td>
+                <td class="px-5 py-3 text-on-surface-variant text-xs whitespace-nowrap">×${messageCount}</td>
+                <td class="px-5 py-3 text-on-surface-variant text-xs whitespace-nowrap">${escapeHtml(lastSentStr)}</td>
+                <td class="px-5 py-3 text-on-surface-variant text-xs whitespace-nowrap">${escapeHtml(dateStr)}</td>
+                <td class="px-5 py-3">
+                    <input
+                        type="text"
+                        value="${escapeHtml(lead.notes || "")}"
+                        placeholder="Add a note…"
+                        class="w-40 px-2 py-1 text-xs bg-white border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                        onblur="saveLeadNotes('${leadId}', this.value)"
+                        onkeydown="if(event.key==='Enter'){this.blur()}"
+                    />
+                </td>
+                <td class="px-5 py-3">
+                    <button onclick="sendLeadMessage('${leadId}', '${escapeHtml(lead.phone || "")}')" class="p-1 text-on-surface-variant hover:text-primary transition-colors" title="Send a WhatsApp message" ${lead.phone ? "" : "disabled"}>
+                        <span class="material-symbols-outlined text-[20px]">send</span>
+                    </button>
+                </td>
+                <td class="px-5 py-3">
+                    <button onclick="deleteLead('${leadId}')" class="p-1 text-on-surface-variant hover:text-error transition-colors" title="Delete">
+                        <span class="material-symbols-outlined text-[20px]">delete</span>
+                    </button>
+                </td>
+            </tr>
+        `;
+          })
+          .join("");
+      }
+
+      async function saveLeadNotes(leadId, notes) {
+        try {
+          await updateDoc(leadDoc(leadId), { notes, updatedAt: serverTimestamp() });
+        } catch (error) {
+          console.error("Error saving lead notes:", error);
+        }
+      }
+
+      async function deleteLead(leadId) {
+        if (!confirm("Delete this lead?")) return;
+        try {
+          await deleteDoc(leadDoc(leadId));
+          await loadLeads();
+        } catch (error) {
+          console.error("Error deleting lead:", error);
+          alert("Failed to delete lead");
+        }
+      }
+
+      async function handleAddLead() {
+        const name = document.getElementById("new-lead-name").value.trim();
+        const email = document.getElementById("new-lead-email").value.trim();
+        const phone = document.getElementById("new-lead-phone").value.trim();
+        const notes = document.getElementById("new-lead-notes").value.trim();
+
+        if (!email && !phone) {
+          alert("Email or phone is required.");
+          return;
+        }
+
+        const btn = document.getElementById("add-lead-btn");
+        btn.disabled = true;
+        try {
+          const id = buildLeadId({ name, email, phone });
+          await setDoc(leadDoc(id), {
+            name: name || null,
+            email: email || null,
+            phone: phone || null,
+            source: "manual",
+            status: "pending",
+            messageSent: null,
+            sendError: null,
+            notes: notes || null,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          }, { merge: true });
+
+          document.getElementById("new-lead-name").value = "";
+          document.getElementById("new-lead-email").value = "";
+          document.getElementById("new-lead-phone").value = "";
+          document.getElementById("new-lead-notes").value = "";
+          await loadLeads();
+        } catch (error) {
+          console.error("Error adding lead:", error);
+          alert("Failed to add lead");
+        } finally {
+          btn.disabled = false;
+        }
+      }
+
+      // Actually sending the message has to go through the VM (mudslide
+      // needs the user's decrypted WhatsApp session, which Firestore has no
+      // access to) — reuses the existing POST /api/message endpoint rather
+      // than a dedicated leads-send route, since it already does exactly
+      // this. The lead's own status/messageSent/messageCount/lastSentAt are
+      // then updated directly here, since the frontend already has write
+      // access to it.
+      async function sendLeadMessage(leadId, phone) {
+        if (!phone) return;
+        const message = prompt("Message to send:", "");
+        if (!message) return;
+        try {
+          const res = await fetch(`${API_BASE}/api/message`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ to: phone, message }),
+          });
+          if (!res.ok) throw new Error("Failed to send message");
+          await updateDoc(leadDoc(leadId), {
+            status: "sent", messageSent: message, sendError: null,
+            messageCount: increment(1), lastSentAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+          await loadLeads();
+        } catch (error) {
+          console.error("Error sending message:", error);
+          alert("Failed to send message");
+        }
+      }
+
+      function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = String(text || "");
+        return div.innerHTML;
+      }
+
+      // ── Logout modal ───────────────────────────────────
+
+      function showLogoutModal({ isFullLogout }) {
+        const modal = document.getElementById("logoutModal");
+        const title = document.getElementById("logoutModalTitle");
+        const body = document.getElementById("logoutModalBody");
+        const confirmBtn = document.getElementById("logoutModalConfirm");
+        const cancelBtn = document.getElementById("logoutModalCancel");
+
+        title.textContent = isFullLogout
+          ? "Log out of WatoBot"
+          : "Disconnect WhatsApp";
+        confirmBtn.dataset.isFullLogout = isFullLogout ? "1" : "0";
+
+        body.innerHTML = `
+        <div class="flex items-center gap-3 text-on-surface-variant">
+            <div class="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
+            <p class="text-body-md">Asking WhatsApp to remove this device… please wait.</p>
+        </div>
+        <p id="logoutModalError" class="hidden mt-3 text-sm text-error">Something went wrong. Please try again.</p>
+    `;
+        confirmBtn.textContent = "Continue — device is removed";
+        confirmBtn.disabled = true;
+        cancelBtn.disabled = false;
+        modal.classList.remove("hidden");
+
+        fetch(`${API_BASE}/api/whatsapp/logout`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${authToken}` },
+        })
+          .catch(() => {})
+          .finally(() => {
+            body.innerHTML = `
+            <p class="text-on-surface-variant text-body-md mb-3">
+                We've asked WhatsApp to remove this device. Please verify on your phone:
+            </p>
+            <ol class="space-y-2 text-body-md text-on-surface-variant list-decimal list-inside">
+                <li>Open WhatsApp → tap <strong>Linked Devices</strong></li>
+                <li>If <strong>"Google Chrome"</strong> is still listed, tap it and choose <strong>Log out</strong></li>
+                <li>Once it's gone, click <strong>Continue</strong> below</li>
+            </ol>
+            <p id="logoutModalError" class="hidden mt-3 text-sm text-error">Something went wrong. Please try again.</p>
+        `;
+            confirmBtn.disabled = false;
+          });
+      }
+
+      async function handleLogoutConfirm() {
+        const confirmBtn = document.getElementById("logoutModalConfirm");
+        const errMsg = document.getElementById("logoutModalError");
+        const isFullLogout = confirmBtn.dataset.isFullLogout === "1";
+
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = "Cleaning up…";
+        errMsg?.classList.add("hidden");
+
+        try {
+          const res = await fetch(`${API_BASE}/api/whatsapp/logout/confirm`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+          if (!res.ok) throw new Error("confirm failed");
+
+          if (isFullLogout) {
+            localStorage.removeItem("authToken");
+            window.location.href = "/";
+          } else {
+            window.location.href = `/verify.html?token=${authToken}`;
+          }
+        } catch {
+          errMsg?.classList.remove("hidden");
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = "Continue — device is removed";
+        }
+      }
+
+      document.addEventListener("click", (e) => {
+        if (e.target.id === "logoutModalConfirm") handleLogoutConfirm();
+        if (e.target.id === "logoutModalCancel")
+          document.getElementById("logoutModal").classList.add("hidden");
+      });
+
+      function openSupport() {
+        const modal = document.getElementById("supportModal");
+        const now = new Date();
+        const istHour =
+          ((now.getUTCHours() * 60 + now.getUTCMinutes() + 330) / 60) % 24;
+        const available = istHour >= 9 && istHour < 19;
+        document
+          .getElementById("support-available")
+          .classList.toggle("hidden", !available);
+        document
+          .getElementById("support-unavailable")
+          .classList.toggle("hidden", available);
+        modal.classList.remove("hidden");
+      }
+      function closeSupport() {
+        document.getElementById("supportModal").classList.add("hidden");
+      }
+
+      // Inline onclick="..." attributes (in this file's generated HTML, and
+      // in the shared header/support-modal partials) can't see plain
+      // top-level declarations from a type="module" script — module scope,
+      // not global scope — so anything referenced that way has to be
+      // explicitly attached to window.
+      window.saveLeadNotes = saveLeadNotes;
+      window.deleteLead = deleteLead;
+      window.sendLeadMessage = sendLeadMessage;
+      window.openSupport = openSupport;
+      window.closeSupport = closeSupport;
+    </script>
+
+    <!-- Logout modal -->
+<!--#include partial="dashboard-logout-modal"-->
+  </body>
+</html>

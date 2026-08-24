@@ -40,9 +40,10 @@ P.S. there will be 15-20 seconds delay in connecting your account & sending mess
 | WhatsApp session (`.mudslide.enc`) | AES-256, key = `sha256(token)` | Only you |
 | Cron payload | AES-256, key = `token_hash`, embedded in system crontab | Only accessible with server shell access |
 | API key hash (`api_key_hash`) | `sha256(apiKey)` | Public-safe — one-way hash |
-| Calendly config (`calendly.json`) | AES-256, key = token | Only you (token required to decrypt) |
+| Calendly OAuth tokens (`calendly.json`) | AES-256, key = token | Only you (token required to decrypt) — never touches Firestore |
 | `calendly_key_hash` (`sha256(calendlyKey)`) | `users/<dir>/calendly_key_hash` | Public-safe — one-way hash, useless without the key |
-| Leads (`leads` Firestore collection) | Plaintext, access-controlled by Firestore Security Rules | Only you — the VM holds no Firebase credential at all; see [Calendly Integration](#calendly-integration) |
+| Calendly connection status + meetings (`calendlyConfig` field, Firestore) | Plaintext, access-controlled by Firestore Security Rules | Only you — the VM holds no Firebase credential at all; see [Calendly Integration](#calendly-integration) |
+| Leads (`users/{userDir}/leads` Firestore subcollection) | Plaintext, access-controlled by Firestore Security Rules | Only you — same as above |
 
 The entire `users/` directory — including `token_hash`, encrypted schedules, and the encrypted WhatsApp session — can be committed to a public repository safely. There is no `SERVER_SECRET`. There is no `tokens.json`. Nothing in the repo can be used to decrypt user data without the token that only the user holds.
 
@@ -163,29 +164,35 @@ This queue also drives the lifecycle of the per-user proxy relay and WhatsApp se
 
 ## Calendly Integration
 
-Connect your Calendly account (standard OAuth — click Connect in the dashboard, approve access, done) and Watobot will automatically send a WhatsApp message to every person who books a meeting through it.
+Connect your Calendly account and Watobot will automatically send a WhatsApp message to every person who books a meeting through it. The dashboard's Calendly page presents this as two connected boxes, Zapier-style — a **Calendly** box (connect your account, pick which calendars to wire up, verify the integration end-to-end) and a **Watobot** box (connect WhatsApp, configure the message per calendar, test it) — each opening a step-by-step popup on click.
 
-Your Calendly OAuth app (in the [Calendly developer console](https://developer.calendly.com/)) needs the `scheduled_events:read` and `event_types:read` scopes — the former to look up booking/invitee details when a lead comes in, the latter so the dashboard can list your event types for you to pick from instead of pasting a booking URL by hand. No write scopes are needed: nothing is ever created or modified on Calendly's side.
+Your Calendly OAuth app (in the [Calendly developer console](https://developer.calendly.com/)) needs the `scheduled_events:read` and `event_types:read` scopes — the former to look up booking/invitee details when a lead comes in, the latter for both the dashboard's calendar picker and phone-field detection (below). No write scopes are needed: nothing is ever created or modified on Calendly's side.
 
-This requires one thing on the Calendly side: add a **custom question** to the event type you want covered, asking for the invitee's phone number. The exact question label is configurable per meeting in the Watobot dashboard (it's matched against `phoneQuestionName`), and it's strongly recommended you mark the question **required** — a booking without a phone number is logged as a lead with `status: "no_phone"` but no message is sent.
+**Phone-number detection is automatic**, not manually typed. Calendly's Event Type API exposes each event type's custom questions with a real `type` field — including a dedicated `phone_number` type — and a `required` flag. The dashboard checks for a question with `type: "phone_number"` on each calendar you add; if none exists, it tells you to add one (and mark it required) in that event type's settings before you can proceed. This also means the whole onboarding flow is *gated*: you can't get past the "select calendars" step until every calendar you've added has a usable phone field, and the final step of the Calendly box only turns green after you've pasted the real embed snippet on your live site, made a real (dummy) booking, and the dashboard has confirmed a lead actually landed — not just that the OAuth connection is valid.
 
-Once a meeting is configured, embed its one-line script on that event type's booking page, before your existing Calendly embed code (each configured meeting has its own snippet, shown in the dashboard):
+Once a calendar is added, embed its one-line script on that event type's booking page, before your existing Calendly embed code (each calendar has its own snippet, shown in the dashboard):
 
 ```html
 <script src="https://<domain>/api/calendly/code?token=<your-calendly-key>&meetingId=<meeting-id>"></script>
 ```
 
-The `<your-calendly-key>` is a separate integration key (not your API key or auth token) generated the first time you connect Calendly — it's scoped only to the Calendly runtime script and webhook-style route, so a leaked key can't be used against `/api/message` or any other endpoint. Every confirmed booking on that page then triggers a WhatsApp message automatically, using the message template and phone-number question configured for that meeting.
+The `<your-calendly-key>` is a separate integration key (not your API key or auth token) generated the first time you connect Calendly — it's scoped only to the Calendly runtime script and webhook-style route, so a leaked key can't be used against `/api/message` or any other endpoint. Every confirmed booking on that page then triggers a WhatsApp message automatically, using that calendar's message template — configurable per calendar in the Watobot box, along with a toggle for whether to send automatically at all. A booking on a calendar with auto-send off still gets logged as a lead (`status: "pending"`) for manual follow-up.
 
-### How leads are stored and accessed
+### How Calendly data is stored and accessed
 
-Every booking is recorded as a lead in a Firestore `leads` collection, and the dashboard reads, edits, and deletes leads by talking to Firestore **directly** — not through the VM. The VM's only role is minting a short-lived Firebase identity for you to sign in with:
+**Calendly's OAuth tokens never leave the VM.** `accessToken`/`refreshToken`/`expiresAt` (plus the connected account's own URIs, used for an ownership check on each booking) live in the same AES-256-encrypted, token-keyed local file every other per-user secret in this app uses (`calendly.json` — see the Security model table above) — this is deliberate: it preserves the zero-knowledge property those files already have (the server owner can't read them without your live session token) that moving them into Firestore would have quietly given up.
+
+**Everything else about a Calendly connection is not secret**, and lives directly in Firestore instead — connection status, the embed-script `calendlyKey`, and each calendar's config (event type, detected phone question, message template, auto-send toggle), all under one document per user, `users/{userDir}` (with `leads` as a subcollection underneath, `users/{userDir}/leads/{leadId}`). The dashboard reads and writes this data **directly**, governed by `firestore.rules` (access is scoped by the `{userDir}` path segment itself, matched against a custom claim on your Firebase Auth token — not a field trusted inside each document). There's no VM route for any of this (no meeting CRUD endpoints, no leads endpoints) — it's exactly as debuggable as opening the Firebase console.
+
+Getting a Firebase identity to sign in with works the same way for any of this:
 
 1. Your browser calls `GET /api/firebase-token` with your normal session token.
 2. The VM verifies that token exactly as it does for every other authenticated route (`userService.verifyToken`), then calls a Cloud Function, `mintFirebaseToken`, to mint a Firebase custom token — **the VM itself holds no Firebase credential**, only the Function does.
-3. Your browser signs in to Firebase with that token and talks to Firestore directly from then on, governed by `firestore.rules` (access is scoped to documents where `userDir` matches your account).
+3. Your browser signs in to Firebase with that token and talks to Firestore directly from then on.
 
-The one exception is lead *creation* from a Calendly booking, which has no legitimate browser session behind it at all (it's fired by whoever's booking the meeting on your site, not you) — that goes through a second Cloud Function, `createLead`, called by the VM. Both Cloud Functions live in `functions/` and are restricted to only accept requests from the VM's static IP (`ALLOWED_VM_IP` in `functions/.env` — see `functions/.env.example`), rather than GCP IAM: simpler to operate, and gives the same practical protection for this threat model (it stops outside callers; like IAM, it does not protect against the VM itself being compromised, since compromised code there would still originate from the allowed IP).
+Two things genuinely can't move to the frontend, because they need something only the VM has: the Calendly **client secret** (shared across all users of this app, can never reach a browser) is needed to exchange an OAuth `code` for tokens and to refresh an expired access token — so `GET /api/calendly/authorize`, the OAuth callback, `GET /api/calendly/event-types`, and the WhatsApp test-send action all stay VM routes. And the Calendly **webhook** itself (`POST /api/calendly/:meetingId/lead`, called by the embedded script on a real booking) has no legitimate browser session behind it at all — it's fired by whoever's booking the meeting, not you — so it can't use your Firestore Security Rules the way every other lead-management action does. For that one case, the VM reads a calendar's config server-side via a third, **read-only** Cloud Function, `getCalendlyMeetingConfig`. All three Cloud Functions live in `functions/` and are restricted to only accept requests from the VM's static IP (`ALLOWED_VM_IP` in `functions/.env` — see `functions/.env.example`), rather than GCP IAM: simpler to operate, and gives the same practical protection for this threat model (it stops outside callers; like IAM, it does not protect against the VM itself being compromised, since compromised code there would still originate from the allowed IP).
+
+The Watobot box's "Test Message" action reuses this exact webhook route rather than a separate test endpoint — same `calendlyKey` auth the real embed script uses, an added `test: true` flag that sends to your own WhatsApp (`'me'`) instead of the prospect and skips the Firestore write entirely, so a repeat test can never overwrite a real lead's send history.
 
 ### Deploying the Firebase side
 
@@ -199,7 +206,20 @@ cd ..
 firebase deploy --only functions,firestore:rules,firestore:indexes
 ```
 
-Re-run `firebase deploy --only functions` after any change to `functions/index.js` or `functions/.env`, and `firebase deploy --only firestore:rules` (or `firestore:indexes`) after editing `firestore.rules` / `firestore.indexes.json` — none of these are picked up automatically, unlike the VM's own code.
+This deploys all three Cloud Functions (`mintFirebaseToken`, `createLead`, `getCalendlyMeetingConfig`) together. Re-run `firebase deploy --only functions` after any change to `functions/index.js` or `functions/.env`, and `firebase deploy --only firestore:rules` (or `firestore:indexes`) after editing `firestore.rules` / `firestore.indexes.json` — none of these are picked up automatically, unlike the VM's own code.
+
+### Local Cloud Functions emulation
+
+The three Cloud Functions above are IP-allowlisted to the production VM's static address (`ALLOWED_VM_IP`) — deliberately, since it's the security boundary that lets the VM hold zero Firebase credentials of its own. That also means anything on the dashboard needing a Firebase sign-in (which is most of it) gets a `502` when run from a local machine (`npm start`), since the local server's calls to those functions get rejected.
+
+`npm start` works around this automatically for local dev: it starts the Cloud Functions emulator (`firebase emulators:start --only functions`) and points `mintFirebaseToken`/`createLead`/`getCalendlyMeetingConfig` calls at it instead — the *real*, deployed functions and their IP allowlist are untouched. One-time setup:
+
+1. Firebase Console → Project Settings → Service Accounts → **Generate new private key**, for the `wato-bot` project.
+2. Save it as `functions/.serviceAccountKey.json` (gitignored — this is a real credential, keep it local).
+
+With that key present, `npm start` picks it up automatically: `createCustomToken` signs locally using the key's real private key (no IAM `signBlob` call needed — see the comment on `mintFirebaseToken` in `functions/index.js` for why that matters), and the resulting tokens/Firestore access are indistinguishable from the real deployed functions', since it's the same project's real credential — just running the function code on your machine instead of Google's. No Firestore or Auth emulation involved; local runs read/write the real Firestore.
+
+Without that key present, `npm start` just logs a warning and falls back to the real deployed functions (so local dev still works for everything *not* needing a Firebase sign-in). Never runs in production (`NODE_ENV=production` skips it entirely) or if `SKIP_FUNCTIONS_EMULATOR=true` is set.
 
 ---
 
@@ -323,33 +343,26 @@ The backend converts `localTime` + `timezone` to a UTC cron expression automatic
 
 ### Calendly
 
-Endpoints for connecting Calendly, configuring which event types trigger a WhatsApp message, and the runtime endpoint the embedded script calls on every booking. All of these require the regular `Authorization: Bearer <token>` / `x-api-key` auth **except** `POST /api/calendly/:meetingId/lead`, which is authenticated separately via an `x-calendly-key` header or a `?token=` query param (the integration key from `GET /api/calendly/config`) — this is deliberately scoped so a leaked key can't be used against any other endpoint.
+Meeting (calendar) CRUD, connection status, and leads are all **direct Firestore access** from the dashboard now — no REST surface for any of that (see [How Calendly data is stored and accessed](#how-calendly-data-is-stored-and-accessed)). The remaining VM routes cover only what needs the Calendly client secret, the account's access token, or the WhatsApp session — none of which the frontend can hold. All of these require the regular `Authorization: Bearer <token>` / `x-api-key` auth **except** `POST /api/calendly/:meetingId/lead`, which is authenticated separately via an `x-calendly-key` header or a `?token=` query param (the integration key from `calendlyConfig.calendlyKey` in Firestore) — this is deliberately scoped so a leaked key can't be used against any other endpoint.
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/calendly/authorize` | Get the Calendly OAuth consent URL to start connecting |
-| `GET` | `/api/calendly/config` | Get connection status, integration key, and configured meetings |
-| `GET` | `/api/calendly/event-types` | List the connected account's Calendly event types not yet configured, for the dashboard's picker |
-| `POST` | `/api/calendly/config` | Create or update a meeting's message template / phone question |
-| `DELETE` | `/api/calendly/config/:meetingId` | Delete a meeting's configuration |
+| `GET` | `/api/calendly/oauth/callback` | OAuth redirect target — completes the connection, no auth (session comes from a pending-connect nonce) |
+| `GET` | `/api/calendly/status` | Get `{connected, calendlyKey}` from the VM's local encrypted store, so the dashboard can self-heal its Firestore mirror of these two fields |
+| `GET` | `/api/calendly/event-types` | List the connected account's Calendly event types, each with phone-detection fields (`phoneQuestionName`, `phoneDetectionStatus`) computed from that event type's `custom_questions` |
 | `POST` | `/api/calendly/disconnect` | Disconnect the linked Calendly account |
-| `POST` | `/api/calendly/:meetingId/lead` | Called by the embedded script on every booking for that meeting; sends the WhatsApp message |
+| `GET` | `/api/calendly/code` | Serves the embeddable runtime script for one calendar |
+| `POST` | `/api/calendly/:meetingId/lead` | Called by the embedded script on every real booking; sends the WhatsApp message and records a lead. Also reused by the dashboard's "Test Message" action with `test: true` in the body — sends to your own WhatsApp instead, and skips the lead write |
 
 ```bash
-curl https://<domain>/api/calendly/config \
+curl https://<domain>/api/calendly/status \
   -H "x-api-key: <your-api-key>"
-# => {"connected": true, "calendlyKey": "<calendly-key>", "meetings": {"<meetingId>": {...}}}
+# => {"connected": true, "calendlyKey": "<calendly-key>"}
 
-curl -X POST https://<domain>/api/calendly/config \
-  -H "x-api-key: <your-api-key>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "eventTypeUri": "https://api.calendly.com/event_types/AAAAAAAAAAAAAAAA",
-    "eventTypeName": "30 Minute Meeting",
-    "messageTemplate": "Hi {{name}}, thanks for booking {{eventName}}!",
-    "phoneQuestionName": "WhatsApp number"
-  }'
-# => {"success": true, "meeting": {"id": "<meetingId>", ...}}
+curl https://<domain>/api/calendly/event-types \
+  -H "x-api-key: <your-api-key>"
+# => {"eventTypes": [{"uri": "...", "name": "30 Minute Meeting", "schedulingUrl": "...", "phoneQuestionName": "WhatsApp number", "phoneDetectionStatus": "found_required"}]}
 
 curl -X POST https://<domain>/api/calendly/<meetingId>/lead \
   -H "x-calendly-key: <your-calendly-key>" \
@@ -361,11 +374,11 @@ curl -X POST https://<domain>/api/calendly/<meetingId>/lead \
 # => {"success": true, "status": "sent"}
 ```
 
-`status` in the response is one of `sent`, `failed` (send attempted but errored), or `no_phone` (the configured custom question had no answer on this booking). A request for an unknown `:meetingId`, or for an event that doesn't belong to the connected Calendly account, returns `404`/`403` respectively instead of a body with `status`. Every successful call to `POST /api/calendly/:meetingId/lead` also writes/updates a lead — see below.
+`status` in the response is one of `sent`, `failed` (send attempted but errored), `no_phone` (no phone number on this booking), or `pending` (auto-send is off for this calendar — the lead is still logged). A request for an unknown `:meetingId`, or for an event that doesn't belong to the connected Calendly account, returns `404`/`403` respectively instead of a body with `status`. Every successful non-test call to `POST /api/calendly/:meetingId/lead` also writes/updates a lead in Firestore.
 
 ### Leads
 
-Every Calendly booking that runs through `POST /api/calendly/:meetingId/lead` is recorded as a lead. Listing, editing notes, deleting, and manually adding leads all happen **client-side**, directly against Firestore (see [How leads are stored and accessed](#how-leads-are-stored-and-accessed)) — there's no `/api/leads` REST surface for that anymore. One small server route remains:
+Every real Calendly booking is recorded as a lead. Listing, editing notes, deleting, and manually adding leads all happen **client-side**, directly against Firestore (see [How Calendly data is stored and accessed](#how-calendly-data-is-stored-and-accessed)) — there's no `/api/leads` REST surface for that. One small server route remains:
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -389,13 +402,17 @@ MailDev is started and stopped automatically by the test suite — no manual set
 npm test
 ```
 
-The test suite (`test/flow.test.js`) covers:
+`npm test` runs two suites:
+
+**`test/flow.test.js`** (Node's built-in test runner) covers:
 - Register → verify → API key generation
 - Token structure (`token.slice(0,10) === sha256(email).slice(0,10)`)
 - `token_hash` written to disk; `tokens.json` does not exist
 - Schedule CRUD with timezone-aware cron expression assertion
 - Encrypted-at-rest verification (schedule files are not plaintext)
 - Re-registration: new token, same user directory, old token invalidated
+
+**`test/calendly.test.js`** (Jest) covers the happy path of `services/calendlyService.js`'s exported functions directly — OAuth connect, listing calendars with phone-detection fields, message-template placeholder resolution, the embed snippet, and a full webhook-style lead creation (mocked WhatsApp send + mocked Calendly API responses, real local per-user encrypted storage). Meeting CRUD and leads have no server-side surface to test anymore (frontend-direct Firestore, see [How Calendly data is stored and accessed](#how-calendly-data-is-stored-and-accessed)).
 
 ---
 
