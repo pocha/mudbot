@@ -52,15 +52,16 @@
       <div class="relative z-10 bg-surface-container-lowest rounded-xl shadow-xl border border-outline-variant w-full max-w-2xl max-h-[85vh] overflow-y-auto">
         <div class="p-6 border-b border-outline-variant flex items-start justify-between gap-4">
           <div class="flex-1">
-            <div class="flex items-center gap-2 mb-3">
-              <button onclick="showCalendlyStep(1)" data-calendly-tab="1" class="calendly-step-tab w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full text-xs font-label-md border transition-colors">1</button>
+            <h1 class="font-headline-md text-headline-md font-bold text-on-surface mb-3">Calendly</h1>
+            <div class="flex items-center justify-center gap-2 mb-3">
+              <button onclick="showCalendlyStep(1)" data-calendly-tab="1" class="calendly-step-tab w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full text-xs font-label-md border transition-colors disabled:opacity-40 disabled:cursor-not-allowed">1</button>
               <div class="w-5 h-px bg-outline-variant flex-shrink-0"></div>
-              <button onclick="showCalendlyStep(2)" data-calendly-tab="2" class="calendly-step-tab w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full text-xs font-label-md border transition-colors">2</button>
+              <button onclick="showCalendlyStep(2)" data-calendly-tab="2" class="calendly-step-tab w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full text-xs font-label-md border transition-colors disabled:opacity-40 disabled:cursor-not-allowed">2</button>
               <div class="w-5 h-px bg-outline-variant flex-shrink-0"></div>
-              <button onclick="showCalendlyStep(3)" data-calendly-tab="3" class="calendly-step-tab w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full text-xs font-label-md border transition-colors">3</button>
+              <button onclick="showCalendlyStep(3)" data-calendly-tab="3" class="calendly-step-tab w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full text-xs font-label-md border transition-colors disabled:opacity-40 disabled:cursor-not-allowed">3</button>
             </div>
-            <h3 id="calendly-modal-title" class="section-title">Step 1</h3>
-            <p id="calendly-modal-subtitle" class="text-body-muted text-sm">Connect</p>
+            <h2 id="calendly-modal-title" class="section-title text-center">Step 1</h2>
+            <p id="calendly-modal-subtitle" class="text-body-muted text-sm text-center">Connect</p>
           </div>
           <button onclick="closeCalendlyModal()" class="p-1 text-on-surface-variant hover:text-error transition-colors flex-shrink-0">
             <span class="material-symbols-outlined text-[24px]">close</span>
@@ -77,7 +78,7 @@
             <span class="material-symbols-outlined text-[20px]" style="font-variation-settings:'FILL' 1;">check_circle</span>
             <span id="calendly-connected-notice-text" class="text-sm font-label-md">Calendly is connected.</span>
           </div>
-          <div class="flex gap-3">
+          <div class="flex justify-center gap-3">
             <button id="calendly-connect-btn" class="inline-flex items-center gap-2 bg-primary-container text-on-primary-container font-bold px-4 py-2 rounded-xl hover:opacity-90 transition-all">
               <span class="material-symbols-outlined text-[20px]">link</span>
               Connect Calendly
@@ -87,6 +88,10 @@
               Disconnect
             </button>
           </div>
+          <button id="calendly-step1-next-btn" class="hidden w-full bg-primary text-on-primary py-3 rounded-xl font-label-md flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-md">
+            <span class="material-symbols-outlined">arrow_forward</span>
+            Next
+          </button>
         </div>
 
         <!-- Step 2: Select Calendars -->
@@ -127,15 +132,10 @@
               Then make one real (dummy) booking on your live page, come back, and click Check.
             </p>
             <div id="calendly-verify-result" class="hidden text-sm px-4 py-3 rounded-xl"></div>
-            <div class="flex gap-3">
-              <button id="calendly-verify-check-btn" class="flex-1 bg-primary text-on-primary py-3 rounded-xl font-label-md flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-md">
-                <span class="material-symbols-outlined">fact_check</span>
-                Check
-              </button>
-              <button onclick="closeCalendlyModal()" class="text-on-surface-variant border border-outline-variant px-4 py-2 rounded-xl font-label-md hover:bg-surface-container transition-all">
-                Done
-              </button>
-            </div>
+            <button id="calendly-verify-check-btn" class="w-full bg-primary text-on-primary py-3 rounded-xl font-label-md flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-md">
+              <span class="material-symbols-outlined">fact_check</span>
+              Check
+            </button>
           </div>
         </div>
       </div>
@@ -147,13 +147,14 @@
       <div class="relative z-10 bg-surface-container-lowest rounded-xl shadow-xl border border-outline-variant w-full max-w-2xl max-h-[85vh] overflow-y-auto">
         <div class="p-6 border-b border-outline-variant flex items-start justify-between gap-4">
           <div class="flex-1">
-            <div class="flex items-center gap-2 mb-3">
-              <button onclick="showWatobotStep(1)" data-watobot-tab="1" class="watobot-step-tab w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full text-xs font-label-md border transition-colors">1</button>
+            <h1 class="font-headline-md text-headline-md font-bold text-on-surface mb-3">WhatsApp</h1>
+            <div class="flex items-center justify-center gap-2 mb-3">
+              <button onclick="showWatobotStep(1)" data-watobot-tab="1" class="watobot-step-tab w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full text-xs font-label-md border transition-colors disabled:opacity-40 disabled:cursor-not-allowed">1</button>
               <div class="w-5 h-px bg-outline-variant flex-shrink-0"></div>
-              <button onclick="showWatobotStep(2)" data-watobot-tab="2" class="watobot-step-tab w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full text-xs font-label-md border transition-colors">2</button>
+              <button onclick="showWatobotStep(2)" data-watobot-tab="2" class="watobot-step-tab w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full text-xs font-label-md border transition-colors disabled:opacity-40 disabled:cursor-not-allowed">2</button>
             </div>
-            <h3 id="watobot-modal-title" class="section-title">Step 1</h3>
-            <p id="watobot-modal-subtitle" class="text-body-muted text-sm">Connect WhatsApp</p>
+            <h2 id="watobot-modal-title" class="section-title text-center">Step 1</h2>
+            <p id="watobot-modal-subtitle" class="text-body-muted text-sm text-center">Connect WhatsApp</p>
           </div>
           <button onclick="closeWatobotModal()" class="p-1 text-on-surface-variant hover:text-error transition-colors flex-shrink-0">
             <span class="material-symbols-outlined text-[24px]">close</span>
@@ -164,16 +165,22 @@
         <div id="watobot-step-1" class="p-6 space-y-4">
           <div id="watobot-wa-not-connected" class="hidden space-y-3">
             <p class="text-body-muted">Connect WhatsApp to send messages to prospects automatically.</p>
-            <a id="watobot-wa-connect-btn" href="#" target="_blank" rel="noopener" class="inline-flex items-center gap-2 bg-primary-container text-on-primary-container font-bold px-4 py-2 rounded-xl hover:opacity-90 transition-all">
-              <span class="material-symbols-outlined text-[20px]">qr_code_scanner</span>
-              Connect WhatsApp
-            </a>
+            <div class="flex justify-center">
+              <a id="watobot-wa-connect-btn" href="#" target="_blank" rel="noopener" class="inline-flex items-center gap-2 bg-primary-container text-on-primary-container font-bold px-4 py-2 rounded-xl hover:opacity-90 transition-all">
+                <span class="material-symbols-outlined text-[20px]">qr_code_scanner</span>
+                Connect WhatsApp
+              </a>
+            </div>
             <p class="text-xs text-on-surface-variant">Opens in a new tab. Come back here once you're done — this checks automatically.</p>
           </div>
           <div id="watobot-wa-connected" class="hidden flex items-center gap-2 text-primary bg-primary/5 px-4 py-3 rounded-xl">
             <span class="material-symbols-outlined text-[20px]" style="font-variation-settings:'FILL' 1;">check_circle</span>
             <span class="text-sm font-label-md">WhatsApp is connected.</span>
           </div>
+          <button id="watobot-step1-next-btn" class="hidden w-full bg-primary text-on-primary py-3 rounded-xl font-label-md flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-md">
+            <span class="material-symbols-outlined">arrow_forward</span>
+            Next
+          </button>
         </div>
 
         <!-- Step 2: Send WhatsApp message on booking -->
@@ -309,6 +316,7 @@
         document.getElementById("watobot-box").addEventListener("click", openWatobotModal);
         document.getElementById("calendly-connect-btn").addEventListener("click", handleConnectCalendly);
         document.getElementById("calendly-disconnect-btn").addEventListener("click", handleDisconnectCalendly);
+        document.getElementById("calendly-step1-next-btn").addEventListener("click", () => showCalendlyStep(2));
         document.getElementById("calendly-step2-next-btn").addEventListener("click", handleCalendlyStep2Next);
         document.getElementById("calendly-verify-check-btn").addEventListener("click", handleVerifyCheck);
         document.getElementById("calendly-verify-meeting-select").addEventListener("change", renderVerifyStep);
@@ -316,6 +324,7 @@
         document.getElementById("watobot-autosend-checkbox").addEventListener("change", handleWatobotCheckboxChange);
         document.getElementById("watobot-save-btn").addEventListener("click", () => saveWatobotMeeting());
         document.getElementById("watobot-test-btn").addEventListener("click", testWatobotMessage);
+        document.getElementById("watobot-step1-next-btn").addEventListener("click", () => showWatobotStep(2));
 
         document.getElementById("logout-btn").addEventListener("click", () => {
           showLogoutModal({ isFullLogout: true });
@@ -388,7 +397,7 @@
           tab.classList.toggle("border-primary", i === step);
           tab.classList.toggle("text-on-surface-variant", i !== step);
           tab.classList.toggle("border-outline-variant", i !== step);
-          tab.classList.toggle("opacity-50", (i === 2 || i === 3) && !calendlyConfig.connected);
+          tab.disabled = (i === 2 || i === 3) && !calendlyConfig.connected;
         }
         document.getElementById("calendly-modal-title").textContent = `Step ${step}`;
         document.getElementById("calendly-modal-subtitle").textContent = CALENDLY_STEP_LABELS[step];
@@ -409,6 +418,7 @@
         document.getElementById("calendly-connect-btn").classList.toggle("hidden", connected);
         document.getElementById("calendly-disconnect-btn").classList.toggle("hidden", !connected);
         document.getElementById("calendly-disconnect-btn").classList.toggle("flex", connected);
+        document.getElementById("calendly-step1-next-btn").classList.toggle("hidden", !connected);
       }
 
       async function handleConnectCalendly() {
@@ -728,6 +738,7 @@
           tab.classList.toggle("border-primary", i === step);
           tab.classList.toggle("text-on-surface-variant", i !== step);
           tab.classList.toggle("border-outline-variant", i !== step);
+          tab.disabled = i === 2 && !waLoggedIn;
         }
         document.getElementById("watobot-modal-title").textContent = `Step ${step}`;
         document.getElementById("watobot-modal-subtitle").textContent = WATOBOT_STEP_LABELS[step];
@@ -738,6 +749,7 @@
       function renderWatobotStep1() {
         document.getElementById("watobot-wa-not-connected").classList.toggle("hidden", waLoggedIn);
         document.getElementById("watobot-wa-connected").classList.toggle("hidden", !waLoggedIn);
+        document.getElementById("watobot-step1-next-btn").classList.toggle("hidden", !waLoggedIn);
 
         if (!waLoggedIn && !waPollInterval) {
           waPollInterval = setInterval(async () => {
