@@ -1,0 +1,97 @@
+<!--#var title="How to Choose a WhatsApp API Provider — Full Comparison Guide"-->
+<!--#var description="A complete guide to choosing between official and unofficial WhatsApp API providers: what each comparison factor actually means, why it matters, and a full comparison matrix of GreenAPI, WAHA, Evolution API, OpenWA, WaSender, Wassenger, Periskope, wacli, the official API, and Watobot."-->
+<!--#var canonical="https://watobot.xyz/comparison/how-to-choose-whatsapp-api-provider.html"-->
+<!--#var ogTitle="How to Choose a WhatsApp API Provider"-->
+<!--#var ogDescription="What actually matters when picking a WhatsApp API provider, explained, with a full comparison matrix."-->
+<!--#var twitterTitle="How to Choose a WhatsApp API Provider"-->
+<!--#var twitterDescription="What actually matters when picking a WhatsApp API provider, explained, with a full comparison matrix."-->
+<!--#var ogImage="https://watobot.xyz/assets/og.png"-->
+<!--#include partial="marketing-head"-->
+<!--#include partial="marketing-header-nav"-->
+
+  <!-- Hero -->
+  <section class="px-gutter md:px-24 py-14 bg-surface-container-low">
+    <div class="max-w-3xl mx-auto flex flex-col gap-4 text-center items-center">
+      <span class="font-label-md text-label-md text-secondary bg-secondary-container/30 px-3 py-1 rounded-full uppercase tracking-widest w-fit">Guide</span>
+      <h1 class="font-headline-lg text-headline-lg text-on-surface">How to choose a WhatsApp API provider</h1>
+      <img src="/assets/whatsapp-api-provider-comparison.png" alt="WhatsApp API provider comparison" class="w-full rounded-xl border border-outline-variant" />
+      <p class="text-on-surface-variant font-body-lg">There are official and unofficial ways to automate WhatsApp, and within "unofficial" there's a real spread — self-hosted libraries, managed cloud APIs, personal CLI tools, and full team-inbox products. Nobody wins on every dimension. Here's what each factor actually means and why it should change your decision.</p>
+    </div>
+  </section>
+
+  <!-- Parameter explanations -->
+  <section class="px-gutter md:px-24 py-12 bg-surface">
+    <div class="max-w-3xl mx-auto flex flex-col gap-8">
+
+      <div>
+        <h2 class="font-headline-md text-headline-md text-on-surface mb-2">1. Connection type — official vs. unofficial</h2>
+        <p class="text-on-surface-variant font-body-md">This is the root cause of almost every other difference on this page. The official WhatsApp Business API (Meta's Cloud API) connects through Meta's own approved infrastructure — no ban risk, but business verification, template approval, and per-message billing. Unofficial tools connect through WhatsApp Web's own protocol, the same mechanism WhatsApp Web itself uses in a browser — instant setup, freeform messaging, no per-message cost, but no official backing, which means WhatsApp's own automated systems can in theory detect and restrict an account behaving unusually.</p>
+      </div>
+
+      <div>
+        <h2 class="font-headline-md text-headline-md text-on-surface mb-2">2 &amp; 3. Send vs. read incoming messages</h2>
+        <p class="text-on-surface-variant font-body-md">Almost every provider on this page can send. Fewer people notice that "send" and "read incoming messages" are separate capabilities you should check independently. If you're building a chatbot, a support tool, or anything that needs to react to what someone replies, you need read/webhook support — a send-only tool (like Watobot) simply cannot do this, no matter how good it is at sending.</p>
+      </div>
+
+      <div>
+        <h2 class="font-headline-md text-headline-md text-on-surface mb-2">4. Group messaging support</h2>
+        <p class="text-on-surface-variant font-body-md">Every unofficial WhatsApp-Web-based tool can generally send to groups, since it's a capability of the underlying protocol. The official Cloud API cannot send to WhatsApp groups at all — a platform limitation, not something any official-API provider can route around. If group messaging matters to you, this alone rules out the official API entirely.</p>
+      </div>
+
+      <div>
+        <h2 class="font-headline-md text-headline-md text-on-surface mb-2">5. Pricing model &amp; real limits</h2>
+        <p class="text-on-surface-variant font-body-md">"Free" means different things everywhere on this page: free software you still have to host, a free tier capped at a handful of chats, a free trial that becomes paid, or genuinely free with no published cap. Read the actual number, not just the word "free."</p>
+      </div>
+
+      <div>
+        <h2 class="font-headline-md text-headline-md text-on-surface mb-2">6 &amp; 7. Self-hostable, and who carries the maintenance burden</h2>
+        <p class="text-on-surface-variant font-body-md">Self-hosting gives you control and no subscription — but it also means you're the one who patches things when WhatsApp changes its Web protocol and breaks connectivity, which happens periodically to every unofficial tool. A managed/hosted provider absorbs that work for you, at the cost of being dependent on them staying maintained.</p>
+      </div>
+
+      <div>
+        <h2 class="font-headline-md text-headline-md text-on-surface mb-2">8. Ban risk</h2>
+        <p class="text-on-surface-variant font-body-md">Every unofficial tool connects the same way WhatsApp Web itself does — which means WhatsApp sees whatever IP address the connection is coming from as your "device." For a self-hosted setup, that's your own server's IP: not your phone's, so still somewhat unusual-looking to WhatsApp, but at least not shared with anyone else. For a multi-tenant hosted provider, it's worse — WhatsApp can see many different customers' sessions all originating from the very same handful of server IPs, a pattern that looks considerably more suspicious than one server per account. The official API has no equivalent risk at all — a completely different mechanism, so this category doesn't apply to it. What actually matters here is whether a provider does anything about it, like routing each account through its own distinct residential-feeling IP instead of a shared datacenter one.</p>
+      </div>
+
+      <div>
+        <h2 class="font-headline-md text-headline-md text-on-surface mb-2">9. Credential steal risk</h2>
+        <p class="text-on-surface-variant font-body-md">Your WhatsApp session is effectively a live login to your account. If a provider stores that server-side in a way that lets even them read it, a breach of their infrastructure is a breach of your WhatsApp account. Ask specifically: is it encrypted in a way only you can unlock, or can the provider itself access it? Self-hosting removes the third party from this question entirely — but then your own server's security is the whole story. Where a provider doesn't publicly document how this is handled, the safe assumption is the worst case, not the best one.</p>
+      </div>
+
+      <div>
+        <h2 class="font-headline-md text-headline-md text-on-surface mb-2">10. Data privacy</h2>
+        <p class="text-on-surface-variant font-body-md">Separate from credential theft: in normal, non-breach operation, who else gets to see the phone numbers you're messaging and the content of what you send? Route your messages through a commercial 3rd-party API provider, and that company's servers see your recipients' numbers and message content as a matter of normal operation, breach or not. Self-hosting removes that 3rd party, but a breach of your own server still exposes whatever it's storing. Going through Meta's official API doesn't introduce a new party beyond Meta itself — WhatsApp's own platform already sees all traffic regardless of which path you take.</p>
+      </div>
+
+      <div>
+        <h2 class="font-headline-md text-headline-md text-on-surface mb-2">11. Setup friction</h2>
+        <p class="text-on-surface-variant font-body-md">Unofficial tools are generally a QR scan away from working. The official API means real business verification with Meta, which can take weeks — a genuine cost if you need to be sending messages soon.</p>
+      </div>
+
+      <div>
+        <h2 class="font-headline-md text-headline-md text-on-surface mb-2">12. Message freedom</h2>
+        <p class="text-on-surface-variant font-body-md">Unofficial tools let you send any freeform text, anytime. The official API restricts you to pre-approved templates for anything you initiate outside a 24-hour window after the customer last messaged you — a real constraint on how you can actually use it.</p>
+      </div>
+
+      <div>
+        <h2 class="font-headline-md text-headline-md text-on-surface mb-2">13 &amp; 14. Team inbox and chat management UI</h2>
+        <p class="text-on-surface-variant font-body-md">Some providers are really full products for running a support/sales team off one number — a shared inbox, multiple seats, conversation assignment. Others are pure APIs with no UI at all — you're expected to build your own interface, or you don't need one because you're only sending, not managing ongoing conversations.</p>
+      </div>
+
+      <div>
+        <h2 class="font-headline-md text-headline-md text-on-surface mb-2">15. Open source</h2>
+        <p class="text-on-surface-variant font-body-md">Being able to read the actual code — including how encryption and credential handling work — is the difference between trusting a provider's claims and verifying them yourself. Worth checking the specific license too, not just whether it's "open source" — some open-source licenses carry real usage restrictions.</p>
+      </div>
+
+      <div>
+        <h2 class="font-headline-md text-headline-md text-on-surface mb-2">16. Support model</h2>
+        <p class="text-on-surface-variant font-body-md">Community-only (a Discord/GitHub you post in and hope for a reply), paid tiered support, or a small team you can actually reach directly — worth knowing which one you're signing up for before something breaks in production.</p>
+      </div>
+
+    </div>
+  </section>
+
+<!--#include partial="comparison-matrix"-->
+<!--#include partial="comparison-recommendations"-->
+
+<!--#include partial="marketing-footer"-->

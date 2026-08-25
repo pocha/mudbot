@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>WhatsApp Business API Alternative — Watobot vs the Official API</title>
+<meta name="description" content="Comparing Meta's official WhatsApp Business API (Cloud API) with Watobot: business verification, templates, per-message billing vs a free, instant, unofficial personal-number alternative."/>
+<link rel="canonical" href="https://watobot.xyz/comparison/alternative-to-whatsapp-business-api.html"/>
+
+<meta property="og:type" content="website"/>
+<meta property="og:site_name" content="Watobot"/>
+<meta property="og:title" content="WhatsApp Business API Alternative — Watobot vs the Official API"/>
+<meta property="og:description" content="An honest comparison of Meta's official WhatsApp Business API and Watobot."/>
+<meta property="og:url" content="https://watobot.xyz/comparison/alternative-to-whatsapp-business-api.html"/>
+<meta property="og:image" content="https://watobot.xyz/assets/og.png"/>
+
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:title" content="WhatsApp Business API Alternative — Watobot vs the Official API"/>
+<meta name="twitter:description" content="An honest comparison of Meta's official WhatsApp Business API and Watobot."/>
+<meta name="twitter:image" content="https://watobot.xyz/assets/og.png"/>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="/assets/theme.js"></script>
+<link rel="stylesheet" href="/assets/theme.css"/>
+</head>
+<body class="bg-surface text-on-surface font-body-md min-h-screen flex flex-col">
+<!-- TopNavBar -->
+<nav class="bg-surface border-b border-outline-variant shadow-sm flex justify-between items-center w-full px-gutter py-2 sticky top-0 z-50">
+  <a href="/" class="flex items-center gap-3">
+    <img alt="Watobot Logo" class="w-10 h-10 rounded-sm" src="/logo.png"/>
+    <span class="font-headline-md text-headline-md font-bold text-primary">Watobot</span>
+  </a>
+  <div class="hidden md:flex items-center gap-8">
+    <a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors" href="/#features">Features</a>
+    <div class="relative group">
+      <div class="flex items-center gap-0.5">
+        <a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors" href="/#addon">Add On</a>
+        <button class="text-on-surface-variant hover:text-primary transition-colors" aria-label="Show Add On options" aria-haspopup="true">
+          <span class="material-symbols-outlined text-[18px]">expand_more</span>
+        </button>
+      </div>
+      <div class="absolute left-0 top-full pt-2 hidden group-hover:block z-50">
+        <div class="bg-surface border border-outline-variant rounded-xl shadow-lg py-2 w-64">
+          <a href="/free-whatsapp-recurring-messages.html" class="block px-4 py-2 font-body-md text-body-md text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors">Scheduled Recurring Message</a>
+          <a href="/whatsapp-group-faq" class="block px-4 py-2 font-body-md text-body-md text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors">FAQ from WhatsApp Groups</a>
+          <a href="/free-calendly-whatsapp-integration.html" class="block px-4 py-2 font-body-md text-body-md text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors">Free Calendly WhatsApp Integration</a>
+        </div>
+      </div>
+    </div>
+    <a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors" href="/#pricing">Pricing</a>
+    <button onclick="openSupport()" class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors">Support</button>
+    <button id="navLoginBtn" data-auth-cta class="font-label-md text-label-md bg-primary-container text-on-primary-container px-6 py-2 rounded-xl font-bold hover:opacity-90 active:scale-95 transition-all" onclick="toggleModal()">Login</button>
+  </div>
+  <button class="md:hidden text-primary">
+    <span class="material-symbols-outlined">menu</span>
+  </button>
+</nav>
+<main class="flex-1 w-full">
+
+  <section class="px-gutter md:px-24 py-14 bg-surface-container-low">
+    <div class="max-w-3xl mx-auto flex flex-col gap-4">
+      <span class="font-label-md text-label-md text-secondary bg-secondary-container/30 px-3 py-1 rounded-full uppercase tracking-widest w-fit">Comparison</span>
+      <h1 class="font-headline-lg text-headline-lg text-on-surface">WhatsApp Business API alternative: how Watobot compares</h1>
+      <img src="/assets/whatsapp-api-provider-comparison.png" alt="WhatsApp API provider comparison" class="w-full rounded-xl border border-outline-variant" />
+      <p class="text-on-surface-variant font-body-lg">Meta's official WhatsApp Business API (Cloud API) is the real thing — it's what every provider on this site is ultimately an alternative to. It's the only option with WhatsApp's own backing: no risk of an automated ban, the green verification badge is available, and it supports things nothing unofficial does, like WhatsApp Flows (interactive in-chat forms) and an official product catalog. If you're a business that needs to be provably, officially compliant, this is the only real option — every unofficial tool on this site, Watobot included, is explicitly a trade-off against it, not a replacement for it.</p>
+      <p class="text-on-surface-variant font-body-lg">That legitimacy comes with real friction. You need business verification through Meta before you can send anything, a process that can take weeks. Outside a 24-hour window after a customer messages you first, you can only send pre-approved message templates — no freeform text. As of mid-2025, Meta bills per message sent (not just per conversation), with pricing that varies by template category and recipient country, and there's no monthly free allowance left for marketing, utility, or authentication messages — only customer-initiated replies within that 24-hour window are free. And regardless of which provider you access it through, the API itself cannot send to WhatsApp groups at all — a platform-level limitation, not something any provider can work around.</p>
+      <p class="text-on-surface-variant font-body-lg">Every unofficial tool compared here, including Watobot, exists specifically because that friction and cost is more than a lot of real use cases need — a personal reminder system, a solo operator's customer follow-ups, a low-volume automation — where an unofficial personal-number connection is a genuinely reasonable trade for zero approval process and zero per-message cost, accepting a different kind of risk (an automated ban, not a policy violation) in return.</p>
+    </div>
+  </section>
+
+<!-- Shared giant comparison matrix — identical on every alternative-to-*.html
+     page and on how-to-choose-whatsapp-api-provider.html, so the underlying
+     facts stay in exactly one place. Providers are rows (kept visible via a
+     sticky first column) and parameters are columns, scrolling horizontally
+     — this way every provider stays visible regardless of which single
+     column a visitor actually cares about.
+
+     Cell color is a judgment call on how good/bad that specific value is
+     for a buyer (green = good, amber = mixed/uncertain, red = weak),
+     applied evenly to every provider including Watobot. -->
+<section class="px-gutter md:px-24 py-12 bg-surface-container-low" id="comparison-matrix">
+  <div class="max-w-6xl mx-auto">
+    <div class="text-center mb-8">
+      <h2 class="font-headline-lg text-headline-lg text-on-surface">WhatsApp API providers compared</h2>
+      <p class="text-muted">Scroll sideways for the specific column you care about. Full explanation of every column is in our <a href="/comparison/how-to-choose-whatsapp-api-provider.html" class="text-primary underline font-bold">guide to choosing a WhatsApp API provider</a>.</p>
+    </div>
+
+    <div class="overflow-x-auto rounded-xl border border-outline-variant bg-surface">
+      <table class="text-sm border-collapse w-full table-fixed">
+        <thead>
+          <tr class="bg-surface-container">
+            <th class="sticky left-0 z-10 bg-surface-container text-left px-4 py-3 font-label-md text-on-surface border-b border-r border-outline-variant whitespace-nowrap w-72">Provider</th>
+            <th class="px-3 py-3 font-label-md text-on-surface border-b border-outline-variant text-left w-56">Connection type</th>
+            <th class="px-3 py-3 font-label-md text-on-surface border-b border-outline-variant text-left w-56">Send messages</th>
+            <th class="px-3 py-3 font-label-md text-on-surface border-b border-outline-variant text-left w-64">Read incoming messages</th>
+            <th class="px-3 py-3 font-label-md text-on-surface border-b border-outline-variant text-left w-56">Group messaging</th>
+            <th class="px-3 py-3 font-label-md text-on-surface border-b border-outline-variant text-left w-80">Pricing &amp; real limits</th>
+            <th class="px-3 py-3 font-label-md text-on-surface border-b border-outline-variant text-left w-64">Self-hostable / Open source</th>
+            <th class="px-3 py-3 font-label-md text-on-surface border-b border-outline-variant text-left w-64">Maintenance burden</th>
+            <th class="px-3 py-3 font-label-md text-on-surface border-b border-outline-variant text-left w-64">Ban risk</th>
+            <th class="px-3 py-3 font-label-md text-on-surface border-b border-outline-variant text-left w-72">Credential steal risk</th>
+            <th class="px-3 py-3 font-label-md text-on-surface border-b border-outline-variant text-left w-72">Data privacy</th>
+            <th class="px-3 py-3 font-label-md text-on-surface border-b border-outline-variant text-left w-64">Setup friction</th>
+            <th class="px-3 py-3 font-label-md text-on-surface border-b border-outline-variant text-left w-64">Message freedom</th>
+            <th class="px-3 py-3 font-label-md text-on-surface border-b border-outline-variant text-left w-56">Team / shared inbox</th>
+            <th class="px-3 py-3 font-label-md text-on-surface border-b border-outline-variant text-left w-56">Chat management UI</th>
+            <th class="px-3 py-3 font-label-md text-on-surface border-b border-outline-variant text-left w-56">Support model</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-outline-variant">
+
+          <tr class="hover:bg-surface-container-low transition-colors align-top">
+            <td class="sticky left-0 z-10 bg-surface text-left px-4 py-3 font-bold text-on-surface border-r border-outline-variant whitespace-nowrap">GreenAPI<div class="text-xs font-semibold text-error mt-1">Score: 43/75</div></td>
+            <td class="px-3 py-3 text-error font-semibold">Unofficial</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Free tier capped at 3 chats; unlimited ~$8/mo</td>
+            <td class="px-3 py-3 text-error font-semibold">No</td>
+            <td class="px-3 py-3 text-primary font-semibold">On provider</td>
+            <td class="px-3 py-3 text-error font-semibold">Very high — shared multi-tenant server IPs</td>
+            <td class="px-3 py-3 text-error font-semibold">High — server owner or attacker can steal</td>
+            <td class="px-3 py-3 text-error font-semibold">Low — phone numbers readable by server</td>
+            <td class="px-3 py-3 text-primary font-semibold">Low — QR scan</td>
+            <td class="px-3 py-3 text-primary font-semibold">Freeform, anytime</td>
+            <td class="px-3 py-3 text-error font-semibold">No</td>
+            <td class="px-3 py-3 text-error font-semibold">No — API only</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Official</td>
+          </tr>
+
+          <tr class="hover:bg-surface-container-low transition-colors align-top">
+            <td class="sticky left-0 z-10 bg-surface text-left px-4 py-3 font-bold text-on-surface border-r border-outline-variant whitespace-nowrap">WAHA<div class="text-xs font-semibold text-error mt-1">Score: 43/75</div></td>
+            <td class="px-3 py-3 text-error font-semibold">Unofficial</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Software free; you pay for hosting (~$2–5/mo)</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-error font-semibold">On you</td>
+            <td class="px-3 py-3 text-error font-semibold">High</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Medium — attacker can steal</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Medium — attacker can access phone numbers</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Medium — deploy, then QR scan</td>
+            <td class="px-3 py-3 text-primary font-semibold">Freeform, anytime</td>
+            <td class="px-3 py-3 text-error font-semibold">No</td>
+            <td class="px-3 py-3 text-error font-semibold">No — API only</td>
+            <td class="px-3 py-3 text-error font-semibold">Community</td>
+          </tr>
+
+          <tr class="hover:bg-surface-container-low transition-colors align-top">
+            <td class="sticky left-0 z-10 bg-surface text-left px-4 py-3 font-bold text-on-surface border-r border-outline-variant whitespace-nowrap">Evolution API<div class="text-xs font-semibold text-error mt-1">Score: 41/75</div></td>
+            <td class="px-3 py-3 text-error font-semibold">Unofficial</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Software free; needs Postgres + Redis hosting</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-error font-semibold">On you</td>
+            <td class="px-3 py-3 text-error font-semibold">High</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Medium — attacker can steal</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Medium — attacker can access phone numbers</td>
+            <td class="px-3 py-3 text-error font-semibold">Medium-high — more infra than WAHA</td>
+            <td class="px-3 py-3 text-primary font-semibold">Freeform, anytime</td>
+            <td class="px-3 py-3 text-error font-semibold">No</td>
+            <td class="px-3 py-3 text-error font-semibold">No — API only</td>
+            <td class="px-3 py-3 text-error font-semibold">Community</td>
+          </tr>
+
+          <tr class="hover:bg-surface-container-low transition-colors align-top">
+            <td class="sticky left-0 z-10 bg-surface text-left px-4 py-3 font-bold text-on-surface border-r border-outline-variant whitespace-nowrap">OpenWA<div class="text-xs font-semibold text-error mt-1">Score: 43/75</div></td>
+            <td class="px-3 py-3 text-error font-semibold">Unofficial</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Software free; you pay for hosting</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-error font-semibold">On you</td>
+            <td class="px-3 py-3 text-error font-semibold">High</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Medium — attacker can steal</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Medium — attacker can access phone numbers</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Medium — deploy, then QR scan</td>
+            <td class="px-3 py-3 text-primary font-semibold">Freeform, anytime</td>
+            <td class="px-3 py-3 text-error font-semibold">No</td>
+            <td class="px-3 py-3 text-error font-semibold">No — library/API only</td>
+            <td class="px-3 py-3 text-error font-semibold">Community</td>
+          </tr>
+
+          <tr class="hover:bg-surface-container-low transition-colors align-top">
+            <td class="sticky left-0 z-10 bg-surface text-left px-4 py-3 font-bold text-on-surface border-r border-outline-variant whitespace-nowrap">WaSender API<div class="text-xs font-semibold text-error mt-1">Score: 41/75</div></td>
+            <td class="px-3 py-3 text-error font-semibold">Unofficial</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Not publicly confirmed</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Not publicly confirmed</td>
+            <td class="px-3 py-3 text-error font-semibold">Paid only, from $6/mo flat; 3-day trial, no free tier</td>
+            <td class="px-3 py-3 text-error font-semibold">No</td>
+            <td class="px-3 py-3 text-primary font-semibold">On provider</td>
+            <td class="px-3 py-3 text-error font-semibold">Very high — shared multi-tenant server IPs</td>
+            <td class="px-3 py-3 text-error font-semibold">High — server owner or attacker can steal</td>
+            <td class="px-3 py-3 text-error font-semibold">Low — phone numbers readable by server</td>
+            <td class="px-3 py-3 text-primary font-semibold">Low — cloud onboarding</td>
+            <td class="px-3 py-3 text-primary font-semibold">Freeform, anytime</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Not publicly confirmed</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Not publicly confirmed</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Official</td>
+          </tr>
+
+          <tr class="hover:bg-surface-container-low transition-colors align-top">
+            <td class="sticky left-0 z-10 bg-surface text-left px-4 py-3 font-bold text-on-surface border-r border-outline-variant whitespace-nowrap">Wassenger<div class="text-xs font-semibold text-primary mt-1">Score: 51/75</div></td>
+            <td class="px-3 py-3 text-primary font-semibold">Official</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-error font-semibold">No — official API can't message groups</td>
+            <td class="px-3 py-3 text-error font-semibold">Paid, from €39.90/mo + Meta per-message fees; 7-day trial</td>
+            <td class="px-3 py-3 text-error font-semibold">No</td>
+            <td class="px-3 py-3 text-primary font-semibold">On provider</td>
+            <td class="px-3 py-3 text-primary font-semibold">Low</td>
+            <td class="px-3 py-3 text-primary font-semibold">Low — handled by an official Meta partner</td>
+            <td class="px-3 py-3 text-error font-semibold">Low — phone numbers readable by server</td>
+            <td class="px-3 py-3 text-error font-semibold">High — real Meta business verification required</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Template-gated outside 24h reply window</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes — core feature</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes — full inbox product</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Official</td>
+          </tr>
+
+          <tr class="hover:bg-surface-container-low transition-colors align-top">
+            <td class="sticky left-0 z-10 bg-surface text-left px-4 py-3 font-bold text-on-surface border-r border-outline-variant whitespace-nowrap">Periskope<div class="text-xs font-semibold text-amber-600 mt-1">Score: 49/75</div></td>
+            <td class="px-3 py-3 text-error font-semibold">Unofficial</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes — unlimited, explicitly marketed</td>
+            <td class="px-3 py-3 text-error font-semibold">Paid, from $20/seat/mo; 7-day trial, no free tier</td>
+            <td class="px-3 py-3 text-error font-semibold">No</td>
+            <td class="px-3 py-3 text-primary font-semibold">On provider</td>
+            <td class="px-3 py-3 text-error font-semibold">Very high — shared multi-tenant server IPs</td>
+            <td class="px-3 py-3 text-error font-semibold">High — server owner or attacker can steal</td>
+            <td class="px-3 py-3 text-error font-semibold">Low — phone numbers readable by server</td>
+            <td class="px-3 py-3 text-primary font-semibold">Low — QR scan</td>
+            <td class="px-3 py-3 text-primary font-semibold">Freeform, anytime</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes — seat-based, core feature</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes — full inbox product</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Official</td>
+          </tr>
+
+          <tr class="hover:bg-surface-container-low transition-colors align-top">
+            <td class="sticky left-0 z-10 bg-surface text-left px-4 py-3 font-bold text-on-surface border-r border-outline-variant whitespace-nowrap">wacli<div class="text-xs font-semibold text-error mt-1">Score: 45/75</div></td>
+            <td class="px-3 py-3 text-error font-semibold">Unofficial</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes — core feature</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Not publicly confirmed</td>
+            <td class="px-3 py-3 text-primary font-semibold">Free, open source; runs on your own machine</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-error font-semibold">On you</td>
+            <td class="px-3 py-3 text-error font-semibold">High</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Medium — attacker can steal</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Medium — attacker can access phone numbers</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Medium — a dev tool, not a hosted business setup</td>
+            <td class="px-3 py-3 text-primary font-semibold">Freeform, anytime</td>
+            <td class="px-3 py-3 text-error font-semibold">No — single-user by design</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Terminal/TUI console, not a business inbox</td>
+            <td class="px-3 py-3 text-error font-semibold">Community</td>
+          </tr>
+
+          <tr class="hover:bg-surface-container-low transition-colors align-top">
+            <td class="sticky left-0 z-10 bg-surface text-left px-4 py-3 font-bold text-on-surface border-r border-outline-variant whitespace-nowrap">Official WhatsApp Business API<div class="text-xs font-semibold text-amber-600 mt-1">Score: 46/70</div></td>
+            <td class="px-3 py-3 text-primary font-semibold">Official</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes — template-gated</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-error font-semibold">No — platform limitation, no groups at all</td>
+            <td class="px-3 py-3 text-error font-semibold">Access free; billed per message beyond free service replies — no free tier for marketing/utility/auth as of 2026</td>
+            <td class="px-3 py-3 text-error font-semibold">No</td>
+            <td class="px-3 py-3 text-primary font-semibold">On provider</td>
+            <td class="px-3 py-3 text-primary font-semibold">Low</td>
+            <td class="px-3 py-3 text-primary font-semibold">Low — handled by Meta / your BSP</td>
+            <td class="px-3 py-3 text-primary font-semibold">High — only Meta itself sees your data, no extra 3rd party</td>
+            <td class="px-3 py-3 text-error font-semibold">High — business verification + template approval, can take weeks</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Template-gated outside 24h reply window</td>
+            <td class="px-3 py-3 text-on-surface-variant">Depends on which BSP frontend you pick</td>
+            <td class="px-3 py-3 text-error font-semibold">No — raw API has none; depends on BSP</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Official</td>
+          </tr>
+
+          <tr class="hover:bg-surface-container-low transition-colors align-top">
+            <td class="sticky left-0 z-10 bg-surface text-left px-4 py-3 font-bold text-on-surface border-r border-outline-variant whitespace-nowrap">Watobot<div class="text-xs font-semibold text-primary mt-1">Score: 57/75</div></td>
+            <td class="px-3 py-3 text-error font-semibold">Unofficial</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-error font-semibold">No — send-only</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-primary font-semibold">Free, hosted, no published cap</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-primary font-semibold">On provider</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Medium — dedicated residential IP close to your location</td>
+            <td class="px-3 py-3 text-primary font-semibold">Low — zero-knowledge encryption</td>
+            <td class="px-3 py-3 text-primary font-semibold">High — zero-knowledge encryption</td>
+            <td class="px-3 py-3 text-primary font-semibold">Low — QR scan</td>
+            <td class="px-3 py-3 text-primary font-semibold">Freeform, anytime</td>
+            <td class="px-3 py-3 text-error font-semibold">No</td>
+            <td class="px-3 py-3 text-error font-semibold">No — API + scheduling only</td>
+            <td class="px-3 py-3 text-primary font-semibold">Founder Support</td>
+          </tr>
+
+        </tbody>
+      </table>
+    </div>
+    <p class="text-muted-sm mt-3">Each provider's score is a literal sum of its row's colored cells — <span class="text-primary font-semibold">green</span> contributes 5, <span class="text-amber-600 font-semibold">orange</span> contributes 3, <span class="text-error font-semibold">red</span> contributes 1 — out of 5 times the number of colored columns for that row. You can verify any score yourself by counting the colors in that row.</p>
+    <p class="text-muted-sm mt-1">"Not publicly documented"/"not publicly confirmed" means we could not confirm this from the provider's own public materials at the time of writing — not that the capability doesn't exist. If you work at one of these companies and want to correct a row, <button onclick="openSupport()" class="text-primary underline font-bold">let us know</button>.</p>
+  </div>
+</section>
+<!-- Shared recommendations block — identical on every alternative-to-*.html
+     page and on how-to-choose-whatsapp-api-provider.html. Deliberately
+     need-based rather than "always pick Watobot" — several of these send
+     someone away from Watobot on purpose, which is the point. -->
+<section class="px-gutter md:px-24 py-12 bg-surface">
+  <div class="max-w-3xl mx-auto">
+    <div class="text-center mb-8">
+      <h2 class="font-headline-lg text-headline-lg text-on-surface">So which one should you actually use?</h2>
+      <p class="text-muted">Depends entirely on what you need. Here's a straight answer for the most common cases.</p>
+    </div>
+    <div class="flex flex-col divide-y divide-outline-variant border border-outline-variant rounded-xl overflow-hidden">
+
+      <div class="p-6 bg-surface-container-low">
+        <p class="text-lg md:text-xl font-bold text-on-surface mb-2">Building a chatbot</p>
+        <p class="text-muted">Want a hosted provider, no server to run? <strong class="text-on-surface">Periskope</strong> is the strongest-rated hosted option that can read incoming messages. Cost is the priority instead? <strong class="text-on-surface">GreenAPI</strong> is cheaper, with a real (if small) free tier. Want it even cheaper, or privacy matters more than convenience? Self-host — <strong class="text-on-surface">WAHA</strong> or <strong class="text-on-surface">OpenWA</strong> rate the same here; pick whichever's license terms you're more comfortable with.</p>
+      </div>
+
+      <div class="p-6">
+        <p class="text-lg md:text-xl font-bold text-on-surface mb-2">Shared inbox / CRM for a support or sales team</p>
+        <p class="text-muted"><strong class="text-on-surface">Wassenger</strong> is the strongest-rated pick here — official API, low ban/credential risk, a real team inbox. Want lower cost and are OK trading away some privacy and the official backing for it? <strong class="text-on-surface">Periskope</strong> is the cheaper alternative.</p>
+      </div>
+
+      <div class="p-6 bg-surface-container-low">
+        <p class="text-lg md:text-xl font-bold text-on-surface mb-2">Messaging pre-created groups</p>
+        <p class="text-muted">Only need to send into the group, never read replies? <strong class="text-primary">Watobot</strong> covers this, free. Need to read group messages too? <strong class="text-on-surface">Periskope</strong> is the strongest-rated option that supports it. Want low cost and high privacy instead, and don't mind self-hosting? <strong class="text-on-surface">WAHA</strong> or <strong class="text-on-surface">OpenWA</strong>.</p>
+      </div>
+
+      <div class="p-6">
+        <p class="text-lg md:text-xl font-bold text-on-surface mb-2">You need the official green checkmark</p>
+        <p class="text-muted">Only one real option: the <strong class="text-on-surface">official WhatsApp Business API</strong>, direct with Meta or through a partner.</p>
+      </div>
+
+      <div class="p-6 bg-surface-container-low">
+        <p class="text-lg md:text-xl font-bold text-on-surface mb-2">Sending more than ~250 messages a day</p>
+        <p class="text-muted">That's real business volume — go with the <strong class="text-on-surface">official WhatsApp Business API</strong> (direct, or via a partner like <strong class="text-on-surface">Wassenger</strong>). Unofficial tools, Watobot included, are built for lower volumes; pushing serious daily volume through an unofficial connection raises your ban risk significantly.</p>
+      </div>
+
+      <div class="p-6">
+        <p class="text-lg md:text-xl font-bold text-on-surface mb-2">No API — just sending/reading from the command line</p>
+        <p class="text-muted"><strong class="text-on-surface">wacli</strong> is built exactly for this — a personal terminal tool, not a hosted API.</p>
+      </div>
+
+      <div class="p-6 bg-surface-container-low">
+        <p class="text-lg md:text-xl font-bold text-primary mb-2">Only sending messages, and cost or privacy matters</p>
+        <p class="text-muted"><strong class="text-primary">This is what Watobot is built for.</strong> Free, hosted, no message cap we've published, zero-knowledge encrypted, with per-account IP-based ban mitigation. If your need matches this description, it's a genuinely good fit — outside of it, one of the options above will serve you better.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- Footer -->
+<div id="site-footer"></div>
+<script src="/assets/footer.js"></script>
+
+<!-- Login Modal -->
+<div class="fixed inset-0 z-[100] hidden flex items-center justify-center px-4" id="loginModal">
+  <div class="modal-overlay absolute inset-0" onclick="toggleModal()"></div>
+  <div class="bg-surface-container-lowest w-full max-w-md rounded-xl p-8 whatsapp-shadow relative z-10 border border-outline-variant">
+    <div class="flex justify-between items-center mb-6">
+      <h3 class="font-headline-md text-headline-md text-on-surface" id="modalTitle">Before you continue</h3>
+      <button class="text-on-surface-variant hover:text-error transition-colors" onclick="toggleModal()">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <!-- Step 1: Warning -->
+    <div id="modal-warning">
+      <div class="flex gap-3 bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+        <span class="material-symbols-outlined text-amber-500 flex-shrink-0">warning</span>
+        <p class="text-on-surface font-body-md text-sm">If you have already received a login link to your email, please use that link to sign in — <strong>requesting a new link will invalidate your existing session and any linked WhatsApp account.</strong></p>
+      </div>
+      <p class="text-on-surface-variant font-body-md mb-6">Only click <em>Send New Link</em> if you are signing up for the first time or have lost access to your previous link.</p>
+      <div class="flex gap-3">
+        <button class="flex-1 border border-outline-variant text-on-surface-variant font-bold py-3 rounded-xl hover:bg-surface-container transition-all" onclick="toggleModal()">Cancel</button>
+        <button class="flex-1 bg-primary-container text-on-primary-container font-bold py-3 rounded-xl hover:opacity-90 active:scale-95 transition-all" onclick="showRegistrationForm()">Send New Link</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Registration form (hidden until user confirms) -->
+    <div id="modal-form" class="hidden">
+      <p class="text-on-surface-variant font-body-md mb-6">Enter your email to receive a secure login link.</p>
+      <form class="flex flex-col gap-4" onsubmit="handleRegistration(event)">
+        <div class="flex flex-col gap-1">
+          <label class="font-label-md text-label-md text-on-surface-variant">Email Address</label>
+          <input id="emailInput" class="bg-surface-container-low border-b-2 border-transparent focus:border-primary focus:ring-0 rounded-lg p-3 transition-all outline-none" placeholder="name@company.com" type="email" required/>
+        </div>
+        <div id="message" class="min-h-[20px]"></div>
+        <button id="submitBtn" type="submit" class="bg-primary-container text-on-primary-container font-bold py-4 rounded-xl hover:opacity-90 active:scale-95 transition-all">Send Login Link</button>
+        <p class="text-center font-body-md text-on-surface-variant mt-2">By continuing, you agree to our
+          <a class="text-primary font-bold" href="#">Terms of Service</a>.
+        </p>
+      </form>
+    </div>
+  </div>
+</div>
+
+    <!-- Support Modal -->
+    <div
+      id="supportModal"
+      class="fixed inset-0 z-[100] hidden flex items-center justify-center px-4"
+    >
+      <div
+        class="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onclick="closeSupport()"
+      ></div>
+      <div
+        class="bg-surface-container-lowest w-full max-w-sm rounded-xl p-8 shadow-xl relative z-10 border border-outline-variant flex flex-col gap-4"
+      >
+        <div class="flex justify-between items-center">
+          <h3 class="font-headline-md text-headline-md text-on-surface">
+            Support
+          </h3>
+          <button
+            onclick="closeSupport()"
+            class="text-on-surface-variant hover:text-error transition-colors"
+          >
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+        <p class="text-muted">
+          Support is available on WhatsApp between
+          <strong class="text-on-surface">9 AM – 7 PM IST</strong> (Mon–Sat).
+        </p>
+        <div id="support-available" class="hidden">
+          <a
+            href="https://wa.me/919538384545"
+            target="_blank"
+            rel="noopener"
+            class="flex items-center justify-center gap-2 bg-primary-container text-on-primary-container font-bold py-3 rounded-xl hover:opacity-90 transition-all w-full"
+          >
+            <span class="material-symbols-outlined text-[20px]">chat</span>
+            Contact Dev on WhatsApp
+          </a>
+        </div>
+        <div id="support-unavailable" class="hidden">
+          <p class="text-on-surface-variant font-body-md text-sm text-center">
+            Developer is currently offline. Please try again during support
+            hours.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <script type="module">
+      function openSupport() {
+        const modal = document.getElementById("supportModal");
+        const now = new Date();
+        const istHour = ((now.getUTCHours() * 60 + now.getUTCMinutes() + 330) / 60) % 24;
+        const available = istHour >= 9 && istHour < 19;
+        document.getElementById("support-available").classList.toggle("hidden", !available);
+        document.getElementById("support-unavailable").classList.toggle("hidden", available);
+        modal.classList.remove("hidden");
+      }
+      function closeSupport() {
+        document.getElementById("supportModal").classList.add("hidden");
+      }
+
+      window.openSupport = openSupport;
+      window.closeSupport = closeSupport;
+    </script>
+
+<script>
+    // Same origin locally (server.js serves public/ + /api together);
+    // split into a dedicated API subdomain once served from GitHub Pages.
+    const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+        ? ''
+        : 'https://api.watobot.xyz';
+
+    function toggleModal() {
+        const modal = document.getElementById('loginModal');
+        modal.classList.toggle('hidden');
+        if (!modal.classList.contains('hidden')) {
+            document.body.style.overflow = 'hidden';
+            // Always start at the warning step when opening
+            document.getElementById('modal-warning').classList.remove('hidden');
+            document.getElementById('modal-form').classList.add('hidden');
+            document.getElementById('modalTitle').textContent = 'Before you continue';
+        } else {
+            document.body.style.overflow = 'auto';
+        }
+    }
+
+    function showRegistrationForm() {
+        document.getElementById('modal-warning').classList.add('hidden');
+        document.getElementById('modal-form').classList.remove('hidden');
+        document.getElementById('modalTitle').textContent = 'Get Started';
+    }
+
+    // Marketing pages show a "Sign Up Free"/"Login" CTA for anonymous
+    // visitors, swapped for "Go to Dashboard" once a session already
+    // exists — every marketing page shares this same header/footer pair,
+    // so the swap lives here once instead of per-page.
+    document.addEventListener('DOMContentLoaded', () => {
+        const token = localStorage.getItem('authToken');
+        if (!token) return;
+
+        document.querySelectorAll('[data-auth-cta]').forEach((el) => {
+            el.textContent = 'Go to Dashboard';
+            if (el.tagName === 'A') {
+                el.href = '/dashboard/';
+            } else {
+                el.onclick = () => { window.location.href = '/dashboard/'; };
+            }
+        });
+    });
+
+    async function handleRegistration(event) {
+        event.preventDefault();
+
+        const emailInput = document.getElementById('emailInput');
+        const submitBtn = document.getElementById('submitBtn');
+        const messageDiv = document.getElementById('message');
+        const email = emailInput.value.trim();
+
+        if (!email) {
+            showMessage('Please enter a valid email address', 'error');
+            return;
+        }
+
+        // Disable button and show loading state
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Sending...';
+        messageDiv.textContent = '';
+
+        try {
+            const response = await fetch(`${API_BASE}/api/register`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ email })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                showMessage(`Success! Check your email (${email}) for the login link.`, 'success');
+                emailInput.value = '';
+
+                // Close modal after 3 seconds
+                setTimeout(() => {
+                    toggleModal();
+                    messageDiv.textContent = '';
+                }, 3000);
+            } else {
+                showMessage(data.message || 'Registration failed. Please try again.', 'error');
+            }
+        } catch (error) {
+            console.error('Registration error:', error);
+            showMessage('Network error. Please check your connection and try again.', 'error');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Send Login Link';
+        }
+    }
+
+    function showMessage(text, type) {
+        const messageDiv = document.getElementById('message');
+        messageDiv.textContent = text;
+        messageDiv.className = type === 'error'
+            ? 'text-error font-body-md mt-2'
+            : 'text-primary font-body-md mt-2';
+    }
+
+    // Micro-interactions
+    document.querySelectorAll('button, a').forEach(el => {
+        el.addEventListener('mousedown', () => { el.classList.add('scale-95'); });
+        el.addEventListener('mouseup', () => { el.classList.remove('scale-95'); });
+        el.addEventListener('mouseleave', () => { el.classList.remove('scale-95'); });
+    });
+</script>
+
+</body>
+</html>

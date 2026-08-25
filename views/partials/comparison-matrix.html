@@ -1,0 +1,238 @@
+<!-- Shared giant comparison matrix — identical on every alternative-to-*.html
+     page and on how-to-choose-whatsapp-api-provider.html, so the underlying
+     facts stay in exactly one place. Providers are rows (kept visible via a
+     sticky first column) and parameters are columns, scrolling horizontally
+     — this way every provider stays visible regardless of which single
+     column a visitor actually cares about.
+
+     Cell color is a judgment call on how good/bad that specific value is
+     for a buyer (green = good, amber = mixed/uncertain, red = weak),
+     applied evenly to every provider including Watobot. -->
+<section class="px-gutter md:px-24 py-12 bg-surface-container-low" id="comparison-matrix">
+  <div class="max-w-6xl mx-auto">
+    <div class="text-center mb-8">
+      <h2 class="font-headline-lg text-headline-lg text-on-surface">WhatsApp API providers compared</h2>
+      <p class="text-muted">Scroll sideways for the specific column you care about. Full explanation of every column is in our <a href="/comparison/how-to-choose-whatsapp-api-provider.html" class="text-primary underline font-bold">guide to choosing a WhatsApp API provider</a>.</p>
+    </div>
+
+    <div class="overflow-x-auto rounded-xl border border-outline-variant bg-surface">
+      <table class="text-sm border-collapse w-full table-fixed">
+        <thead>
+          <tr class="bg-surface-container">
+            <th class="sticky left-0 z-10 bg-surface-container text-left px-4 py-3 font-label-md text-on-surface border-b border-r border-outline-variant whitespace-nowrap w-72">Provider</th>
+            <th class="px-3 py-3 font-label-md text-on-surface border-b border-outline-variant text-left w-56">Connection type</th>
+            <th class="px-3 py-3 font-label-md text-on-surface border-b border-outline-variant text-left w-56">Send messages</th>
+            <th class="px-3 py-3 font-label-md text-on-surface border-b border-outline-variant text-left w-64">Read incoming messages</th>
+            <th class="px-3 py-3 font-label-md text-on-surface border-b border-outline-variant text-left w-56">Group messaging</th>
+            <th class="px-3 py-3 font-label-md text-on-surface border-b border-outline-variant text-left w-80">Pricing &amp; real limits</th>
+            <th class="px-3 py-3 font-label-md text-on-surface border-b border-outline-variant text-left w-64">Self-hostable / Open source</th>
+            <th class="px-3 py-3 font-label-md text-on-surface border-b border-outline-variant text-left w-64">Maintenance burden</th>
+            <th class="px-3 py-3 font-label-md text-on-surface border-b border-outline-variant text-left w-64">Ban risk</th>
+            <th class="px-3 py-3 font-label-md text-on-surface border-b border-outline-variant text-left w-72">Credential steal risk</th>
+            <th class="px-3 py-3 font-label-md text-on-surface border-b border-outline-variant text-left w-72">Data privacy</th>
+            <th class="px-3 py-3 font-label-md text-on-surface border-b border-outline-variant text-left w-64">Setup friction</th>
+            <th class="px-3 py-3 font-label-md text-on-surface border-b border-outline-variant text-left w-64">Message freedom</th>
+            <th class="px-3 py-3 font-label-md text-on-surface border-b border-outline-variant text-left w-56">Team / shared inbox</th>
+            <th class="px-3 py-3 font-label-md text-on-surface border-b border-outline-variant text-left w-56">Chat management UI</th>
+            <th class="px-3 py-3 font-label-md text-on-surface border-b border-outline-variant text-left w-56">Support model</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-outline-variant">
+
+          <tr class="hover:bg-surface-container-low transition-colors align-top">
+            <td class="sticky left-0 z-10 bg-surface text-left px-4 py-3 font-bold text-on-surface border-r border-outline-variant whitespace-nowrap">GreenAPI<div class="text-xs font-semibold text-error mt-1">Score: 43/75</div></td>
+            <td class="px-3 py-3 text-error font-semibold">Unofficial</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Free tier capped at 3 chats; unlimited ~$8/mo</td>
+            <td class="px-3 py-3 text-error font-semibold">No</td>
+            <td class="px-3 py-3 text-primary font-semibold">On provider</td>
+            <td class="px-3 py-3 text-error font-semibold">Very high — shared multi-tenant server IPs</td>
+            <td class="px-3 py-3 text-error font-semibold">High — server owner or attacker can steal</td>
+            <td class="px-3 py-3 text-error font-semibold">Low — phone numbers readable by server</td>
+            <td class="px-3 py-3 text-primary font-semibold">Low — QR scan</td>
+            <td class="px-3 py-3 text-primary font-semibold">Freeform, anytime</td>
+            <td class="px-3 py-3 text-error font-semibold">No</td>
+            <td class="px-3 py-3 text-error font-semibold">No — API only</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Official</td>
+          </tr>
+
+          <tr class="hover:bg-surface-container-low transition-colors align-top">
+            <td class="sticky left-0 z-10 bg-surface text-left px-4 py-3 font-bold text-on-surface border-r border-outline-variant whitespace-nowrap">WAHA<div class="text-xs font-semibold text-error mt-1">Score: 43/75</div></td>
+            <td class="px-3 py-3 text-error font-semibold">Unofficial</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Software free; you pay for hosting (~$2–5/mo)</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-error font-semibold">On you</td>
+            <td class="px-3 py-3 text-error font-semibold">High</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Medium — attacker can steal</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Medium — attacker can access phone numbers</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Medium — deploy, then QR scan</td>
+            <td class="px-3 py-3 text-primary font-semibold">Freeform, anytime</td>
+            <td class="px-3 py-3 text-error font-semibold">No</td>
+            <td class="px-3 py-3 text-error font-semibold">No — API only</td>
+            <td class="px-3 py-3 text-error font-semibold">Community</td>
+          </tr>
+
+          <tr class="hover:bg-surface-container-low transition-colors align-top">
+            <td class="sticky left-0 z-10 bg-surface text-left px-4 py-3 font-bold text-on-surface border-r border-outline-variant whitespace-nowrap">Evolution API<div class="text-xs font-semibold text-error mt-1">Score: 41/75</div></td>
+            <td class="px-3 py-3 text-error font-semibold">Unofficial</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Software free; needs Postgres + Redis hosting</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-error font-semibold">On you</td>
+            <td class="px-3 py-3 text-error font-semibold">High</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Medium — attacker can steal</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Medium — attacker can access phone numbers</td>
+            <td class="px-3 py-3 text-error font-semibold">Medium-high — more infra than WAHA</td>
+            <td class="px-3 py-3 text-primary font-semibold">Freeform, anytime</td>
+            <td class="px-3 py-3 text-error font-semibold">No</td>
+            <td class="px-3 py-3 text-error font-semibold">No — API only</td>
+            <td class="px-3 py-3 text-error font-semibold">Community</td>
+          </tr>
+
+          <tr class="hover:bg-surface-container-low transition-colors align-top">
+            <td class="sticky left-0 z-10 bg-surface text-left px-4 py-3 font-bold text-on-surface border-r border-outline-variant whitespace-nowrap">OpenWA<div class="text-xs font-semibold text-error mt-1">Score: 43/75</div></td>
+            <td class="px-3 py-3 text-error font-semibold">Unofficial</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Software free; you pay for hosting</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-error font-semibold">On you</td>
+            <td class="px-3 py-3 text-error font-semibold">High</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Medium — attacker can steal</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Medium — attacker can access phone numbers</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Medium — deploy, then QR scan</td>
+            <td class="px-3 py-3 text-primary font-semibold">Freeform, anytime</td>
+            <td class="px-3 py-3 text-error font-semibold">No</td>
+            <td class="px-3 py-3 text-error font-semibold">No — library/API only</td>
+            <td class="px-3 py-3 text-error font-semibold">Community</td>
+          </tr>
+
+          <tr class="hover:bg-surface-container-low transition-colors align-top">
+            <td class="sticky left-0 z-10 bg-surface text-left px-4 py-3 font-bold text-on-surface border-r border-outline-variant whitespace-nowrap">WaSender API<div class="text-xs font-semibold text-error mt-1">Score: 41/75</div></td>
+            <td class="px-3 py-3 text-error font-semibold">Unofficial</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Not publicly confirmed</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Not publicly confirmed</td>
+            <td class="px-3 py-3 text-error font-semibold">Paid only, from $6/mo flat; 3-day trial, no free tier</td>
+            <td class="px-3 py-3 text-error font-semibold">No</td>
+            <td class="px-3 py-3 text-primary font-semibold">On provider</td>
+            <td class="px-3 py-3 text-error font-semibold">Very high — shared multi-tenant server IPs</td>
+            <td class="px-3 py-3 text-error font-semibold">High — server owner or attacker can steal</td>
+            <td class="px-3 py-3 text-error font-semibold">Low — phone numbers readable by server</td>
+            <td class="px-3 py-3 text-primary font-semibold">Low — cloud onboarding</td>
+            <td class="px-3 py-3 text-primary font-semibold">Freeform, anytime</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Not publicly confirmed</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Not publicly confirmed</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Official</td>
+          </tr>
+
+          <tr class="hover:bg-surface-container-low transition-colors align-top">
+            <td class="sticky left-0 z-10 bg-surface text-left px-4 py-3 font-bold text-on-surface border-r border-outline-variant whitespace-nowrap">Wassenger<div class="text-xs font-semibold text-primary mt-1">Score: 51/75</div></td>
+            <td class="px-3 py-3 text-primary font-semibold">Official</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-error font-semibold">No — official API can't message groups</td>
+            <td class="px-3 py-3 text-error font-semibold">Paid, from €39.90/mo + Meta per-message fees; 7-day trial</td>
+            <td class="px-3 py-3 text-error font-semibold">No</td>
+            <td class="px-3 py-3 text-primary font-semibold">On provider</td>
+            <td class="px-3 py-3 text-primary font-semibold">Low</td>
+            <td class="px-3 py-3 text-primary font-semibold">Low — handled by an official Meta partner</td>
+            <td class="px-3 py-3 text-error font-semibold">Low — phone numbers readable by server</td>
+            <td class="px-3 py-3 text-error font-semibold">High — real Meta business verification required</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Template-gated outside 24h reply window</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes — core feature</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes — full inbox product</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Official</td>
+          </tr>
+
+          <tr class="hover:bg-surface-container-low transition-colors align-top">
+            <td class="sticky left-0 z-10 bg-surface text-left px-4 py-3 font-bold text-on-surface border-r border-outline-variant whitespace-nowrap">Periskope<div class="text-xs font-semibold text-amber-600 mt-1">Score: 49/75</div></td>
+            <td class="px-3 py-3 text-error font-semibold">Unofficial</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes — unlimited, explicitly marketed</td>
+            <td class="px-3 py-3 text-error font-semibold">Paid, from $20/seat/mo; 7-day trial, no free tier</td>
+            <td class="px-3 py-3 text-error font-semibold">No</td>
+            <td class="px-3 py-3 text-primary font-semibold">On provider</td>
+            <td class="px-3 py-3 text-error font-semibold">Very high — shared multi-tenant server IPs</td>
+            <td class="px-3 py-3 text-error font-semibold">High — server owner or attacker can steal</td>
+            <td class="px-3 py-3 text-error font-semibold">Low — phone numbers readable by server</td>
+            <td class="px-3 py-3 text-primary font-semibold">Low — QR scan</td>
+            <td class="px-3 py-3 text-primary font-semibold">Freeform, anytime</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes — seat-based, core feature</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes — full inbox product</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Official</td>
+          </tr>
+
+          <tr class="hover:bg-surface-container-low transition-colors align-top">
+            <td class="sticky left-0 z-10 bg-surface text-left px-4 py-3 font-bold text-on-surface border-r border-outline-variant whitespace-nowrap">wacli<div class="text-xs font-semibold text-error mt-1">Score: 45/75</div></td>
+            <td class="px-3 py-3 text-error font-semibold">Unofficial</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes — core feature</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Not publicly confirmed</td>
+            <td class="px-3 py-3 text-primary font-semibold">Free, open source; runs on your own machine</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-error font-semibold">On you</td>
+            <td class="px-3 py-3 text-error font-semibold">High</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Medium — attacker can steal</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Medium — attacker can access phone numbers</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Medium — a dev tool, not a hosted business setup</td>
+            <td class="px-3 py-3 text-primary font-semibold">Freeform, anytime</td>
+            <td class="px-3 py-3 text-error font-semibold">No — single-user by design</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Terminal/TUI console, not a business inbox</td>
+            <td class="px-3 py-3 text-error font-semibold">Community</td>
+          </tr>
+
+          <tr class="hover:bg-surface-container-low transition-colors align-top">
+            <td class="sticky left-0 z-10 bg-surface text-left px-4 py-3 font-bold text-on-surface border-r border-outline-variant whitespace-nowrap">Official WhatsApp Business API<div class="text-xs font-semibold text-amber-600 mt-1">Score: 46/70</div></td>
+            <td class="px-3 py-3 text-primary font-semibold">Official</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes — template-gated</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-error font-semibold">No — platform limitation, no groups at all</td>
+            <td class="px-3 py-3 text-error font-semibold">Access free; billed per message beyond free service replies — no free tier for marketing/utility/auth as of 2026</td>
+            <td class="px-3 py-3 text-error font-semibold">No</td>
+            <td class="px-3 py-3 text-primary font-semibold">On provider</td>
+            <td class="px-3 py-3 text-primary font-semibold">Low</td>
+            <td class="px-3 py-3 text-primary font-semibold">Low — handled by Meta / your BSP</td>
+            <td class="px-3 py-3 text-primary font-semibold">High — only Meta itself sees your data, no extra 3rd party</td>
+            <td class="px-3 py-3 text-error font-semibold">High — business verification + template approval, can take weeks</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Template-gated outside 24h reply window</td>
+            <td class="px-3 py-3 text-on-surface-variant">Depends on which BSP frontend you pick</td>
+            <td class="px-3 py-3 text-error font-semibold">No — raw API has none; depends on BSP</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Official</td>
+          </tr>
+
+          <tr class="hover:bg-surface-container-low transition-colors align-top">
+            <td class="sticky left-0 z-10 bg-surface text-left px-4 py-3 font-bold text-on-surface border-r border-outline-variant whitespace-nowrap">Watobot<div class="text-xs font-semibold text-primary mt-1">Score: 57/75</div></td>
+            <td class="px-3 py-3 text-error font-semibold">Unofficial</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-error font-semibold">No — send-only</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-primary font-semibold">Free, hosted, no published cap</td>
+            <td class="px-3 py-3 text-primary font-semibold">Yes</td>
+            <td class="px-3 py-3 text-primary font-semibold">On provider</td>
+            <td class="px-3 py-3 text-amber-600 font-semibold">Medium — dedicated residential IP close to your location</td>
+            <td class="px-3 py-3 text-primary font-semibold">Low — zero-knowledge encryption</td>
+            <td class="px-3 py-3 text-primary font-semibold">High — zero-knowledge encryption</td>
+            <td class="px-3 py-3 text-primary font-semibold">Low — QR scan</td>
+            <td class="px-3 py-3 text-primary font-semibold">Freeform, anytime</td>
+            <td class="px-3 py-3 text-error font-semibold">No</td>
+            <td class="px-3 py-3 text-error font-semibold">No — API + scheduling only</td>
+            <td class="px-3 py-3 text-primary font-semibold">Founder Support</td>
+          </tr>
+
+        </tbody>
+      </table>
+    </div>
+    <p class="text-muted-sm mt-3">Each provider's score is a literal sum of its row's colored cells — <span class="text-primary font-semibold">green</span> contributes 5, <span class="text-amber-600 font-semibold">orange</span> contributes 3, <span class="text-error font-semibold">red</span> contributes 1 — out of 5 times the number of colored columns for that row. You can verify any score yourself by counting the colors in that row.</p>
+    <p class="text-muted-sm mt-1">"Not publicly documented"/"not publicly confirmed" means we could not confirm this from the provider's own public materials at the time of writing — not that the capability doesn't exist. If you work at one of these companies and want to correct a row, <button onclick="openSupport()" class="text-primary underline font-bold">let us know</button>.</p>
+  </div>
+</section>

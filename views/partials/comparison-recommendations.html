@@ -1,0 +1,50 @@
+<!-- Shared recommendations block — identical on every alternative-to-*.html
+     page and on how-to-choose-whatsapp-api-provider.html. Deliberately
+     need-based rather than "always pick Watobot" — several of these send
+     someone away from Watobot on purpose, which is the point. -->
+<section class="px-gutter md:px-24 py-12 bg-surface">
+  <div class="max-w-3xl mx-auto">
+    <div class="text-center mb-8">
+      <h2 class="font-headline-lg text-headline-lg text-on-surface">So which one should you actually use?</h2>
+      <p class="text-muted">Depends entirely on what you need. Here's a straight answer for the most common cases.</p>
+    </div>
+    <div class="flex flex-col divide-y divide-outline-variant border border-outline-variant rounded-xl overflow-hidden">
+
+      <div class="p-6 bg-surface-container-low">
+        <p class="text-lg md:text-xl font-bold text-on-surface mb-2">Building a chatbot</p>
+        <p class="text-muted">Want a hosted provider, no server to run? <strong class="text-on-surface">Periskope</strong> is the strongest-rated hosted option that can read incoming messages. Cost is the priority instead? <strong class="text-on-surface">GreenAPI</strong> is cheaper, with a real (if small) free tier. Want it even cheaper, or privacy matters more than convenience? Self-host — <strong class="text-on-surface">WAHA</strong> or <strong class="text-on-surface">OpenWA</strong> rate the same here; pick whichever's license terms you're more comfortable with.</p>
+      </div>
+
+      <div class="p-6">
+        <p class="text-lg md:text-xl font-bold text-on-surface mb-2">Shared inbox / CRM for a support or sales team</p>
+        <p class="text-muted"><strong class="text-on-surface">Wassenger</strong> is the strongest-rated pick here — official API, low ban/credential risk, a real team inbox. Want lower cost and are OK trading away some privacy and the official backing for it? <strong class="text-on-surface">Periskope</strong> is the cheaper alternative.</p>
+      </div>
+
+      <div class="p-6 bg-surface-container-low">
+        <p class="text-lg md:text-xl font-bold text-on-surface mb-2">Messaging pre-created groups</p>
+        <p class="text-muted">Only need to send into the group, never read replies? <strong class="text-primary">Watobot</strong> covers this, free. Need to read group messages too? <strong class="text-on-surface">Periskope</strong> is the strongest-rated option that supports it. Want low cost and high privacy instead, and don't mind self-hosting? <strong class="text-on-surface">WAHA</strong> or <strong class="text-on-surface">OpenWA</strong>.</p>
+      </div>
+
+      <div class="p-6">
+        <p class="text-lg md:text-xl font-bold text-on-surface mb-2">You need the official green checkmark</p>
+        <p class="text-muted">Only one real option: the <strong class="text-on-surface">official WhatsApp Business API</strong>, direct with Meta or through a partner.</p>
+      </div>
+
+      <div class="p-6 bg-surface-container-low">
+        <p class="text-lg md:text-xl font-bold text-on-surface mb-2">Sending more than ~250 messages a day</p>
+        <p class="text-muted">That's real business volume — go with the <strong class="text-on-surface">official WhatsApp Business API</strong> (direct, or via a partner like <strong class="text-on-surface">Wassenger</strong>). Unofficial tools, Watobot included, are built for lower volumes; pushing serious daily volume through an unofficial connection raises your ban risk significantly.</p>
+      </div>
+
+      <div class="p-6">
+        <p class="text-lg md:text-xl font-bold text-on-surface mb-2">No API — just sending/reading from the command line</p>
+        <p class="text-muted"><strong class="text-on-surface">wacli</strong> is built exactly for this — a personal terminal tool, not a hosted API.</p>
+      </div>
+
+      <div class="p-6 bg-surface-container-low">
+        <p class="text-lg md:text-xl font-bold text-primary mb-2">Only sending messages, and cost or privacy matters</p>
+        <p class="text-muted"><strong class="text-primary">This is what Watobot is built for.</strong> Free, hosted, no message cap we've published, zero-knowledge encrypted, with per-account IP-based ban mitigation. If your need matches this description, it's a genuinely good fit — outside of it, one of the options above will serve you better.</p>
+      </div>
+
+    </div>
+  </div>
+</section>

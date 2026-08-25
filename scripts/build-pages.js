@@ -56,6 +56,26 @@ const PAGE_MAP = {
     "free-whatsapp-recurring-messages.html",
   "free-calendly-whatsapp-integration.html":
     "free-calendly-whatsapp-integration.html",
+  "comparison/alternative-to-greenapi.html":
+    "comparison/alternative-to-greenapi.html",
+  "comparison/alternative-to-waha.html":
+    "comparison/alternative-to-waha.html",
+  "comparison/alternative-to-evolution-api.html":
+    "comparison/alternative-to-evolution-api.html",
+  "comparison/alternative-to-openwa.html":
+    "comparison/alternative-to-openwa.html",
+  "comparison/alternative-to-wasender.html":
+    "comparison/alternative-to-wasender.html",
+  "comparison/alternative-to-wassenger.html":
+    "comparison/alternative-to-wassenger.html",
+  "comparison/alternative-to-periskope.html":
+    "comparison/alternative-to-periskope.html",
+  "comparison/alternative-to-wacli.html":
+    "comparison/alternative-to-wacli.html",
+  "comparison/alternative-to-whatsapp-business-api.html":
+    "comparison/alternative-to-whatsapp-business-api.html",
+  "comparison/how-to-choose-whatsapp-api-provider.html":
+    "comparison/how-to-choose-whatsapp-api-provider.html",
 };
 
 const VAR_RE = /^<!--#var\s+([a-zA-Z0-9_]+)="([^"]*)"-->\n?/;
