@@ -113,7 +113,10 @@
     <!-- Step 2: Select Calendars -->
     <div id="calendly-step-2" class="hidden p-6 space-y-4">
       <p class="text-body-muted">Select a calendar from your Calendly account, then click Next.</p>
-      <div id="calendars-loading" class="hidden text-body-muted text-sm">Loading your calendars…</div>
+      <div id="calendars-loading" class="hidden flex flex-col items-center gap-3 py-6">
+        <div class="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+        <p class="text-body-muted text-sm">Loading your calendars…</p>
+      </div>
       <div id="calendars-error" class="hidden text-error text-sm"></div>
       <div id="calendars-empty" class="hidden text-center text-on-surface-variant opacity-50 italic text-body-md py-4">
         No calendars found on your connected Calendly account.
@@ -905,7 +908,9 @@
     const m = meetings()[meetingId];
     if (!m) return;
     const btn = document.getElementById("watobot-test-btn");
+    const originalLabel = btn.innerHTML;
     btn.disabled = true;
+    btn.innerHTML = '<span class="inline-block w-4 h-4 border-2 border-on-surface-variant border-t-transparent rounded-full animate-spin align-[-3px] mr-2"></span>Sending…';
     try {
       const q = query(collection(db, "users", userDir, "leads"), orderBy("createdAt", "desc"), limit(20));
       const snapshot = await getDocs(q);
@@ -937,6 +942,7 @@
       alert(error.message || "Failed to send test message");
     } finally {
       btn.disabled = false;
+      btn.innerHTML = originalLabel;
     }
   }
 

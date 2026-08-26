@@ -237,7 +237,7 @@
                     />
                 </td>
                 <td class="px-5 py-3">
-                    <button onclick="sendLeadMessage('${leadId}', '${escapeHtml(lead.phone || "")}')" class="p-1 text-on-surface-variant hover:text-primary transition-colors" title="Send a WhatsApp message" ${lead.phone ? "" : "disabled"}>
+                    <button onclick="sendLeadMessage('${leadId}', '${escapeHtml(lead.phone || "")}', this)" class="p-1 text-on-surface-variant hover:text-primary transition-colors" title="Send a WhatsApp message" ${lead.phone ? "" : "disabled"}>
                         <span class="material-symbols-outlined text-[20px]">send</span>
                     </button>
                 </td>
@@ -319,10 +319,13 @@
       // this. The lead's own status/messageSent/messageCount/lastSentAt are
       // then updated directly here, since the frontend already has write
       // access to it.
-      async function sendLeadMessage(leadId, phone) {
+      async function sendLeadMessage(leadId, phone, btn) {
         if (!phone) return;
         const message = prompt("Message to send:", "");
         if (!message) return;
+        const originalLabel = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="inline-block w-4 h-4 border-2 border-on-surface-variant border-t-transparent rounded-full animate-spin"></span>';
         try {
           const res = await fetch(`${API_BASE}/api/message`, {
             method: "POST",
@@ -342,6 +345,8 @@
         } catch (error) {
           console.error("Error sending message:", error);
           alert("Failed to send message");
+          btn.disabled = false;
+          btn.innerHTML = originalLabel;
         }
       }
 
