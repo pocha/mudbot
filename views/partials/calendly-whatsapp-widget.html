@@ -14,8 +14,12 @@
 <div class="flex items-center justify-center gap-4 max-w-2xl mx-auto">
   <button
     id="calendly-box"
-    class="card p-6 flex-1 flex flex-col items-center gap-3 hover:border-primary/40 hover:shadow-md border border-transparent transition-all"
+    class="relative card p-6 flex-1 flex flex-col items-center gap-3 hover:border-primary/40 hover:shadow-md border border-transparent transition-all"
   >
+    <span id="calendly-box-badge" class="hidden absolute top-3 right-3 flex items-center gap-1 text-primary bg-primary/10 px-2 py-0.5 rounded-full text-xs font-label-md">
+      <span class="material-symbols-outlined text-[14px]" style="font-variation-settings:'FILL' 1;">check_circle</span>
+      Connected
+    </span>
     <h3 class="section-title">Calendly</h3>
     <img src="/assets/calendly-icon.png" alt="Calendly" class="w-24 h-24 rounded-2xl object-contain shadow-sm bg-white p-2" />
     <p class="text-body-muted text-sm">On new Calendly booking</p>
@@ -23,8 +27,12 @@
 
   <button
     id="watobot-box"
-    class="card p-6 flex-1 flex flex-col items-center gap-3 hover:border-primary/40 hover:shadow-md border border-transparent transition-all"
+    class="relative card p-6 flex-1 flex flex-col items-center gap-3 hover:border-primary/40 hover:shadow-md border border-transparent transition-all"
   >
+    <span id="watobot-box-badge" class="hidden absolute top-3 right-3 flex items-center gap-1 text-primary bg-primary/10 px-2 py-0.5 rounded-full text-xs font-label-md">
+      <span class="material-symbols-outlined text-[14px]" style="font-variation-settings:'FILL' 1;">check_circle</span>
+      Connected
+    </span>
     <h3 class="section-title">WhatsApp</h3>
     <img src="/assets/whatsapp-icon.png" alt="WhatsApp" class="w-24 h-24 rounded-2xl object-contain shadow-sm bg-white p-2" />
     <p class="text-body-muted text-sm">Send WhatsApp message to invitee</p>
@@ -445,6 +453,15 @@
   }
   function closeCalendlyModal() {
     document.getElementById("calendly-modal").classList.add("hidden");
+    renderCalendlyBoxBadge();
+  }
+
+  // Computed only when the modal closes, not on page load (see the note at
+  // the top of this file) — this is the one moment we know the user just
+  // finished (or gave up on) the flow, worth reflecting on the box itself.
+  function renderCalendlyBoxBadge() {
+    const connected = calendlyConfig.connected && Object.values(meetings()).some((m) => m.embedVerified);
+    document.getElementById("calendly-box-badge").classList.toggle("hidden", !connected);
   }
 
   const CALENDLY_STEP_LABELS = { 1: "Connect", 2: "Select Calendars", 3: "Add Code & Verify" };
@@ -790,6 +807,12 @@
   function closeWatobotModal() {
     document.getElementById("watobot-modal").classList.add("hidden");
     if (waPollInterval) { clearInterval(waPollInterval); waPollInterval = null; }
+    renderWatobotBoxBadge();
+  }
+
+  // Same rationale as renderCalendlyBoxBadge() — only computed on close.
+  function renderWatobotBoxBadge() {
+    document.getElementById("watobot-box-badge").classList.toggle("hidden", !waLoggedIn);
   }
 
   const WATOBOT_STEP_LABELS = { 1: "Connect WhatsApp", 2: "Send WhatsApp message on booking" };
