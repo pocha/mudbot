@@ -74,6 +74,12 @@ const PAGE_MAP = {
     "comparison/alternative-to-wacli.html",
   "comparison/alternative-to-whatsapp-business-api.html":
     "comparison/alternative-to-whatsapp-business-api.html",
+  "comparison/alternative-to-twilio.html":
+    "comparison/alternative-to-twilio.html",
+  "comparison/alternative-to-msg91.html":
+    "comparison/alternative-to-msg91.html",
+  "comparison/alternative-to-gallabox.html":
+    "comparison/alternative-to-gallabox.html",
   "comparison/how-to-choose-whatsapp-api-provider.html":
     "comparison/how-to-choose-whatsapp-api-provider.html",
 };
