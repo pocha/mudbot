@@ -25,6 +25,17 @@ const LOGIN_REAP_MS = 2 * 60 * 1000;
 const userQueue = {};
 const userQueueDepth = {};
 
+// Tar spawns are otherwise unbounded — if one wedges (e.g. mid-write when the
+// process is killed for some other reason), it would hang forever with no
+// watchdog, permanently blocking every subsequent queued op for that user
+// behind it (see the note on withSession below).
+const DECRYPT_TIMEOUT_MS = 20000;
+const ENCRYPT_TIMEOUT_MS = 20000;
+// acquireRelay -> readUserFile is just local fs + in-memory crypto, no lock,
+// no network — genuinely low hang risk, but a wedged disk/mount is still
+// possible and there's no cost to guarding it too.
+const RELAY_ACQUIRE_TIMEOUT_MS = 15000;
+
 function mudslideEncFile(userDir) {
   return path.join(CONFIG.USERS_DIR, userDir, '.mudslide.enc');
 }
@@ -49,16 +60,11 @@ async function encryptMudslideCache(userDir, token, fromDir = null) {
   const cwd = fromDir || path.join(CONFIG.USERS_DIR, userDir);
   const key = crypto.createHash('sha256').update(token).digest();
 
-  const tarBuffer = await new Promise((resolve, reject) => {
-    const proc = spawn('tar', ['-czf', '-', '.mudslide'], { cwd });
-    const chunks = [];
-    proc.stdout.on('data', d => chunks.push(d));
-    proc.stderr.on('data', () => {});
-    proc.on('close', code => {
-      if (code === 0) resolve(Buffer.concat(chunks));
-      else reject(new Error(`tar failed with code ${code}`));
-    });
-  });
+  // If this times out, the tar output is incomplete — must never be written
+  // to .mudslide.enc (that would corrupt the real, previously-good
+  // credential with a truncated one), so just let it throw here and leave
+  // .mudslide.enc untouched.
+  const tarBuffer = await spawnWithTimeout('tar', ['-czf', '-', '.mudslide'], ENCRYPT_TIMEOUT_MS, { cwd });
 
   const iv = crypto.randomBytes(16);
   const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
@@ -90,16 +96,16 @@ async function decryptMudslideToTemp(userDir, token) {
 
   await fs.mkdir(tmp, { recursive: true });
 
-  await new Promise((resolve, reject) => {
-    const proc = spawn('tar', ['-xzf', '-', '-C', tmp]);
-    proc.stdin.write(tarBuffer);
-    proc.stdin.end();
-    proc.stderr.on('data', () => {});
-    proc.on('close', code => {
-      if (code === 0) resolve();
-      else reject(new Error(`tar extract failed with code ${code}`));
-    });
-  });
+  try {
+    await spawnWithTimeout('tar', ['-xzf', '-', '-C', tmp], DECRYPT_TIMEOUT_MS, { input: tarBuffer });
+  } catch (err) {
+    // Extraction was killed or failed partway through — the temp dir may
+    // hold a corrupt/incomplete session. Discard it rather than let the
+    // reuse check above (fs.access(credPath)) treat it as valid on the next
+    // queued op or the next request.
+    await fs.rm(tmp, { recursive: true, force: true }).catch(() => {});
+    throw err;
+  }
 
   return credPath;
 }
@@ -133,7 +139,7 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}) {
     let succeeded = false;
     let errMsg = null;
     try {
-      await proxyRelayManager.acquireRelay(userDir, token);
+      await withTimeout(proxyRelayManager.acquireRelay(userDir, token), RELAY_ACQUIRE_TIMEOUT_MS, 'acquireRelay');
       credPath = await decryptMudslideToTemp(userDir, token);
       const result = await fn(credPath);
       succeeded = true;
@@ -165,6 +171,50 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}) {
 }
 
 const stripProxy = s => s.split('\n').filter(l => !l.trim().startsWith('[proxychains]')).join('\n').trim();
+
+// Bare timeout race for a step with no subprocess to kill — can't cancel the
+// underlying work, but stops the caller (and the per-user queue behind it)
+// from waiting on it forever.
+function withTimeout(promise, timeoutMs, label) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
+    promise.then(
+      val => { clearTimeout(timer); resolve(val); },
+      err => { clearTimeout(timer); reject(err); }
+    );
+  });
+}
+
+// Spawns bin, collects stdout, and kills + rejects if it doesn't close
+// within timeoutMs — shared by the tar spawns in decryptMudslideToTemp/
+// encryptMudslideCache and by runMudslide below, so nothing this file spawns
+// can hang the per-user queue forever.
+function spawnWithTimeout(bin, args, timeoutMs, { cwd, input } = {}) {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(bin, args, cwd ? { cwd } : undefined);
+    const chunks = [];
+    let stderr = '';
+
+    const timer = setTimeout(() => {
+      proc.kill();
+      reject(new Error(`${bin} timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    proc.stdout.on('data', d => chunks.push(d));
+    proc.stderr.on('data', d => { stderr += d.toString(); });
+    proc.on('error', err => { clearTimeout(timer); reject(err); });
+    proc.on('close', code => {
+      clearTimeout(timer);
+      if (code === 0) resolve(Buffer.concat(chunks));
+      else reject(new Error(stripProxy(stderr) || `${bin} exited with code ${code}`));
+    });
+
+    if (input !== undefined) {
+      proc.stdin.write(input);
+      proc.stdin.end();
+    }
+  });
+}
 
 async function getProxiedIpInfo(userDir, token) {
   const confPath = await proxyConfPath(userDir, token).catch(() => null);
@@ -199,25 +249,8 @@ async function runMudslide(args, timeoutMs, userDir, token) {
   const bin  = useProxy ? CONFIG.PROXYCHAINS_PATH : CONFIG.MUDSLIDE_PATH;
   const argv = useProxy ? ['-f', confPath, CONFIG.MUDSLIDE_PATH, ...args] : args;
 
-  return new Promise((resolve, reject) => {
-    const proc = spawn(bin, argv);
-    let stdout = '';
-    let stderr = '';
-
-    proc.stdout.on('data', d => { stdout += d.toString(); });
-    proc.stderr.on('data', d => { stderr += d.toString(); });
-
-    const timer = setTimeout(() => {
-      proc.kill();
-      reject(new Error('mudslide timeout'));
-    }, timeoutMs);
-
-    proc.on('close', code => {
-      clearTimeout(timer);
-      if (code === 0) resolve(stripProxy(stdout));
-      else reject(new Error(stripProxy(stderr) || `mudslide exited with code ${code}`));
-    });
-  });
+  const stdout = await spawnWithTimeout(bin, argv, timeoutMs);
+  return stripProxy(stdout.toString());
 }
 
 // Kills and forgets any login process tracked for userDir. Guards on identity
