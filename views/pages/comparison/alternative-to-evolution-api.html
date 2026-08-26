@@ -1,22 +1,22 @@
-<!--#var title="Evolution API Alternative — Watobot vs Evolution API"-->
-<!--#var description="Comparing Evolution API and Watobot: self-hosting infrastructure requirements vs a free hosted service, read capability, ban risk, and which fits your use case."-->
+<!--#var title="Evolution API Alternatives — WhatsApp API Providers Compared"-->
+<!--#var description="An honest, feature-by-feature comparison of Evolution API against other WhatsApp API providers: self-hosting infrastructure requirements, read capability, ban risk, and which fits your use case."-->
 <!--#var canonical="https://watobot.xyz/comparison/alternative-to-evolution-api.html"-->
-<!--#var ogTitle="Evolution API Alternative — Watobot vs Evolution API"-->
-<!--#var ogDescription="An honest, feature-by-feature comparison of Evolution API and Watobot for WhatsApp automation."-->
-<!--#var twitterTitle="Evolution API Alternative — Watobot vs Evolution API"-->
-<!--#var twitterDescription="An honest, feature-by-feature comparison of Evolution API and Watobot for WhatsApp automation."-->
-<!--#var ogImage="https://watobot.xyz/assets/og.png"-->
+<!--#var ogTitle="Evolution API Alternatives — WhatsApp API Providers Compared"-->
+<!--#var ogDescription="An honest, feature-by-feature comparison of Evolution API against other WhatsApp API providers."-->
+<!--#var twitterTitle="Evolution API Alternatives — WhatsApp API Providers Compared"-->
+<!--#var twitterDescription="An honest, feature-by-feature comparison of Evolution API against other WhatsApp API providers."-->
+<!--#var ogImage="https://watobot.xyz/assets/whatsapp-api-provider-comparison.png"-->
 <!--#include partial="marketing-head"-->
 <!--#include partial="marketing-header-nav"-->
 
   <section class="px-gutter md:px-24 py-14 bg-surface-container-low">
     <div class="max-w-3xl mx-auto flex flex-col gap-4">
       <span class="font-label-md text-label-md text-secondary bg-secondary-container/30 px-3 py-1 rounded-full uppercase tracking-widest w-fit">Comparison</span>
-      <h1 class="font-headline-lg text-headline-lg text-on-surface">Evolution API alternative: how Watobot compares</h1>
+      <h1 class="font-headline-lg text-headline-lg text-on-surface">Evolution API alternatives: WhatsApp API providers compared</h1>
       <img src="/assets/whatsapp-api-provider-comparison.png" alt="WhatsApp API provider comparison" class="w-full rounded-xl border border-outline-variant" />
-      <p class="text-on-surface-variant font-body-lg">Evolution API is a capable, actively-developed open-source WhatsApp gateway — Apache 2.0 licensed, free, and it goes further than most of its self-hosted peers on group management and instance handling. If your team already runs infrastructure and wants a full-featured base to build on, it's a solid choice.</p>
+      <p class="text-on-surface-variant font-body-lg"><a href="https://doc.evolution-api.com/" target="_blank" rel="noopener" class="text-primary underline font-bold">Evolution API</a> is a capable, actively-developed open-source WhatsApp gateway — Apache 2.0 licensed, free, and it goes further than most of its self-hosted peers on group management and instance handling. If your team already runs infrastructure and wants a full-featured base to build on, it's a solid choice.</p>
       <p class="text-on-surface-variant font-body-lg">The cost is in what "self-hosted" actually means here: running Evolution API in production needs PostgreSQL for session state, Redis for caching, and a persistent volume for your WhatsApp auth data — meaningfully more moving parts than a lighter self-hosted option like WAHA, let alone a hosted service you don't run at all. You're also responsible for patching it when WhatsApp's Web protocol changes, and for any ban-risk mitigation (dedicated IPs, rate limiting) yourself — none of that comes built in. One small but real license detail: Evolution API's Apache 2.0 license requires you to display a visible notice that you're using it, wherever your system is administered — a minor obligation, but a real one, unlike a fully permissive license with no such requirement.</p>
-      <p class="text-on-surface-variant font-body-lg">It reads and responds to incoming messages via webhooks — something Watobot deliberately doesn't do.</p>
+      <p class="text-on-surface-variant font-body-lg">It reads and responds to incoming messages via webhooks — a real capability, not every WhatsApp API provider has it.</p>
     </div>
   </section>
 
