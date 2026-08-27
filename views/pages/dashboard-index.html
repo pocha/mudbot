@@ -554,13 +554,27 @@
 
       async function checkConnectionStatus() {
         try {
-          const response = await fetch(`${API_BASE}/api/whatsapp/status`, {
+          // /api/whatsapp actually connects to WhatsApp to verify the device
+          // is still linked (unlike /api/whatsapp/status, which is just a
+          // local file check and would stay "connected" even after the user
+          // unlinks this device from WhatsApp's own "Linked Devices" list).
+          const response = await fetch(`${API_BASE}/api/whatsapp`, {
             headers: { Authorization: `Bearer ${authToken}` },
           });
 
           if (response.ok) {
-            const status = await response.json();
-            updateConnectionUI(status.loggedIn, status.proxyIp);
+            const { connected } = await response.json();
+            if (!connected) {
+              updateConnectionUI(false);
+              return;
+            }
+            // Only for the IP/location display — /api/whatsapp already
+            // confirmed connectivity above.
+            const statusResponse = await fetch(`${API_BASE}/api/whatsapp/status`, {
+              headers: { Authorization: `Bearer ${authToken}` },
+            });
+            const status = statusResponse.ok ? await statusResponse.json() : {};
+            updateConnectionUI(true, status.proxyIp);
           } else if (response.status === 401) {
             alert("Session expired. Please login again.");
             localStorage.removeItem("authToken");

@@ -204,6 +204,20 @@ async function routes(fastify, options) {
     }
   });
 
+  // Actually connects to WhatsApp to verify the device is still linked
+  // (unlike /status below, which is just a local file check) — costs real
+  // seconds and a proxy+mudslide round trip, so this is for one-shot checks
+  // (dashboard load) rather than polling.
+  fastify.get('/api/whatsapp', { preHandler: authenticateUser }, async (request, reply) => {
+    try {
+      const connected = await mudslideService.checkDeviceStillConnected(request.user.userDir, request.user.token);
+      return { connected };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Failed to check WhatsApp connection' });
+    }
+  });
+
   fastify.get('/api/whatsapp/status', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       return await mudslideService.confirmWhatsappLogin(request.user.userDir, request.user.token);
