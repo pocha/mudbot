@@ -36,6 +36,21 @@ const ENCRYPT_TIMEOUT_MS = 20000;
 // possible and there's no cost to guarding it too.
 const RELAY_ACQUIRE_TIMEOUT_MS = 15000;
 
+// Applied to every send via our mudslide fork's --live-check/--typing/--wait-ack
+// flags: reject before sending to a number that isn't on WhatsApp, show a brief
+// typing indicator, then confirm delivery instead of firing blind.
+const TYPING_MS = 1500;
+const WAIT_ACK_MS = 15000;
+// We deliberately don't pass mudslide's own --timeout flag: its argParser is
+// `parseInt` passed directly to commander, which calls it as parseInt(value,
+// previousValue) — previousValue (the option's default, 60) lands in parseInt's
+// radix slot, so ANY explicit --timeout value parses to NaN and fires almost
+// instantly instead of waiting (setTimeout(fn, NaN) fires on the next tick).
+// mudslide keeps its own unpatched 60s default watchdog (safe — only the
+// argParser path is broken), and this is just the node-side spawnWithTimeout
+// kill in runMudslide, covering connect + live-check + typing + send + wait-ack.
+const SEND_TIMEOUT_MS = 75000;
+
 function mudslideEncFile(userDir) {
   return path.join(CONFIG.USERS_DIR, userDir, '.mudslide.enc');
 }
@@ -381,9 +396,11 @@ async function confirmWhatsappLogin(userDir, token) {
   return { loggedIn: true, proxyIp };
 }
 
+const SEND_CHECK_ARGS = ['--live-check', '--typing', String(TYPING_MS), '--wait-ack', String(WAIT_ACK_MS)];
+
 async function sendMessage(userDir, token, to, message) {
   return withSession(userDir, token, credPath =>
-    runMudslide(['-c', credPath, 'send', to, message], 60000, userDir, token),
+    runMudslide(['-c', credPath, 'send', to, message, ...SEND_CHECK_ARGS], SEND_TIMEOUT_MS, userDir, token),
     'sendMessage', { to, message }
   );
 }
@@ -395,7 +412,8 @@ async function sendMedia(userDir, token, to, mediaPath, caption = '') {
     const cmd = isImage ? 'send-image' : 'send-file';
     const args = ['-c', credPath, cmd, to, mediaPath];
     if (caption) args.push('--caption', caption);
-    await runMudslide(args, 60000, userDir, token);
+    args.push(...SEND_CHECK_ARGS);
+    await runMudslide(args, SEND_TIMEOUT_MS, userDir, token);
   }, 'sendMedia', { to, ...(caption && { caption }) });
 }
 
@@ -450,5 +468,6 @@ module.exports = {
   getGroups,
   whatsappDeviceDisconnect,
   purgeMudslideCache,
-  killAllLoginProcs
+  killAllLoginProcs,
+  SEND_CHECK_ARGS
 };
