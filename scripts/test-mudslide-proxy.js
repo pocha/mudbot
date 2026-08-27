@@ -24,6 +24,7 @@ const path = require('path');
 const readline = require('readline');
 const { spawn } = require('child_process');
 const { startRelay } = require('../services/dataimpulseRelay');
+const { SEND_CHECK_ARGS } = require('../services/mudslideService');
 
 const args = Object.fromEntries(
   process.argv.slice(2)
@@ -131,7 +132,7 @@ function waitForEnter(prompt) {
     }
 
     console.log(`Sending "${message}" to ${recipient}...`);
-    await runProxychained(['send', recipient, message]);
+    await runProxychained(['send', recipient, message, ...SEND_CHECK_ARGS]);
     console.log('\n✅ Sent successfully through proxychains -> relay -> DataImpulse -> WhatsApp.');
   } catch (err) {
     console.error('\n❌ Failed:', err.message);

@@ -24,6 +24,11 @@ const LOGIN_REAP_MS = 2 * 60 * 1000;
 // Per-user operation queue — ensures only one mudslide command runs at a time per user.
 const userQueue = {};
 const userQueueDepth = {};
+// Whether withSession currently holds a proxyRelayManager acquisition for a
+// user — set on acquire, unset on release, so the relay is acquired once per
+// batch (reused by every op after the first) instead of every single op,
+// mirroring how decryptMudslideToTemp reuses its temp dir across a batch.
+const relayHeld = {};
 
 // Tar spawns are otherwise unbounded — if one wedges (e.g. mid-write when the
 // process is killed for some other reason), it would hang forever with no
@@ -35,6 +40,40 @@ const ENCRYPT_TIMEOUT_MS = 20000;
 // no network — genuinely low hang risk, but a wedged disk/mount is still
 // possible and there's no cost to guarding it too.
 const RELAY_ACQUIRE_TIMEOUT_MS = 15000;
+
+// Applied to every send via our mudslide fork's --live-check/--typing/--wait-ack
+// flags: reject before sending to a number that isn't on WhatsApp, show a brief
+// typing indicator, then confirm delivery instead of firing blind.
+const TYPING_MS = 1500;
+const WAIT_ACK_MS = 15000;
+// We deliberately don't pass mudslide's own --timeout flag: its argParser is
+// `parseInt` passed directly to commander, which calls it as parseInt(value,
+// previousValue) — previousValue (the option's default, 60) lands in parseInt's
+// radix slot, so ANY explicit --timeout value parses to NaN and fires almost
+// instantly instead of waiting (setTimeout(fn, NaN) fires on the next tick).
+// mudslide keeps its own unpatched 60s default watchdog (safe — only the
+// argParser path is broken), and this is just the node-side spawnWithTimeout
+// kill in runMudslide, covering connect + live-check + typing + send + wait-ack.
+const SEND_TIMEOUT_MS = 75000;
+
+// Exact text our mudslide fork's `me` prints (via signale, to stdout) when
+// Baileys reports connection.update close with DisconnectReason.loggedOut —
+// i.e. the user removed this device from WhatsApp's own "Linked Devices"
+// list. Locally cached creds.json still exists and looks fine (checkLoggedIn
+// is just a file check), so this is the only way to actually tell.
+const DEVICE_UNLINKED_MARKER = 'Device unlinked from WhatsApp';
+// Short-lived on purpose: this only needs a yes/no/inconclusive answer, not
+// a full diagnostic wait — an inconclusive (timed-out) check is treated as
+// "not confirmed unlinked" and falls through to the normal retry path.
+const CONNECTION_CHECK_TIMEOUT_MS = 20000;
+
+// unsafeToRetry: confirmed unlinked (or already known to be), so a retry is
+// not just unsafe, it's pointless — the next attempt would fail identically.
+function deviceUnlinkedError() {
+  const err = new Error(DEVICE_UNLINKED_MARKER);
+  err.unsafeToRetry = true;
+  return err;
+}
 
 function mudslideEncFile(userDir) {
   return path.join(CONFIG.USERS_DIR, userDir, '.mudslide.enc');
@@ -127,10 +166,38 @@ async function notifySendFailure(userDir, token, action, error, meta) {
   });
 }
 
+// Standalone connectivity check, not part of the per-user queue — same as
+// getQRCode/getProxiedIpInfo below, it acquires/releases its own relay
+// directly. Runs mudslide's `me`, which our fork fails fast and distinctly
+// on a loggedOut disconnect (see mudslide's whatsapp.ts isLoggedOutDisconnect)
+// instead of hanging like `send`/`groups` do. Purges the local session itself
+// once a disconnect is confirmed, so callers just get a plain boolean back.
+async function checkDeviceStillConnected(userDir, token) {
+  // Callers via withSession's reactive check never hit this (the cheap
+  // isLoggedIn guard there already passed) — this only matters for the
+  // standalone /api/whatsapp route, where the user may never have logged in.
+  if (!(await isLoggedIn(userDir))) return false;
+  await withTimeout(proxyRelayManager.acquireRelay(userDir, token), RELAY_ACQUIRE_TIMEOUT_MS, 'acquireRelay');
+  try {
+    const credPath = await decryptMudslideToTemp(userDir, token);
+    try {
+      await runMudslide(['-c', credPath, 'me'], CONNECTION_CHECK_TIMEOUT_MS, userDir, token);
+      return true;
+    } catch (err) {
+      if (!err.message.includes(DEVICE_UNLINKED_MARKER)) return true;
+      await purgeMudslideCache(userDir).catch(() => {});
+      return false;
+    }
+  } finally {
+    await cleanupTemp(userDir).catch(() => {});
+    await proxyRelayManager.releaseRelay(userDir).catch(() => {});
+  }
+}
+
 // Queues fn(credPath) for the user — operations are strictly sequential per user,
-// ensuring WhatsApp sees one message at a time. Decrypts once on first op in a
-// batch, reuses the temp dir for subsequent ops, then encrypts and cleans up only
-// after the last queued op completes.
+// ensuring WhatsApp sees one message at a time. Acquires the relay and decrypts
+// once on the first op in a batch, reuses both for subsequent ops, then releases
+// the relay and encrypts/cleans up only after the last queued op completes.
 function withSession(userDir, token, fn, action = 'unknown', meta = {}) {
   userQueueDepth[userDir] = (userQueueDepth[userDir] || 0) + 1;
 
@@ -139,9 +206,55 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}) {
     let succeeded = false;
     let errMsg = null;
     try {
-      await withTimeout(proxyRelayManager.acquireRelay(userDir, token), RELAY_ACQUIRE_TIMEOUT_MS, 'acquireRelay');
-      credPath = await decryptMudslideToTemp(userDir, token);
-      const result = await fn(credPath);
+      // One retry of the whole operation for transient failures (a denied
+      // proxy connection, a relay that failed to come up, ...) — skipped when
+      // the failed attempt is flagged unsafeToRetry (see spawnWithTimeout),
+      // since we can't rule out the underlying send having already gone
+      // through. Before retrying, reset to a clean slate rather than reusing
+      // whatever the failed attempt left behind: release the relay (so the
+      // reacquire below gets a fresh instance instead of a possibly-degraded
+      // one) and wipe the decrypted temp dir (mudslide/Baileys may have
+      // written partial/mutated session state into it before failing —
+      // retrying from the last-known-good .mudslide.enc avoids carrying that
+      // forward).
+      let result;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          // A previous attempt (this batch, or an earlier one) may have
+          // already confirmed+purged a device-unlinked session — don't spin
+          // up mudslide/the relay again just to rediscover the same thing.
+          if (!(await isLoggedIn(userDir))) throw deviceUnlinkedError();
+          if (!relayHeld[userDir]) {
+            await withTimeout(proxyRelayManager.acquireRelay(userDir, token), RELAY_ACQUIRE_TIMEOUT_MS, 'acquireRelay');
+            relayHeld[userDir] = true;
+          }
+          credPath = await decryptMudslideToTemp(userDir, token);
+          result = await fn(credPath);
+          break;
+        } catch (err) {
+          if (relayHeld[userDir]) {
+            await proxyRelayManager.releaseRelay(userDir).catch(() => {});
+            relayHeld[userDir] = false;
+          }
+          await cleanupTemp(userDir).catch(() => {});
+          credPath = null;
+          // Disambiguate on the first failure, before deciding whether to
+          // retry — `send`/`groups`/etc don't report a loggedOut disconnect
+          // distinctly (only `me` does, see the mudslide fork), so a generic
+          // failure here — even one already flagged unsafeToRetry, like
+          // mudslide's own 'Action timed out' watchdog, which is exactly what
+          // `send` falls back to when the device is unlinked — could still be
+          // masking a genuinely unlinked device rather than a transient proxy
+          // blip. checkDeviceStillConnected acquires its own relay, safe now
+          // that we've just released ours above.
+          if (attempt === 1 && err.message !== DEVICE_UNLINKED_MARKER) {
+            meta.retryReason = err.message;
+            const isDeviceStillConnected = await checkDeviceStillConnected(userDir, token);
+            if (!isDeviceStillConnected) throw deviceUnlinkedError();
+          }
+          if (attempt === 2 || err.unsafeToRetry) throw err;
+        }
+      }
       succeeded = true;
       return result;
     } catch (err) {
@@ -160,8 +273,11 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}) {
         } else {
           await cleanupTemp(userDir);
         }
+        if (relayHeld[userDir]) {
+          await proxyRelayManager.releaseRelay(userDir);
+          relayHeld[userDir] = false;
+        }
       }
-      await proxyRelayManager.releaseRelay(userDir);
     }
   };
   const prev = userQueue[userDir] || Promise.resolve();
@@ -197,7 +313,12 @@ function spawnWithTimeout(bin, args, timeoutMs, { cwd, input } = {}) {
 
     const timer = setTimeout(() => {
       proc.kill();
-      reject(new Error(`${bin} timed out after ${timeoutMs}ms`));
+      // We had to force-kill it ourselves, so there's no way to tell whether
+      // the underlying send already went out before it hung — same reasoning
+      // as the 'Action timed out' case below, be conservative.
+      const err = new Error(`${bin} timed out after ${timeoutMs}ms`);
+      err.unsafeToRetry = true;
+      reject(err);
     }, timeoutMs);
 
     proc.stdout.on('data', d => chunks.push(d));
@@ -206,7 +327,17 @@ function spawnWithTimeout(bin, args, timeoutMs, { cwd, input } = {}) {
     proc.on('close', code => {
       clearTimeout(timer);
       if (code === 0) resolve(Buffer.concat(chunks));
-      else reject(new Error(stripProxy(stderr) || `${bin} exited with code ${code}`));
+      else {
+        const stdout = Buffer.concat(chunks).toString();
+        const err = new Error(stripProxy(stderr) || stripProxy(stdout) || `${bin} exited with code ${code}`);
+        // mudslide's own --timeout watchdog (preAction hook, defaults to 60s)
+        // prints this via signale to stdout before process.exit(1) — it's a
+        // flat wall-clock timer covering the whole action, so it can fire
+        // *after* a send already succeeded (e.g. mid --wait-ack). We can't
+        // tell pre- from post-send from here, so treat it as unsafe to retry.
+        err.unsafeToRetry = stdout.includes('Action timed out');
+        reject(err);
+      }
     });
 
     if (input !== undefined) {
@@ -381,9 +512,11 @@ async function confirmWhatsappLogin(userDir, token) {
   return { loggedIn: true, proxyIp };
 }
 
+const SEND_CHECK_ARGS = ['--live-check', '--typing', String(TYPING_MS), '--wait-ack', String(WAIT_ACK_MS)];
+
 async function sendMessage(userDir, token, to, message) {
   return withSession(userDir, token, credPath =>
-    runMudslide(['-c', credPath, 'send', to, message], 60000, userDir, token),
+    runMudslide(['-c', credPath, 'send', to, message, ...SEND_CHECK_ARGS], SEND_TIMEOUT_MS, userDir, token),
     'sendMessage', { to, message }
   );
 }
@@ -395,7 +528,8 @@ async function sendMedia(userDir, token, to, mediaPath, caption = '') {
     const cmd = isImage ? 'send-image' : 'send-file';
     const args = ['-c', credPath, cmd, to, mediaPath];
     if (caption) args.push('--caption', caption);
-    await runMudslide(args, 60000, userDir, token);
+    args.push(...SEND_CHECK_ARGS);
+    await runMudslide(args, SEND_TIMEOUT_MS, userDir, token);
   }, 'sendMedia', { to, ...(caption && { caption }) });
 }
 
@@ -445,10 +579,12 @@ async function purgeMudslideCache(userDir) {
 module.exports = {
   getQRCode,
   confirmWhatsappLogin,
+  checkDeviceStillConnected,
   sendMessage,
   sendMedia,
   getGroups,
   whatsappDeviceDisconnect,
   purgeMudslideCache,
-  killAllLoginProcs
+  killAllLoginProcs,
+  SEND_CHECK_ARGS
 };
