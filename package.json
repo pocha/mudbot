@@ -8,7 +8,8 @@
     "start": "node server.js",
     "build": "node scripts/build-pages.js",
     "test": "node test/flow.test.js && jest",
-    "test-mudslide-proxy": "node scripts/test-mudslide-proxy.js"
+    "test-mudslide-proxy": "node scripts/test-mudslide-proxy.js",
+    "test-message-chain": "node scripts/test-message-chain.js"
   },
   "repository": {
     "type": "git",

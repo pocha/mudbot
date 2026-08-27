@@ -24,6 +24,11 @@ const LOGIN_REAP_MS = 2 * 60 * 1000;
 // Per-user operation queue — ensures only one mudslide command runs at a time per user.
 const userQueue = {};
 const userQueueDepth = {};
+// Whether withSession currently holds a proxyRelayManager acquisition for a
+// user — set on acquire, unset on release, so the relay is acquired once per
+// batch (reused by every op after the first) instead of every single op,
+// mirroring how decryptMudslideToTemp reuses its temp dir across a batch.
+const relayHeld = {};
 
 // Tar spawns are otherwise unbounded — if one wedges (e.g. mid-write when the
 // process is killed for some other reason), it would hang forever with no
@@ -143,9 +148,9 @@ async function notifySendFailure(userDir, token, action, error, meta) {
 }
 
 // Queues fn(credPath) for the user — operations are strictly sequential per user,
-// ensuring WhatsApp sees one message at a time. Decrypts once on first op in a
-// batch, reuses the temp dir for subsequent ops, then encrypts and cleans up only
-// after the last queued op completes.
+// ensuring WhatsApp sees one message at a time. Acquires the relay and decrypts
+// once on the first op in a batch, reuses both for subsequent ops, then releases
+// the relay and encrypts/cleans up only after the last queued op completes.
 function withSession(userDir, token, fn, action = 'unknown', meta = {}) {
   userQueueDepth[userDir] = (userQueueDepth[userDir] || 0) + 1;
 
@@ -154,9 +159,42 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}) {
     let succeeded = false;
     let errMsg = null;
     try {
-      await withTimeout(proxyRelayManager.acquireRelay(userDir, token), RELAY_ACQUIRE_TIMEOUT_MS, 'acquireRelay');
-      credPath = await decryptMudslideToTemp(userDir, token);
-      const result = await fn(credPath);
+      // One retry of the whole operation for transient failures (a denied
+      // proxy connection, a relay that failed to come up, ...) — skipped when
+      // the failed attempt is flagged unsafeToRetry (see spawnWithTimeout),
+      // since we can't rule out the underlying send having already gone
+      // through. Before retrying, reset to a clean slate rather than reusing
+      // whatever the failed attempt left behind: release the relay (so the
+      // reacquire below gets a fresh instance instead of a possibly-degraded
+      // one) and wipe the decrypted temp dir (mudslide/Baileys may have
+      // written partial/mutated session state into it before failing —
+      // retrying from the last-known-good .mudslide.enc avoids carrying that
+      // forward).
+      let result;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          if (!relayHeld[userDir]) {
+            await withTimeout(proxyRelayManager.acquireRelay(userDir, token), RELAY_ACQUIRE_TIMEOUT_MS, 'acquireRelay');
+            relayHeld[userDir] = true;
+          }
+          credPath = await decryptMudslideToTemp(userDir, token);
+          result = await fn(credPath);
+          break;
+        } catch (err) {
+          if (attempt === 2 || err.unsafeToRetry) throw err;
+          // Record the first attempt's failure so it's not silently lost —
+          // it ends up in the final appendUsageLog call below (which spreads
+          // meta into the logged payload) whether this op ultimately
+          // succeeds on retry or fails again with a different error.
+          meta.retryReason = err.message;
+          if (relayHeld[userDir]) {
+            await proxyRelayManager.releaseRelay(userDir).catch(() => {});
+            relayHeld[userDir] = false;
+          }
+          await cleanupTemp(userDir).catch(() => {});
+          credPath = null;
+        }
+      }
       succeeded = true;
       return result;
     } catch (err) {
@@ -175,8 +213,11 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}) {
         } else {
           await cleanupTemp(userDir);
         }
+        if (relayHeld[userDir]) {
+          await proxyRelayManager.releaseRelay(userDir);
+          relayHeld[userDir] = false;
+        }
       }
-      await proxyRelayManager.releaseRelay(userDir);
     }
   };
   const prev = userQueue[userDir] || Promise.resolve();
@@ -212,7 +253,12 @@ function spawnWithTimeout(bin, args, timeoutMs, { cwd, input } = {}) {
 
     const timer = setTimeout(() => {
       proc.kill();
-      reject(new Error(`${bin} timed out after ${timeoutMs}ms`));
+      // We had to force-kill it ourselves, so there's no way to tell whether
+      // the underlying send already went out before it hung — same reasoning
+      // as the 'Action timed out' case below, be conservative.
+      const err = new Error(`${bin} timed out after ${timeoutMs}ms`);
+      err.unsafeToRetry = true;
+      reject(err);
     }, timeoutMs);
 
     proc.stdout.on('data', d => chunks.push(d));
@@ -221,7 +267,17 @@ function spawnWithTimeout(bin, args, timeoutMs, { cwd, input } = {}) {
     proc.on('close', code => {
       clearTimeout(timer);
       if (code === 0) resolve(Buffer.concat(chunks));
-      else reject(new Error(stripProxy(stderr) || `${bin} exited with code ${code}`));
+      else {
+        const stdout = Buffer.concat(chunks).toString();
+        const err = new Error(stripProxy(stderr) || stripProxy(stdout) || `${bin} exited with code ${code}`);
+        // mudslide's own --timeout watchdog (preAction hook, defaults to 60s)
+        // prints this via signale to stdout before process.exit(1) — it's a
+        // flat wall-clock timer covering the whole action, so it can fire
+        // *after* a send already succeeded (e.g. mid --wait-ack). We can't
+        // tell pre- from post-send from here, so treat it as unsafe to retry.
+        err.unsafeToRetry = stdout.includes('Action timed out');
+        reject(err);
+      }
     });
 
     if (input !== undefined) {
