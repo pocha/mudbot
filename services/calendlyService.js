@@ -3,7 +3,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { writeUserFile, readUserFile, generateCalendlyKey } = require('./userService');
 const mudslideService = require('./mudslideService');
-const ApiError = require('./apiError');
+const ApiError = require('./helpers/apiError');
 
 // Computed at call time, not module load — CLOUD_FUNCTIONS_BASE_URL (set by
 // scripts/functions-emulator.js when the local Functions emulator is
