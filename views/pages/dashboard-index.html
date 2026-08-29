@@ -570,11 +570,11 @@
             }
             // Only for the IP/location display — /api/whatsapp already
             // confirmed connectivity above.
-            const statusResponse = await fetch(`${API_BASE}/api/whatsapp/status`, {
+            const ipResponse = await fetch(`${API_BASE}/api/whatsapp/ip`, {
               headers: { Authorization: `Bearer ${authToken}` },
             });
-            const status = statusResponse.ok ? await statusResponse.json() : {};
-            updateConnectionUI(true, status.proxyIp);
+            const { proxyIp } = ipResponse.ok ? await ipResponse.json() : {};
+            updateConnectionUI(true, proxyIp);
           } else if (response.status === 401) {
             alert("Session expired. Please login again.");
             localStorage.removeItem("authToken");

@@ -48,7 +48,7 @@ async function routes(fastify, options) {
   // reading the (nonexistent) .mudslide.enc file, surfacing as a raw 500.
   const requireWhatsapp = async (request, reply) => {
     try {
-      const status = await mudslideService.confirmWhatsappLogin(request.user.userDir, request.user.token);
+      const status = await mudslideService.isWhatsappConnected(request.user.userDir, request.user.token);
       if (!status.loggedIn) {
         return reply.code(409).send({ error: 'WhatsApp is not connected yet.', reason: 'whatsapp_not_connected' });
       }
@@ -210,7 +210,7 @@ async function routes(fastify, options) {
   // (dashboard load) rather than polling.
   fastify.get('/api/whatsapp', { preHandler: authenticateUser }, async (request, reply) => {
     try {
-      const connected = await mudslideService.checkDeviceStillConnected(request.user.userDir, request.user.token);
+      const connected = await mudslideService.confirmWhatsappIsActuallyConnected(request.user.userDir, request.user.token);
       return { connected };
     } catch (error) {
       fastify.log.error(error);
@@ -220,10 +220,23 @@ async function routes(fastify, options) {
 
   fastify.get('/api/whatsapp/status', { preHandler: authenticateUser }, async (request, reply) => {
     try {
-      return await mudslideService.confirmWhatsappLogin(request.user.userDir, request.user.token);
+      return await mudslideService.isWhatsappConnected(request.user.userDir, request.user.token);
     } catch (error) {
       fastify.log.error(error);
       return reply.code(500).send({ error: 'Failed to check status' });
+    }
+  });
+
+  // proxyIp is fetched separately from /status specifically so it doesn't
+  // block or slow down status polling / the requireWhatsapp gate on every
+  // send — a real proxy+curl round trip only pays off when something is
+  // actually going to display the IP.
+  fastify.get('/api/whatsapp/ip', { preHandler: authenticateUser }, async (request, reply) => {
+    try {
+      return await mudslideService.getWhatsappProxyIp(request.user.userDir, request.user.token);
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Failed to fetch proxy IP' });
     }
   });
 
@@ -246,26 +259,33 @@ async function routes(fastify, options) {
     }
   });
 
-  fastify.post('/api/whatsapp/login/confirm', { preHandler: authenticateUser }, async (request, reply) => {
+  // Fired once the frontend claims the user's device shows connected — that's
+  // just a client-side assertion, so this re-verifies with the real network
+  // check (not the cheap isWhatsappConnected requireWhatsapp uses elsewhere)
+  // before telling the operator, rather than trusting the claim blindly. On
+  // 409 the frontend should show a "not confirmed yet, try again" prompt —
+  // same shape requireWhatsapp already returns elsewhere in this file.
+  fastify.post('/api/whatsapp/notify-user-connected', { preHandler: authenticateUser }, async (request, reply) => {
     try {
-      const status = await mudslideService.confirmWhatsappLogin(request.user.userDir, request.user.token);
-      if (status.loggedIn) {
-        userService.readUserFile(
-          require('path').join(__dirname, '..', 'users', request.user.userDir, 'proxy.json'),
-          request.user.token
-        ).then(raw => {
-          const proxy = JSON.parse(raw);
-          emailService.sendOwnerNotification('whatsapp_connected', {
-            userDir: request.user.userDir,
-            country: proxy.country,
-            city: proxy.city
-          });
-        }).catch(() => {});
+      const connected = await mudslideService.confirmWhatsappIsActuallyConnected(request.user.userDir, request.user.token);
+      if (!connected) {
+        return reply.code(409).send({ error: 'WhatsApp is not connected yet.', reason: 'whatsapp_not_connected' });
       }
-      return { success: true, loggedIn: status.loggedIn };
+      userService.readUserFile(
+        require('path').join(__dirname, '..', 'users', request.user.userDir, 'proxy.json'),
+        request.user.token
+      ).then(raw => {
+        const proxy = JSON.parse(raw);
+        emailService.sendOwnerNotification('whatsapp_connected', {
+          userDir: request.user.userDir,
+          country: proxy.country,
+          city: proxy.city
+        });
+      }).catch(() => {});
+      return { success: true };
     } catch (error) {
       fastify.log.error(error);
-      return reply.code(500).send({ error: 'Login confirmation failed' });
+      return reply.code(500).send({ error: 'Failed to confirm connection' });
     }
   });
 

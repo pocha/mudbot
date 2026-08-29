@@ -277,9 +277,11 @@ Registration, login, API key, and WhatsApp connection lifecycle.
 | `GET` | `/api/verify/:token` | Verify a magic-link token is valid |
 | `POST` | `/api/apikey/generate` | Generate a 1-hour API key |
 | `GET` | `/api/apikey/status` | Check if a key exists and whether it has expired |
-| `GET` | `/api/whatsapp/status` | Check WhatsApp connection status |
+| `GET` | `/api/whatsapp/status` | Check WhatsApp connection status (local file check only — cheap, safe to poll) |
+| `GET` | `/api/whatsapp` | Actually verify the connection with WhatsApp's servers (costs a real round trip — use for one-off checks, not polling) |
+| `GET` | `/api/whatsapp/ip` | Fetch the residential IP/location currently proxying this account's connection |
 | `GET` | `/api/whatsapp/qr` | Get QR code for WhatsApp login |
-| `POST` | `/api/whatsapp/login/confirm` | Confirm QR scan is complete |
+| `POST` | `/api/whatsapp/notify-user-connected` | Confirm QR scan is complete (re-verifies the connection server-side before notifying) |
 | `POST` | `/api/whatsapp/logout` | Initiate WhatsApp disconnect |
 | `POST` | `/api/whatsapp/logout/confirm` | Clean up session after manual device removal |
 

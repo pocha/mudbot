@@ -151,8 +151,11 @@ async function notifySendFailure(userDir, token, action, error, meta) {
 // on a loggedOut disconnect (see mudslide's whatsapp.ts isLoggedOutDisconnect)
 // instead of hanging like `send`/`groups` do. Purges the local session itself
 // once a disconnect is confirmed, so callers just get a plain boolean back.
-async function checkDeviceStillConnected(userDir, token) {
-  if (!(await isLoggedIn(userDir))) return false;
+// Prerequisite is the full isWhatsappConnected (not just the raw isLoggedIn
+// file check) so a session that was *just* scanned but not yet finalized
+// into .mudslide.enc doesn't read as "not connected" here.
+async function confirmWhatsappIsActuallyConnected(userDir, token) {
+  if (!(await isWhatsappConnected(userDir, token)).loggedIn) return false;
   await proxyRelayManager.acquireRelay(userDir, token);
   try {
     const credPath = await decryptMudslideToTemp(userDir, token);
@@ -184,7 +187,7 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}) {
 
     const doWork = async () => {
       // A previous op (this batch, or an earlier request) may have already
-      // purged a device-unlinked session (see checkDeviceStillConnected) —
+      // purged a device-unlinked session (see confirmWhatsappIsActuallyConnected) —
       // fail with a clear message here rather than a raw ENOENT from decrypt.
       if (!(await isLoggedIn(userDir))) throw new Error(DEVICE_UNLINKED_MARKER);
       if (!relayHeld[userDir]) {
@@ -415,7 +418,14 @@ async function getQRCode(userDir, token) {
   });
 }
 
-async function confirmWhatsappLogin(userDir, token) {
+// Cheap, local-only check: does a usable session exist. Also finalizes a
+// just-scanned session (creds.json is written in plaintext the moment a QR
+// scan succeeds, before it's been encrypted into .mudslide.enc) — this is
+// what actually detects and completes a login, not getQRCode itself (which
+// resolves long before the scan happens). No proxy/network call here; that's
+// getWhatsappProxyIp's job, kept separate specifically so this stays cheap
+// enough to gate every mudslide-touching request without adding real cost.
+async function isWhatsappConnected(userDir, token) {
   const encExists = await isLoggedIn(userDir);
 
   // creds.json is written only after a successful QR scan — check it specifically
@@ -434,11 +444,16 @@ async function confirmWhatsappLogin(userDir, token) {
     }
   }
 
-  const loggedIn = plaintextReady || encExists;
-  if (!loggedIn) return { loggedIn: false };
+  return { loggedIn: plaintextReady || encExists };
+}
 
+// Real network round trip (acquires a relay) — deliberately not gated behind
+// isWhatsappConnected, since this can legitimately be called before the
+// device is confirmed connected.
+async function getWhatsappProxyIp(userDir, token) {
+  if (!(await isLoggedIn(userDir))) return { proxyIp: null };
   const proxyIp = await getProxiedIpInfo(userDir, token).catch(() => null);
-  return { loggedIn: true, proxyIp };
+  return { proxyIp };
 }
 
 async function sendMessage(userDir, token, to, message) {
@@ -504,8 +519,9 @@ async function purgeMudslideCache(userDir) {
 
 module.exports = {
   getQRCode,
-  confirmWhatsappLogin: withErrorOnTimeout(confirmWhatsappLogin, OPERATION_TIMEOUT_MS, `confirmWhatsappLogin timed out after ${OPERATION_TIMEOUT_MS}ms`),
-  checkDeviceStillConnected: withErrorOnTimeout(checkDeviceStillConnected, OPERATION_TIMEOUT_MS, `checkDeviceStillConnected timed out after ${OPERATION_TIMEOUT_MS}ms`),
+  isWhatsappConnected,
+  confirmWhatsappIsActuallyConnected: withErrorOnTimeout(confirmWhatsappIsActuallyConnected, OPERATION_TIMEOUT_MS, `confirmWhatsappIsActuallyConnected timed out after ${OPERATION_TIMEOUT_MS}ms`),
+  getWhatsappProxyIp: withErrorOnTimeout(getWhatsappProxyIp, OPERATION_TIMEOUT_MS, `getWhatsappProxyIp timed out after ${OPERATION_TIMEOUT_MS}ms`),
   sendMessage,
   sendMedia,
   getGroups,

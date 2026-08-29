@@ -464,13 +464,12 @@
             errMsg.classList.add('hidden');
 
             try {
-                const response = await fetch(`${API_BASE}/api/whatsapp/login/confirm`, {
+                const response = await fetch(`${API_BASE}/api/whatsapp/notify-user-connected`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                const data = await response.json();
 
-                if (response.ok && data.loggedIn) {
+                if (response.ok) {
                     document.getElementById('loginModal').classList.add('hidden');
                     showSuccess();
                     setTimeout(() => { window.location.href = '/dashboard/'; }, 1500);
