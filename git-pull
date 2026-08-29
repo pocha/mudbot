@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+remote="${1:?Usage: ./git-pull <remote> <branch>}"
+branch="${2:?Usage: ./git-pull <remote> <branch>}"
+
+# 1. Collect skip-worktree files
+skip_files=$(git ls-files -v | grep '^S' | awk '{print $2}')
+
+# 2. Unset skip-worktree
+if [[ -n "$skip_files" ]]; then
+    echo "$skip_files" | xargs git update-index --no-skip-worktree
+fi
+
+# 3. Force-reset to remote branch
+git fetch "$remote"
+git reset --hard "$remote/$branch"
+
+# 4. Re-apply skip-worktree
+if [[ -n "$skip_files" ]]; then
+    echo "$skip_files" | xargs git update-index --skip-worktree
+fi
+
+# 5. Pull (in case there are new commits after reset)
+git pull "$remote" "$branch"
+
+echo "Done. Pulled $remote/$branch."   
