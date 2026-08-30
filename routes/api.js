@@ -98,9 +98,8 @@ async function routes(fastify, options) {
       // whatsappConnected itself, so this now just becomes an explicit
       // `next` straight to the dashboard, same mechanism as any other caller.
       if (!safeNext && skipWhatsappConnect) safeNext = '/dashboard/';
-      const { token, userDir } = await userService.registerUser(email);
+      const { token } = await userService.registerUser(email);
       await emailService.sendRegistrationEmail(email, token, { next: safeNext });
-      emailService.sendOwnerNotification('new_registration', { userDir, email }).catch(() => {});
       return { success: true, message: 'Registration email sent. Please check your inbox.' };
     } catch (error) {
       fastify.log.error(error);
@@ -112,10 +111,23 @@ async function routes(fastify, options) {
   // gate now (just proves the token and redirects); whatsapp-connect.html
   // is the one place that cares about connection status, and it checks
   // GET /api/whatsapp/status itself once it's actually loaded.
+  //
+  // The new_registration owner notification fires from here (on
+  // firstVerification specifically, not every hit — see verifyToken) rather
+  // than from /api/register, since it's meant to signal a real person
+  // actually landed on the site, not just that a link was requested. email
+  // comes from the query string — verify.html's magic link already carries
+  // it, and nothing is persisted server-side before this point (registerUser
+  // deliberately writes nothing to disk for a brand-new email, so a
+  // mistyped one never leaves an orphaned directory), so this request is
+  // the only place that email is available from.
   fastify.get('/api/verify/:token', async (request, reply) => {
     try {
       const user = await userService.verifyToken(request.params.token);
       if (!user) return reply.code(401).send({ error: 'Invalid or expired token' });
+      if (user.firstVerification) {
+        emailService.sendOwnerNotification('new_registration', { userDir: user.userDir, email: request.query.email }).catch(() => {});
+      }
       return { success: true };
     } catch (error) {
       fastify.log.error(error);
