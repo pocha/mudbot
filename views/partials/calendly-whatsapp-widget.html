@@ -399,7 +399,7 @@
     document.getElementById("calendly-verify-meeting-select").addEventListener("change", renderVerifyStep);
     document.getElementById("watobot-meeting-select").addEventListener("change", renderWatobotMeetingPanel);
     document.getElementById("watobot-autosend-checkbox").addEventListener("change", handleWatobotCheckboxChange);
-    document.getElementById("watobot-save-btn").addEventListener("click", () => saveWatobotMeeting());
+    document.getElementById("watobot-save-btn").addEventListener("click", () => saveWatobotMeeting({ closeOnSuccess: true }));
     document.getElementById("watobot-test-btn").addEventListener("click", testWatobotMessage);
     document.getElementById("watobot-step1-next-btn").addEventListener("click", () => showWatobotStep(2));
 
@@ -755,13 +755,13 @@
         });
 
       if (found) {
-        result.className = "text-sm px-4 py-3 rounded-xl bg-primary/5 text-primary";
-        result.textContent = `Booking detected: ${found.name || "Unknown"} — phone ${found.phone || "not captured"} (status: ${found.status || "pending"}).`;
-        result.classList.remove("hidden");
-
         const updated = { ...meeting, embedVerified: true, embedVerifiedAt: new Date().toISOString() };
         await updateDoc(userRef(), { [`calendlyConfig.meetings.${meetingId}`]: updated });
         calendlyConfig.meetings[meetingId] = updated;
+
+        closeCalendlyModal();
+        alert("Calendly integration successful");
+        return;
       } else {
         result.className = "text-sm px-4 py-3 rounded-xl bg-amber-50 text-amber-700";
         result.textContent = "No booking detected yet — confirm the snippet is live on your page, make a booking, then click Check again.";
@@ -902,7 +902,7 @@
     saveWatobotMeeting({ autoSendEnabledOverride: checkbox.checked });
   }
 
-  async function saveWatobotMeeting({ autoSendEnabledOverride } = {}) {
+  async function saveWatobotMeeting({ autoSendEnabledOverride, closeOnSuccess } = {}) {
     const meetingId = document.getElementById("watobot-meeting-select").value;
     const m = meetings()[meetingId];
     if (!m) return;
@@ -915,6 +915,7 @@
     try {
       await updateDoc(userRef(), { [`calendlyConfig.meetings.${meetingId}`]: updated });
       calendlyConfig.meetings[meetingId] = updated;
+      if (closeOnSuccess) closeWatobotModal();
     } catch (error) {
       console.error("Error saving message settings:", error);
       alert("Failed to save message settings");
