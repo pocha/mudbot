@@ -282,8 +282,7 @@ Registration, login, API key, and WhatsApp connection lifecycle.
 | `GET` | `/api/whatsapp/ip` | Fetch the residential IP/location currently proxying this account's connection |
 | `GET` | `/api/whatsapp/qr` | Get QR code for WhatsApp login |
 | `POST` | `/api/whatsapp/notify-user-connected` | Confirm QR scan is complete (re-verifies the connection server-side before notifying) |
-| `POST` | `/api/whatsapp/logout` | Initiate WhatsApp disconnect |
-| `POST` | `/api/whatsapp/logout/confirm` | Clean up session after manual device removal |
+| `POST` | `/api/whatsapp/logout` | Clean up session after manual device removal |
 
 ### Send Message
 

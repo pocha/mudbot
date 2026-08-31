@@ -523,18 +523,6 @@ async function getGroups(userDir, token) {
   }, 'getGroups');
 }
 
-// Signals WhatsApp to remove this device. Queued so it waits for any in-flight
-// send to finish before disconnecting.
-async function whatsappDeviceDisconnect(userDir, token) {
-  if (!token) return;
-  try {
-    await withSession(userDir, token, credPath =>
-      runMudslide(['-c', credPath, 'logout'], OPERATION_TIMEOUT_MS, userDir, token),
-      'logout'
-    );
-  } catch {}
-}
-
 // Deletes all session files after the user confirms device removal from WhatsApp.
 async function purgeMudslideCache(userDir) {
   await fs.rm(mudslideDir(userDir), { recursive: true, force: true });
@@ -550,7 +538,6 @@ module.exports = {
   sendMessage,
   sendMedia,
   getGroups,
-  whatsappDeviceDisconnect,
   purgeMudslideCache,
   killAllLoginProcs
 };

@@ -46,40 +46,21 @@
         title.textContent = isFullLogout ? "Log out of WatoBot" : "Disconnect WhatsApp";
         confirmBtn.dataset.isFullLogout = isFullLogout ? "1" : "0";
 
-        // Phase 1 — asking WhatsApp to disconnect
         body.innerHTML = `
-        <div class="flex items-center gap-3 text-on-surface-variant">
-            <div class="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
-            <p class="text-body-md">Asking WhatsApp to remove this device… please wait.</p>
-        </div>
+        <p class="text-on-surface-variant text-body-md mb-3">
+            Please remove this device from WhatsApp:
+        </p>
+        <ol class="space-y-2 text-body-md text-on-surface-variant list-decimal list-inside">
+            <li>Open WhatsApp → tap <strong>Linked Devices</strong></li>
+            <li>If <strong>"Google Chrome"</strong> is listed, tap it and choose <strong>Log out</strong></li>
+            <li>Once it's gone, click <strong>Continue</strong> below</li>
+        </ol>
         <p id="logoutModalError" class="hidden mt-3 text-sm text-error">Something went wrong. Please try again.</p>
     `;
         confirmBtn.textContent = "Continue — device is removed";
-        confirmBtn.disabled = true;
+        confirmBtn.disabled = false;
         cancelBtn.disabled = false;
         modal.classList.remove("hidden");
-
-        // Await mudslide logout — when done (or timed out after 30 s) switch to phase 2
-        fetch(`${API_BASE}/api/whatsapp/logout`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${authToken}` },
-        })
-          .catch(() => {})
-          .finally(() => {
-            // Phase 2 — mudslide done, ask user to verify manually
-            body.innerHTML = `
-            <p class="text-on-surface-variant text-body-md mb-3">
-                We've asked WhatsApp to remove this device. Please verify on your phone:
-            </p>
-            <ol class="space-y-2 text-body-md text-on-surface-variant list-decimal list-inside">
-                <li>Open WhatsApp → tap <strong>Linked Devices</strong></li>
-                <li>If <strong>"Google Chrome"</strong> is still listed, tap it and choose <strong>Log out</strong></li>
-                <li>Once it's gone, click <strong>Continue</strong> below</li>
-            </ol>
-            <p id="logoutModalError" class="hidden mt-3 text-sm text-error">Something went wrong. Please try again.</p>
-        `;
-            confirmBtn.disabled = false;
-          });
       }
 
       async function handleLogoutConfirm() {
@@ -93,7 +74,7 @@
         errMsg?.classList.add("hidden");
 
         try {
-          const res = await fetch(`${API_BASE}/api/whatsapp/logout/confirm`, {
+          const res = await fetch(`${API_BASE}/api/whatsapp/logout`, {
             method: "POST",
             headers: { Authorization: `Bearer ${authToken}` },
           });

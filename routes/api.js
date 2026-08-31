@@ -317,21 +317,12 @@ async function routes(fastify, options) {
     }
   });
 
-  // Attempts graceful mudslide logout (tells WhatsApp to disconnect the device).
-  // Awaits completion (up to 30 s) so the frontend can switch to the "please verify" phase.
-  // Always returns success — if mudslide fails the user can remove the device manually.
-  fastify.post('/api/whatsapp/logout', { preHandler: authenticateUser }, async (request, reply) => {
-    try {
-      await mudslideService.whatsappDeviceDisconnect(request.user.userDir, request.user.token);
-    } catch (error) {
-      fastify.log.error(error);
-    }
-    return { success: true };
-  });
-
   // Called after user confirms the device is gone from WhatsApp Linked Devices.
-  // Deletes local session files and removes all cron jobs.
-  fastify.post('/api/whatsapp/logout/confirm', { preHandler: authenticateUser }, async (request, reply) => {
+  // Deletes local session files and removes all cron jobs. No mudslide/network
+  // call — we no longer ask mudslide to gracefully unlink the device first
+  // (that could take up to 60s and its outcome never changed what the user
+  // was shown), so the modal goes straight to "please remove it manually".
+  fastify.post('/api/whatsapp/logout', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       await scheduleService.removeAllCronJobs(request.user.userDir);
       await mudslideService.purgeMudslideCache(request.user.userDir);
