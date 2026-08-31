@@ -73,23 +73,23 @@
   line-height: 18px;
   letter-spacing: 0.05em;
   font-weight: 600;
-  color: #3c4a3d; /* on-surface-variant */
+  color: #8b948c; /* faded on-surface-variant — lightened so muted text actually reads as muted against on-surface's #191c1e, not just differently-hued */
 }
 
 .text-muted {
-  color: #3c4a3d; /* on-surface-variant */
+  color: #8b948c; /* faded on-surface-variant — lightened so muted text actually reads as muted against on-surface's #191c1e, not just differently-hued */
   font-family: 'Inter', sans-serif; /* font-body-md */
 }
 
 .text-muted-sm {
-  color: #3c4a3d; /* on-surface-variant */
+  color: #8b948c; /* faded on-surface-variant — lightened so muted text actually reads as muted against on-surface's #191c1e, not just differently-hued */
   font-family: 'Inter', sans-serif; /* font-body-md */
   font-size: 0.875rem; /* text-sm */
   line-height: 1.25rem;
 }
 
 .text-body-muted {
-  color: #3c4a3d; /* on-surface-variant */
+  color: #8b948c; /* faded on-surface-variant — lightened so muted text actually reads as muted against on-surface's #191c1e, not just differently-hued */
   font-size: 14px;
   line-height: 20px;
   font-weight: 400; /* text-body-md */

@@ -11,14 +11,47 @@
 
   <!-- Hero -->
   <section class="px-gutter md:px-24 py-14 bg-surface-container-low">
-    <div class="max-w-2xl mx-auto text-center flex flex-col gap-4 items-center">
-      <span class="font-label-md text-label-md text-secondary bg-secondary-container/30 px-3 py-1 rounded-full uppercase tracking-widest">Works on Calendly's free plan</span>
+    <div class="max-w-5xl mx-auto text-center">
       <h1 class="font-headline-lg text-headline-lg text-on-surface">Automatic Whatsapp message on Calendly booking</h1>
-      <p class="text-on-surface-variant font-body-lg" style="text-align:left">Connect your Calendly account, add one line of code to your booking page, and every person who books a meeting automatically gets a WhatsApp message <b>from your number</b>.</p>
-      <p class="text-muted-sm" style="text-align:left">Response on the number will come directly to you. Provision of re-targetting prospect before/after meeting via simple chat prompt</p>
     </div>
-    <div class="max-w-2xl mx-auto mt-8">
+
+    <!-- Live demo: book a real slot on Ashish's own Calendly below, and this
+         exact integration fires — you get a WhatsApp message from him
+         moments later. The script tag is Watobot's own runtime-script
+         (scoped Calendly key, safe to embed publicly — see
+         authenticateCalendlyKey in routes/api.js), pushing this booking
+         through the same pipeline every user's own setup would use. -->
+    <div id="book-demo" class="max-w-5xl mx-auto mt-10 grid grid-cols-1 md:grid-cols-2 gap-8 items-start scroll-mt-20">
+      <div class="card p-2 md:p-4">
+        <script src="https://api.watobot.xyz/api/calendly/code?token=df580050aa6e8bd5dfd672da18a13e35f65e7f2f7e3741ce9d2acc3e24e34745&meetingId=d05d881b-0c7e-45e8-a651-25b7219f9ce6"></script>
+        <div class="calendly-inline-widget" data-url="https://calendly.com/gardeniavidesi/30min" style="min-width:280px;height:650px;"></div>
+        <script type="text/javascript" src="https://assets.calendly.com/assets/external/widget.js" async></script>
+      </div>
+      <div class="flex flex-col gap-4 mt-6 md:mt-10">
+        <ul class="list-disc pl-5 space-y-1 text-on-surface-variant font-body-lg">
+          <li>Connect your Calendly account in Watobot</li>
+          <li>Add one line of code on your website</li>
+          <li>Connect WhatsApp to Watobot</li>
+        </ul>
+        <p>Now every person booking a meeting will get a WhatsApp message from your account.</p>
+        <p class="text-muted-sm">Not sure how it works ? Setup a time with Watobot creator on the left to see a Whatsapp message triggering to you from his account. Additionally you could use the time to connect your Calendly to Watobot using his help. Or if you are technical enough, you could set it up yourself.</p>
+        <div class="flex flex-wrap justify-center gap-1.5 self-center">
+          <span class="font-label-md text-[10px] text-green-800 bg-green-100 px-2 py-1 rounded-full uppercase tracking-wide whitespace-nowrap">Works on Calendly's free plan</span>
+          <span class="font-label-md text-[10px] text-blue-800 bg-blue-100 px-2 py-1 rounded-full uppercase tracking-wide whitespace-nowrap">Watobot is completely free to use</span>
+          <span class="font-label-md text-[10px] text-yellow-800 bg-yellow-100 px-2 py-1 rounded-full uppercase tracking-wide whitespace-nowrap">No WhatsApp Business API needed</span>
+        </div>
+        <button onclick="document.getElementById('setup').scrollIntoView({behavior:'smooth'})" class="self-center inline-flex items-center gap-2 bg-primary text-on-primary font-bold px-6 py-3 rounded-xl hover:brightness-110 active:scale-95 transition-all">
+          <span class="material-symbols-outlined text-[20px]">arrow_downward</span>
+          Setup now
+        </button>
+      </div>
+    </div>
+
+    <div id="setup" class="max-w-2xl mx-auto mt-14 scroll-mt-20">
+      <p class="text-center text-muted mb-6">Ready to set this up for your own Calendly account? Click the Calendly box below to connect and get started.</p>
+      <div class="mt-8">
 <!--#include partial="calendly-whatsapp-widget"-->
+      </div>
     </div>
   </section>
 
@@ -93,7 +126,7 @@
     <div class="max-w-2xl mx-auto text-center flex flex-col gap-4 items-center">
       <h2 class="font-headline-lg text-headline-lg text-on-surface">Free forever, no credit card</h2>
       <p class="text-muted">The Calendly integration is part of the free Watobot dashboard — no limits, no subscription, no Calendly upgrade required.</p>
-      <button data-auth-cta onclick="toggleModal()" class="inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-on-primary px-8 py-4 font-label-md text-label-md font-bold hover:brightness-110 active:scale-95 transition-all">Sign Up Free</button>
+      <button onclick="document.getElementById('book-demo').scrollIntoView({behavior:'smooth'})" class="inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-on-primary px-8 py-4 font-label-md text-label-md font-bold hover:brightness-110 active:scale-95 transition-all">Book a time on Pocha's Calendly to know more</button>
     </div>
   </section>
 
