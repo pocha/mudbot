@@ -10,12 +10,6 @@
 // object, so this relay avoids the bug by doing the same: raw string in,
 // raw bytes out.
 //
-// proxychains talks to this relay as a plain `http` proxy type (works for
-// arbitrary TCP tunneling via CONNECT, same as socks5 — proxychains doesn't
-// care what protocol runs over the tunnel once established), so mudslide's
-// actual wss:// connection to WhatsApp never touches this code at all —
-// only the raw byte-pipe setup does.
-//
 // City/zip-level DataImpulse targeting is intermittently unavailable even
 // on paid plans (their own "NO_RAY" error — no matching proxy right now),
 // while country-only targeting has proven solid every time. So on a denied
@@ -24,6 +18,11 @@
 const net = require('net');
 const http = require('http');
 
+// A live-measured CONNECT round trip through this gateway (5 trials against
+// web.whatsapp.com:443) came back at 773-878ms every time — well under 1
+// second. Set to 5x that observed worst case for error margin, not a guess.
+const UPSTREAM_CONNECT_TIMEOUT_MS = 5000;
+
 function buildAuthHeader(username, country, targetSuffix, password) {
   const upstreamUser = `${username}__cr.${country}${targetSuffix}`;
   return 'Basic ' + Buffer.from(`${upstreamUser}:${password}`).toString('base64');
@@ -31,8 +30,11 @@ function buildAuthHeader(username, country, targetSuffix, password) {
 
 // Attempts a single upstream CONNECT with the given auth header. Resolves
 // with { statusCode, socket, leftover } on any HTTP response (caller decides
-// success/failure), or rejects on a transport-level error.
-function attemptConnect({ upstreamHost, upstreamPort, targetHost, targetPort, authHeader }) {
+// success/failure), or rejects on a transport-level error or timeout.
+// DataImpulse's gateway can accept the TCP connection and then simply never
+// respond — with no timeout that hangs forever, so the socket is destroyed
+// and this rejects with a specific, actionable message on the same timer.
+function attemptConnect({ upstreamHost, upstreamPort, targetHost, targetPort, authHeader, timeoutMs = UPSTREAM_CONNECT_TIMEOUT_MS }) {
   return new Promise((resolve, reject) => {
     const socket = net.connect(upstreamPort, upstreamHost, () => {
       socket.write(
@@ -46,6 +48,13 @@ function attemptConnect({ upstreamHost, upstreamPort, targetHost, targetPort, au
     let buffered = Buffer.alloc(0);
     let settled = false;
 
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      reject(new Error(`Residential IP did not respond on port ${upstreamPort}`));
+    }, timeoutMs);
+
     const onData = chunk => {
       buffered = Buffer.concat([buffered, chunk]);
       const text = buffered.toString('latin1');
@@ -53,6 +62,7 @@ function attemptConnect({ upstreamHost, upstreamPort, targetHost, targetPort, au
       if (headerEnd === -1) return; // wait for more data
 
       settled = true;
+      clearTimeout(timer);
       socket.removeListener('data', onData);
       const statusLine = text.split('\r\n')[0];
       const match = /^HTTP\/\d\.\d (\d{3})/.exec(statusLine);
@@ -60,13 +70,20 @@ function attemptConnect({ upstreamHost, upstreamPort, targetHost, targetPort, au
     };
 
     socket.on('data', onData);
-    socket.on('error', err => { if (!settled) { settled = true; reject(err); } });
+    socket.on('error', err => { if (!settled) { settled = true; clearTimeout(timer); reject(err); } });
   });
 }
 
-function startRelay({ country, targetSuffix = '', upstreamHost, upstreamPort, localPort, username, password }) {
+function startRelay({ country, targetSuffix = '', upstreamHost, upstreamPort, localPort, username, password, onError }) {
   const primaryAuthHeader = buildAuthHeader(username, country, targetSuffix, password);
   const fallbackAuthHeader = targetSuffix ? buildAuthHeader(username, country, '', password) : null;
+
+  // CONNECT-tunneled sockets (see the 'connect' handler below) — tracked so
+  // they can be force-destroyed on shutdown. server.close() only waits for
+  // connections to end on their own and explicitly does not reach sockets
+  // upgraded via CONNECT, so this is the only way to actually free them if
+  // one doesn't close cleanly (e.g. the process using it was killed).
+  const activeTunnels = new Set();
 
   // Plain HTTP absolute-form requests (used by our own diagnostics, e.g.
   // getProxiedIpInfo's curl call) — retried the same way as CONNECT below.
@@ -77,8 +94,10 @@ function startRelay({ country, targetSuffix = '', upstreamHost, upstreamPort, lo
         port: upstreamPort,
         method: clientReq.method,
         path: clientReq.url,
-        headers: { ...clientReq.headers, 'Proxy-Authorization': authHeader }
+        headers: { ...clientReq.headers, 'Proxy-Authorization': authHeader },
+        timeout: UPSTREAM_CONNECT_TIMEOUT_MS
       }, upstreamRes => resolve(upstreamRes));
+      upstreamReq.on('timeout', () => upstreamReq.destroy(new Error(`Residential IP did not respond on port ${upstreamPort}`)));
       upstreamReq.on('error', reject);
       clientReq.pipe(upstreamReq);
     });
@@ -96,6 +115,7 @@ function startRelay({ country, targetSuffix = '', upstreamHost, upstreamPort, lo
         upstreamRes.pipe(clientRes);
       })
       .catch(err => {
+        onError?.(err.message);
         clientRes.writeHead(502);
         clientRes.end('Bad gateway: ' + err.message);
       });
@@ -117,6 +137,11 @@ function startRelay({ country, targetSuffix = '', upstreamHost, upstreamPort, lo
         clientSocket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
         if (head && head.length) result.socket.write(head);
         if (result.leftover.length) clientSocket.write(result.leftover);
+        activeTunnels.add(clientSocket);
+        activeTunnels.add(result.socket);
+        const untrack = () => { activeTunnels.delete(clientSocket); activeTunnels.delete(result.socket); };
+        clientSocket.once('close', untrack);
+        result.socket.once('close', untrack);
         result.socket.pipe(clientSocket);
         clientSocket.pipe(result.socket);
       } else {
@@ -124,11 +149,17 @@ function startRelay({ country, targetSuffix = '', upstreamHost, upstreamPort, lo
         clientSocket.end(`HTTP/1.1 ${result.statusCode || 502} Upstream CONNECT failed\r\n\r\n`);
       }
     } catch (err) {
+      onError?.(err.message);
       clientSocket.end('HTTP/1.1 502 Bad Gateway\r\n\r\n');
     }
 
     clientSocket.on('error', () => {});
   });
+
+  server.destroyActiveTunnels = () => {
+    for (const socket of activeTunnels) socket.destroy();
+    activeTunnels.clear();
+  };
 
   return new Promise((resolve, reject) => {
     server.once('error', reject);

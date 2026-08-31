@@ -138,6 +138,11 @@ async function registerUser(email) {
   return { token, userDir };
 }
 
+// firstVerification distinguishes "just materialized this account" from a
+// repeat hit on an already-verified link (page reload, an email client's
+// link-scanner pre-fetching it, etc.) — callers that need to fire a
+// one-time side effect (see routes/api.js's owner notification) gate on it
+// specifically so those repeats don't trigger duplicates.
 async function verifyToken(token) {
   if (!token || token.length !== 64) return null;
   const userDir = token.slice(0, 10);
@@ -145,7 +150,7 @@ async function verifyToken(token) {
   try {
     const storedHash = (await fs.readFile(tokenHashFile, 'utf8')).trim();
     if (computeTokenHash(token) !== storedHash) return null;
-    return { token, userDir };
+    return { token, userDir, firstVerification: false };
   } catch {
     // No token_hash on disk yet — either this is the first click on a
     // genuine registration link (materialize the account now) or the token
@@ -157,7 +162,7 @@ async function verifyToken(token) {
     try {
       await fs.mkdir(path.join(fullUserDir, 'schedules'), { recursive: true });
       await fs.writeFile(tokenHashFile, computeTokenHash(token));
-      return { token, userDir };
+      return { token, userDir, firstVerification: true };
     } catch {
       return null;
     }

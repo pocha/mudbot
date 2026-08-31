@@ -72,7 +72,13 @@
         // about whatsappConnected itself.
         async function verifyToken() {
             try {
-                const response = await fetch(`${API_BASE}/api/verify/${token}`);
+                // email is passed through so the backend can include it in
+                // the owner notification fired on first verification — it's
+                // not persisted server-side before this (see registerUser),
+                // so this request is the only place that notification can
+                // get it from.
+                const verifyUrl = `${API_BASE}/api/verify/${token}` + (email ? `?email=${encodeURIComponent(email)}` : '');
+                const response = await fetch(verifyUrl);
                 const data = await response.json();
 
                 if (!response.ok) {

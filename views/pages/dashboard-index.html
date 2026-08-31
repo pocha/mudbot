@@ -209,16 +209,6 @@
                       Point your phone to this screen to capture the code
                     </li>
                   </ul>
-                  <a
-                    id="wa-connect-btn"
-                    href="#"
-                    class="inline-flex items-center gap-2 bg-primary-container text-on-primary-container font-bold px-4 py-2 rounded-xl hover:opacity-90 transition-all"
-                  >
-                    <span class="material-symbols-outlined text-[20px]"
-                      >qr_code_scanner</span
-                    >
-                    Connect WhatsApp
-                  </a>
                 </div>
                 <div
                   class="w-48 h-48 bg-surface-container mx-auto p-4 rounded-xl border-2 border-dashed border-primary/30 flex items-center justify-center relative overflow-hidden"
@@ -231,6 +221,16 @@
                       >qr_code_scanner</span
                     >
                   </div>
+                  <a
+                    id="wa-connect-btn"
+                    href="#"
+                    class="relative z-10 inline-flex items-center gap-2 bg-primary-container text-on-primary-container font-bold px-4 py-2 rounded-xl hover:opacity-90 transition-all"
+                  >
+                    <span class="material-symbols-outlined text-[20px]"
+                      >qr_code_scanner</span
+                    >
+                    Connect WhatsApp
+                  </a>
                 </div>
               </div>
               <!-- Connected -->
@@ -570,11 +570,11 @@
             }
             // Only for the IP/location display — /api/whatsapp already
             // confirmed connectivity above.
-            const statusResponse = await fetch(`${API_BASE}/api/whatsapp/status`, {
+            const ipResponse = await fetch(`${API_BASE}/api/whatsapp/ip`, {
               headers: { Authorization: `Bearer ${authToken}` },
             });
-            const status = statusResponse.ok ? await statusResponse.json() : {};
-            updateConnectionUI(true, status.proxyIp);
+            const { proxyIp } = ipResponse.ok ? await ipResponse.json() : {};
+            updateConnectionUI(true, proxyIp);
           } else if (response.status === 401) {
             alert("Session expired. Please login again.");
             localStorage.removeItem("authToken");
@@ -589,16 +589,20 @@
         document.getElementById("wa-loading")?.classList.add("hidden");
         const notConnected = document.getElementById("wa-not-connected");
         const connected = document.getElementById("wa-connected");
+        // API keys are account-level, not tied to WhatsApp being connected —
+        // unlocked unconditionally so this section doesn't sit in its
+        // loading skeleton forever for a user who hasn't connected (or has
+        // disconnected) WhatsApp.
         const step2 = document.getElementById("step-2");
+        if (step2) {
+          step2.classList.remove("step-disabled");
+          loadApiKeyStatus();
+        }
 
         if (loggedIn) {
           notConnected.classList.add("hidden");
           connected.classList.remove("hidden");
           connected.classList.add("flex");
-          if (step2) {
-            step2.classList.remove("step-disabled");
-            loadApiKeyStatus();
-          }
           if (proxyIp) {
             document.getElementById("wa-connection-line").textContent =
               `IP Address ${proxyIp.ip} (location - ${proxyIp.city}, ${proxyIp.country})`;
