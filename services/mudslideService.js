@@ -47,6 +47,20 @@ const ENCRYPT_TIMEOUT_MS = 20000;
 // withSession doesn't retry).
 const OPERATION_TIMEOUT_MS = 60000;
 
+// Baileys' own WebSocket connect/query timeouts, passed to mudslide via its
+// --connect-timeout/--query-timeout flags (mudslide's own unmodified
+// defaults, 3000/6000ms, are too tight for our proxy chain and were causing
+// spurious timeout crashes). Both stay comfortably under OPERATION_TIMEOUT_MS
+// so mudslide's own graceful timeout handling gets a chance to fire (and be
+// caught, with a real diagnostic message) before our outer spawnWithTimeout
+// kill does. connectTimeoutMs doesn't need to cover tunnel establishment to
+// the residential IP — dataimpulseRelay's own attemptConnect already bounds
+// that separately (5s) before Baileys' connect attempt even starts; this
+// only covers the TLS/WebSocket/noise-handshake layer on top of that
+// already-open tunnel.
+const MUDSLIDE_CONNECT_TIMEOUT_MS = 10000;
+const MUDSLIDE_QUERY_TIMEOUT_MS = 20000;
+
 // Exact text our mudslide fork's `me` prints (via signale, to stdout) when
 // Baileys reports connection.update close with DisconnectReason.loggedOut —
 // i.e. the user removed this device from WhatsApp's own "Linked Devices"
@@ -305,7 +319,12 @@ async function runMudslide(args, timeoutMs, userDir, token) {
   const confPath = (userDir && token) ? await proxyConfPath(userDir, token) : null;
   const useProxy = confPath && CONFIG.PROXYCHAINS_PATH;
   const bin  = useProxy ? CONFIG.PROXYCHAINS_PATH : CONFIG.MUDSLIDE_PATH;
-  const argv = useProxy ? ['-f', confPath, CONFIG.MUDSLIDE_PATH, ...args] : args;
+  const mudslideArgs = [
+    '--connect-timeout', String(MUDSLIDE_CONNECT_TIMEOUT_MS),
+    '--query-timeout', String(MUDSLIDE_QUERY_TIMEOUT_MS),
+    ...args
+  ];
+  const argv = useProxy ? ['-f', confPath, CONFIG.MUDSLIDE_PATH, ...mudslideArgs] : mudslideArgs;
 
   const stdout = await spawnWithTimeout(bin, argv, timeoutMs);
   return stripProxy(stdout.toString());
@@ -340,9 +359,15 @@ async function getQRCode(userDir, token) {
   const confPath = token ? await proxyConfPath(userDir, token) : null;
   const useProxy = confPath && CONFIG.PROXYCHAINS_PATH;
   const bin  = useProxy ? CONFIG.PROXYCHAINS_PATH : CONFIG.MUDSLIDE_PATH;
+  const mudslideArgs = [
+    '-c', mudslideDir(userDir),
+    '--connect-timeout', String(MUDSLIDE_CONNECT_TIMEOUT_MS),
+    '--query-timeout', String(MUDSLIDE_QUERY_TIMEOUT_MS),
+    'login'
+  ];
   const argv = useProxy
-    ? ['-f', confPath, CONFIG.MUDSLIDE_PATH, '-c', mudslideDir(userDir), 'login']
-    : ['-c', mudslideDir(userDir), 'login'];
+    ? ['-f', confPath, CONFIG.MUDSLIDE_PATH, ...mudslideArgs]
+    : mudslideArgs;
 
   if (useProxy) await proxyRelayManager.acquireRelay(userDir, token);
   let relayReleased = !useProxy;

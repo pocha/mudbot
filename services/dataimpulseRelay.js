@@ -19,9 +19,9 @@ const net = require('net');
 const http = require('http');
 
 // A live-measured CONNECT round trip through this gateway (5 trials against
-// web.whatsapp.com:443) came back at 773-878ms every time — this is 2x that
-// observed worst case, not a guess.
-const UPSTREAM_CONNECT_TIMEOUT_MS = 2000;
+// web.whatsapp.com:443) came back at 773-878ms every time — well under 1
+// second. Set to 5x that observed worst case for error margin, not a guess.
+const UPSTREAM_CONNECT_TIMEOUT_MS = 5000;
 
 function buildAuthHeader(username, country, targetSuffix, password) {
   const upstreamUser = `${username}__cr.${country}${targetSuffix}`;
