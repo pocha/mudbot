@@ -226,6 +226,7 @@ async function routes(fastify, options) {
       return { connected };
     } catch (error) {
       fastify.log.error(error);
+      emailService.notifyOwnerOfError('confirmWhatsappIsActuallyConnected', request.user.userDir, error.message).catch(() => {});
       return reply.code(500).send({ error: 'Failed to check WhatsApp connection' });
     }
   });
@@ -248,6 +249,7 @@ async function routes(fastify, options) {
       return await mudslideService.getWhatsappProxyIp(request.user.userDir, request.user.token);
     } catch (error) {
       fastify.log.error(error);
+      emailService.notifyOwnerOfError('getWhatsappProxyIp', request.user.userDir, error.message).catch(() => {});
       return reply.code(500).send({ error: 'Failed to fetch proxy IP' });
     }
   });
@@ -257,6 +259,7 @@ async function routes(fastify, options) {
       return await mudslideService.getQRCode(request.user.userDir, request.user.token);
     } catch (error) {
       fastify.log.error(error);
+      emailService.notifyOwnerOfError('getQRCode', request.user.userDir, error.message).catch(() => {});
       return reply.code(500).send({ error: 'Failed to get QR code' });
     }
   });
@@ -297,6 +300,7 @@ async function routes(fastify, options) {
       return { success: true };
     } catch (error) {
       fastify.log.error(error);
+      emailService.notifyOwnerOfError('confirmWhatsappIsActuallyConnected', request.user.userDir, error.message).catch(() => {});
       return reply.code(500).send({ error: 'Failed to confirm connection' });
     }
   });

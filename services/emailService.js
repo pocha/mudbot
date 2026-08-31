@@ -149,31 +149,40 @@ async function sendWhatsappRetryEmail(email, retryCount, userDir) {
   } catch { /* fire-and-forget — never surfaces to caller */ }
 }
 
+// Generic admin-only alert for a failed mudslide-touching API call — used
+// directly in route handlers' catch blocks (routes/api.js) and reused below
+// by sendMessageFailureNotification for its admin-side email, so the two
+// don't duplicate the same sendMail boilerplate.
+async function notifyOwnerOfError(action, userDir, error, extra = {}) {
+  const notifyEmail = process.env.NOTIFY_EMAIL || process.env.REPLY_TO;
+  if (!notifyEmail) return;
+
+  const lines = [
+    `Action: ${action}`,
+    `User:   ${userDir}`,
+    ...Object.entries(extra).map(([k, v]) => `${k}: ${v}`),
+    `Error:  ${error}`,
+    `Time:   ${new Date().toISOString()}`
+  ];
+
+  try {
+    await getTransporter().sendMail({
+      from: `Watobot <${CONFIG.EMAIL_FROM}>`,
+      to: notifyEmail,
+      subject: `Watobot: ${action} failed — ${userDir}`,
+      text: lines.join('\n')
+    });
+  } catch { /* fire-and-forget — never surfaces to caller */ }
+}
+
 // Fired when a sendMessage/sendMedia call fails (see withSession's finally
 // block in services/mudslideService.js) — always alerts the admin
 // (NOTIFY_EMAIL/REPLY_TO), and additionally the user's own opt-in address
 // (services/userService.js's notify_email.enc) when they've set one.
 async function sendMessageFailureNotification({ userDir, to, action, error, userEmail }) {
-  const notifyEmail = process.env.NOTIFY_EMAIL || process.env.REPLY_TO;
   const kind = action === 'sendMedia' ? 'media message' : 'message';
 
-  const sends = [];
-
-  if (notifyEmail) {
-    const adminText = [
-      `A ${kind} send failed.`,
-      `User: ${userDir}`,
-      `To: ${to || 'unknown'}`,
-      `Error: ${error}`,
-      `Time: ${new Date().toISOString()}`
-    ].join('\n');
-    sends.push(getTransporter().sendMail({
-      from: `Watobot <${CONFIG.EMAIL_FROM}>`,
-      to: notifyEmail,
-      subject: `Watobot: Message Send Failed — ${userDir}`,
-      text: adminText
-    }).catch(() => {}));
-  }
+  const sends = [notifyOwnerOfError(action, userDir, error, { To: to || 'unknown' })];
 
   if (userEmail) {
     const userText = [
@@ -231,6 +240,7 @@ module.exports = {
   sendRegistrationEmail,
   sendOwnerNotification,
   sendWhatsappRetryEmail,
+  notifyOwnerOfError,
   sendMessageFailureNotification,
   sendDailyReport
 };
