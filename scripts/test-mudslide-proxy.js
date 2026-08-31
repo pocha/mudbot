@@ -47,6 +47,12 @@ const confPath = path.join(os.tmpdir(), 'watobot-test-proxychains.conf');
 const mudslideBin = process.env.MUDSLIDE_PATH || 'mudslide';
 const proxychainsBin = process.env.PROXYCHAINS_PATH;
 
+// Mirrors services/mudslideService.js's MUDSLIDE_CONNECT_TIMEOUT_MS/MUDSLIDE_QUERY_TIMEOUT_MS —
+// keep in sync with those if they change.
+const CONNECT_TIMEOUT_MS = 10000;
+const QUERY_TIMEOUT_MS = 20000;
+const TIMEOUT_ARGS = ['--connect-timeout', String(CONNECT_TIMEOUT_MS), '--query-timeout', String(QUERY_TIMEOUT_MS)];
+
 if (!proxychainsBin) {
   console.error('PROXYCHAINS_PATH not set in .env');
   process.exit(1);
@@ -68,7 +74,7 @@ fs.mkdirSync(cacheDir, { recursive: true });
 // as a failure regardless of exit code.
 function runProxychained(mudslideArgs) {
   return new Promise((resolve, reject) => {
-    const child = spawn(proxychainsBin, ['-f', confPath, mudslideBin, '-c', cacheDir, ...mudslideArgs], {
+    const child = spawn(proxychainsBin, ['-f', confPath, mudslideBin, '-c', cacheDir, ...TIMEOUT_ARGS, ...mudslideArgs], {
       stdio: ['inherit', 'pipe', 'pipe']
     });
     let output = '';
@@ -86,7 +92,7 @@ function runProxychained(mudslideArgs) {
 
 function isLoggedIn() {
   return new Promise(resolve => {
-    const child = spawn(proxychainsBin, ['-f', confPath, mudslideBin, '-c', cacheDir, 'me'], {
+    const child = spawn(proxychainsBin, ['-f', confPath, mudslideBin, '-c', cacheDir, ...TIMEOUT_ARGS, 'me'], {
       stdio: 'ignore'
     });
     child.on('exit', code => resolve(code === 0));
