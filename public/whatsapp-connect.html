@@ -201,7 +201,7 @@
                 </div>
             </div>
 
-            <p id="loginModalError" class="hidden text-sm text-red-600">WhatsApp hasn't finished linking yet. Please wait until "Google Chrome (Linux)" appears in your Linked Devices list, then try again.</p>
+            <p id="loginModalError" class="hidden text-sm text-red-600"></p>
         </div>
     </div>
 
@@ -473,13 +473,25 @@
                     document.getElementById('loginModal').classList.add('hidden');
                     showSuccess();
                     setTimeout(() => { window.location.href = '/dashboard/'; }, 1500);
+                } else if (response.status === 409) {
+                    // Confirmed, real network check ran and found the device not
+                    // linked — the user genuinely needs to re-scan.
+                    errMsg.textContent = 'Does not seem like WhatsApp is connected — you should retry scanning the QR code.';
+                    errMsg.classList.remove('hidden');
+                    btn.disabled = false;
+                    btn.textContent = 'Continue';
                 } else {
+                    // The check itself failed/timed out (proxy hiccup, server
+                    // error, etc.) — we don't actually know whether the device
+                    // is linked or not, so don't tell the user it isn't.
+                    errMsg.textContent = 'We could not confirm if your WhatsApp is connected — try once again. If it persists for a few retries, disconnect the device from WhatsApp\'s Linked Devices list (if it shows there) and scan the QR code again.';
                     errMsg.classList.remove('hidden');
                     btn.disabled = false;
                     btn.textContent = 'Continue';
                 }
             } catch (error) {
                 console.error('Confirm error:', error);
+                errMsg.textContent = 'We could not confirm if your WhatsApp is connected — try once again. If it persists for a few retries, disconnect the device from WhatsApp\'s Linked Devices list (if it shows there) and scan the QR code again.';
                 errMsg.classList.remove('hidden');
                 btn.disabled = false;
                 btn.textContent = 'Continue';

@@ -246,11 +246,9 @@
                   </h3>
                 </div>
                 <p
-                  id="wa-connection-line"
-                  class="text-body-md text-on-surface font-semibold"
-                >
-                  WhatsApp is connected and ready to send messages.
-                </p>
+                  id="wa-phone-line"
+                  class="hidden text-body-md text-on-surface"
+                ></p>
                 <p
                   id="wa-proxy-line"
                   class="hidden text-body-md text-on-surface-variant"
@@ -578,7 +576,7 @@
           });
 
           if (response.ok) {
-            const { connected } = await response.json();
+            const { connected, phoneNumber } = await response.json();
             if (!connected) {
               updateConnectionUI(false);
               return;
@@ -589,7 +587,7 @@
               headers: { Authorization: `Bearer ${authToken}` },
             });
             const { proxyIp } = ipResponse.ok ? await ipResponse.json() : {};
-            updateConnectionUI(true, proxyIp);
+            updateConnectionUI(true, proxyIp, phoneNumber);
           } else if (response.status === 401) {
             alert("Session expired. Please login again.");
             localStorage.removeItem("authToken");
@@ -600,7 +598,7 @@
         }
       }
 
-      function updateConnectionUI(loggedIn, proxyIp) {
+      function updateConnectionUI(loggedIn, proxyIp, phoneNumber) {
         document.getElementById("wa-loading")?.classList.add("hidden");
         const notConnected = document.getElementById("wa-not-connected");
         const connected = document.getElementById("wa-connected");
@@ -609,11 +607,16 @@
           notConnected.classList.add("hidden");
           connected.classList.remove("hidden");
           connected.classList.add("flex");
+          const phoneLine = document.getElementById("wa-phone-line");
+          if (phoneNumber) {
+            phoneLine.innerHTML = `Connected as <strong>+${escapeHtml(phoneNumber)}</strong>`;
+            phoneLine.classList.remove("hidden");
+          } else {
+            phoneLine.classList.add("hidden");
+          }
           if (proxyIp) {
-            document.getElementById("wa-connection-line").textContent =
-              `IP Address ${proxyIp.ip} (location - ${proxyIp.city}, ${proxyIp.country})`;
             const proxyLine = document.getElementById("wa-proxy-line");
-            proxyLine.textContent = `Watobot is routing your messages through this IP, which belongs to ${proxyIp.city}, ${proxyIp.country}, to make sure the device looks authentic to WhatsApp.`;
+            proxyLine.innerHTML = `Watobot is routing your messages through IP <strong>${escapeHtml(proxyIp.ip)}</strong>, which belongs to <strong>${escapeHtml(proxyIp.city)}, ${escapeHtml(proxyIp.country)}</strong>, to make sure the device looks authentic to WhatsApp.`;
             proxyLine.classList.remove("hidden");
           }
         } else {

@@ -39,13 +39,27 @@ const DECRYPT_TIMEOUT_MS = 20000;
 const ENCRYPT_TIMEOUT_MS = 20000;
 
 // The one shared ceiling for every public API call in this file (the two
-// errorOnTimeout wraps below, withSession's own, and the mudslide CLI
-// invocation itself) — matches mudslide's own unmodified internal --timeout
-// watchdog default, so there's no longer a reason to stagger them (that
-// staggering existed only to let mudslide's 'Action timed out' text arrive
-// before ours, for retry-safety decisions that no longer exist now that
-// withSession doesn't retry).
+// errorOnTimeout wraps below and withSession's own) — matches mudslide's own
+// unmodified internal --timeout watchdog default.
 const OPERATION_TIMEOUT_MS = 60000;
+
+// The *inner* mudslide/curl spawn is never given the full OPERATION_TIMEOUT_MS
+// directly — it's given whatever's left of that budget, minus this margin,
+// measured from when the outer errorOnTimeout wrap actually started ticking
+// (see spawnBudget() below). Without this, the inner spawnWithTimeout's real
+// proc.kill() and the outer errorOnTimeout's fake one (it has no process
+// handle — see helpers/errorOnTimeout.js) would share the same deadline
+// while starting their clocks at different times (the outer starts before
+// acquireRelay/decrypt, the inner only after) — so the outer could fire
+// first, orphaning a still-running mudslide process against the very
+// directory (tempDir(userDir), a fixed path per user) the next queued op is
+// about to recreate via a fresh decrypt. This margin guarantees the inner
+// kill always wins that race, so the outer wrap only ever needs to catch a
+// stuck acquireRelay/decrypt, never a still-alive spawn.
+const SPAWN_TIMEOUT_MARGIN_MS = 8000;
+function spawnBudget(startedAt) {
+  return Math.max(OPERATION_TIMEOUT_MS - (Date.now() - startedAt) - SPAWN_TIMEOUT_MARGIN_MS, 5000);
+}
 
 // Baileys' own WebSocket connect/query timeouts, passed to mudslide via its
 // --connect-timeout/--query-timeout flags (mudslide's own unmodified
@@ -164,22 +178,41 @@ async function notifySendFailure(userDir, token, action, error, meta) {
 // directly. Runs mudslide's `me`, which our fork fails fast and distinctly
 // on a loggedOut disconnect (see mudslide's whatsapp.ts isLoggedOutDisconnect)
 // instead of hanging like `send`/`groups` do. Purges the local session itself
-// once a disconnect is confirmed, so callers just get a plain boolean back.
-// Prerequisite is the full isWhatsappConnected (not just the raw isLoggedIn
-// file check) so a session that was *just* scanned but not yet finalized
-// into .mudslide.enc doesn't read as "not connected" here.
+// once a disconnect is confirmed, so callers just get { connected, phoneNumber }
+// back. Prerequisite is the full isWhatsappConnected (not just the raw
+// isLoggedIn file check) so a session that was *just* scanned but not yet
+// finalized into .mudslide.enc doesn't read as "not connected" here.
+//
+// phoneNumber is scraped from `me`'s own "Current user: <id>" line
+// (id looks like "<number>:<deviceId>@s.whatsapp.net") rather than adding
+// any new output format to the mudslide fork — `me` already prints this for
+// its own CLI-identity purpose, so no reason to touch mudslide just to read
+// it. Regex, not a fixed line-start match, since signale prefixes the line
+// with its own log-type label.
+const ME_PHONE_NUMBER_RE = /Current user:\s*(\d+):/;
+
 async function confirmWhatsappIsActuallyConnected(userDir, token) {
-  if (!(await isWhatsappConnected(userDir, token)).loggedIn) return false;
+  const startedAt = Date.now();
+  if (!(await isWhatsappConnected(userDir, token)).loggedIn) return { connected: false, phoneNumber: null };
   await proxyRelayManager.acquireRelay(userDir, token);
   try {
     const credPath = await decryptMudslideToTemp(userDir, token);
     try {
-      await runMudslide(['-c', credPath, 'me'], OPERATION_TIMEOUT_MS, userDir, token);
-      return true;
+      const output = await runMudslide(['-c', credPath, 'me'], spawnBudget(startedAt), userDir, token);
+      const match = output.match(ME_PHONE_NUMBER_RE);
+      return { connected: true, phoneNumber: match ? match[1] : null };
     } catch (err) {
-      if (!err.message.includes(DEVICE_UNLINKED_MARKER)) return true;
-      await purgeMudslideCache(userDir).catch(() => {});
-      return false;
+      // Only a confirmed unlinked-device disconnect purges the local
+      // session — anything else (timeout, a generic/ambiguous disconnect,
+      // a proxy hiccup) means the check itself failed, not that we've
+      // proven the device is still linked, so this must NOT default to
+      // true. A stale-but-reporting-fine connection is exactly the bug
+      // this function exists to catch.
+      console.log('DEBUG confirmWhatsappIsActuallyConnected me failed', { userDir, message: err.message });
+      if (err.message.includes(DEVICE_UNLINKED_MARKER)) {
+        await purgeMudslideCache(userDir).catch(() => {});
+      }
+      return { connected: false, phoneNumber: null };
     }
   } finally {
     await cleanupTemp(userDir).catch(() => {});
@@ -195,9 +228,9 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}) {
   userQueueDepth[userDir] = (userQueueDepth[userDir] || 0) + 1;
 
   const run = async () => {
-    let credPath = null;
     let succeeded = false;
     let errMsg = null;
+    const startedAt = Date.now();
 
     const doWork = async () => {
       // A previous op (this batch, or an earlier request) may have already
@@ -208,8 +241,13 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}) {
         await proxyRelayManager.acquireRelay(userDir, token);
         relayHeld[userDir] = true;
       }
-      credPath = await decryptMudslideToTemp(userDir, token);
-      return await fn(credPath);
+      const credPath = await decryptMudslideToTemp(userDir, token);
+      // fn's own spawnWithTimeout call gets whatever's left of this batch's
+      // budget (minus a margin), not the full OPERATION_TIMEOUT_MS again —
+      // see spawnBudget()'s comment for why that margin matters.
+      const result = await fn(credPath, spawnBudget(startedAt));
+      await encryptMudslideCache(userDir, token, tempDir(userDir));
+      return result;
     };
 
     try {
@@ -228,7 +266,6 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}) {
         await proxyRelayManager.releaseRelay(userDir).catch(() => {});
       }
       await cleanupTemp(userDir).catch(() => {});
-      credPath = null;
       throw err;
     } finally {
       await usageService.appendUsageLog(userDir, action, succeeded, errMsg, meta, token);
@@ -237,12 +274,7 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}) {
       }
       userQueueDepth[userDir]--;
       if (userQueueDepth[userDir] === 0) {
-        if (credPath) {
-          try { await encryptMudslideCache(userDir, token, tempDir(userDir)); }
-          finally { await cleanupTemp(userDir); }
-        } else {
-          await cleanupTemp(userDir);
-        }
+        await cleanupTemp(userDir);
         if (relayHeld[userDir]) {
           await proxyRelayManager.releaseRelay(userDir);
           relayHeld[userDir] = false;
@@ -295,7 +327,7 @@ function spawnWithTimeout(bin, args, timeoutMs, { cwd, input } = {}) {
   });
 }
 
-async function getProxiedIpInfo(userDir, token) {
+async function getProxiedIpInfo(userDir, token, startedAt = Date.now()) {
   const confPath = await proxyConfPath(userDir, token).catch(() => null);
   if (!confPath || !CONFIG.PROXYCHAINS_PATH) return null;
 
@@ -304,7 +336,7 @@ async function getProxiedIpInfo(userDir, token) {
     const stdout = await spawnWithTimeout(CONFIG.PROXYCHAINS_PATH, [
       '-f', confPath, 'curl', '-s', '--max-time', '10',
       'http://ip-api.com/json/?fields=query,city,country,countryCode'
-    ], OPERATION_TIMEOUT_MS).catch(() => null);
+    ], spawnBudget(startedAt)).catch(() => null);
     if (!stdout) return null;
     try {
       const { query: ip, city, country, countryCode } = JSON.parse(stdout.toString());
@@ -476,32 +508,33 @@ async function isWhatsappConnected(userDir, token) {
 // isWhatsappConnected, since this can legitimately be called before the
 // device is confirmed connected.
 async function getWhatsappProxyIp(userDir, token) {
+  const startedAt = Date.now();
   if (!(await isLoggedIn(userDir))) return { proxyIp: null };
-  const proxyIp = await getProxiedIpInfo(userDir, token).catch(() => null);
+  const proxyIp = await getProxiedIpInfo(userDir, token, startedAt).catch(() => null);
   return { proxyIp };
 }
 
 async function sendMessage(userDir, token, to, message) {
-  return withSession(userDir, token, credPath =>
-    runMudslide(['-c', credPath, 'send', to, message], OPERATION_TIMEOUT_MS, userDir, token),
+  return withSession(userDir, token, (credPath, timeoutMs) =>
+    runMudslide(['-c', credPath, 'send', to, message], timeoutMs, userDir, token),
     'sendMessage', { to, message }
   );
 }
 
 async function sendMedia(userDir, token, to, mediaPath, caption = '') {
-  return withSession(userDir, token, async credPath => {
+  return withSession(userDir, token, async (credPath, timeoutMs) => {
     const ext = mediaPath.split('.').pop().toLowerCase();
     const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
     const cmd = isImage ? 'send-image' : 'send-file';
     const args = ['-c', credPath, cmd, to, mediaPath];
     if (caption) args.push('--caption', caption);
-    await runMudslide(args, OPERATION_TIMEOUT_MS, userDir, token);
+    await runMudslide(args, timeoutMs, userDir, token);
   }, 'sendMedia', { to, ...(caption && { caption }) });
 }
 
 async function getGroups(userDir, token) {
-  return withSession(userDir, token, async credPath => {
-    const output = await runMudslide(['-c', credPath, 'groups'], OPERATION_TIMEOUT_MS, userDir, token);
+  return withSession(userDir, token, async (credPath, timeoutMs) => {
+    const output = await runMudslide(['-c', credPath, 'groups'], timeoutMs, userDir, token);
 
     try {
       const parsed = JSON.parse(output);

@@ -222,8 +222,9 @@ async function routes(fastify, options) {
   // (dashboard load) rather than polling.
   fastify.get('/api/whatsapp', { preHandler: authenticateUser }, async (request, reply) => {
     try {
-      const connected = await mudslideService.confirmWhatsappIsActuallyConnected(request.user.userDir, request.user.token);
-      return { connected };
+      const { connected, phoneNumber } = await mudslideService.confirmWhatsappIsActuallyConnected(request.user.userDir, request.user.token);
+      console.log('DEBUG /api/whatsapp', { userDir: request.user.userDir, connected, phoneNumber });
+      return { connected, phoneNumber };
     } catch (error) {
       fastify.log.error(error);
       emailService.notifyOwnerOfError('confirmWhatsappIsActuallyConnected', request.user.userDir, error.message).catch(() => {});
@@ -270,6 +271,7 @@ async function routes(fastify, options) {
       return { groups };
     } catch (error) {
       fastify.log.error(error);
+      emailService.notifyOwnerOfError('getGroups', request.user.userDir, error.message).catch(() => {});
       return reply.code(500).send({ error: 'Failed to fetch groups' });
     }
   });
@@ -282,7 +284,7 @@ async function routes(fastify, options) {
   // same shape requireWhatsapp already returns elsewhere in this file.
   fastify.post('/api/whatsapp/notify-user-connected', { preHandler: authenticateUser }, async (request, reply) => {
     try {
-      const connected = await mudslideService.confirmWhatsappIsActuallyConnected(request.user.userDir, request.user.token);
+      const { connected } = await mudslideService.confirmWhatsappIsActuallyConnected(request.user.userDir, request.user.token);
       if (!connected) {
         return reply.code(409).send({ error: 'WhatsApp is not connected yet.', reason: 'whatsapp_not_connected' });
       }
