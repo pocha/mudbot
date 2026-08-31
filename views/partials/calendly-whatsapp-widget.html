@@ -936,6 +936,12 @@
     btn.disabled = true;
     btn.innerHTML = '<span class="inline-block w-4 h-4 border-2 border-on-surface-variant border-t-transparent rounded-full animate-spin align-[-3px] mr-2"></span>Sending…';
     try {
+      // The server always reads the persisted messageTemplate from Firestore
+      // (same code path as the real webhook), so save whatever's currently
+      // in the textarea first — otherwise a test send would silently use
+      // the last-saved template instead of the edit in progress.
+      await saveWatobotMeeting();
+
       const q = query(collection(db, "users", userDir, "leads"), orderBy("createdAt", "desc"), limit(20));
       const snapshot = await getDocs(q);
       const lead = snapshot.docs
