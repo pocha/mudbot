@@ -544,10 +544,25 @@
         const waConnectBtn = document.getElementById("wa-connect-btn");
         if (waConnectBtn) waConnectBtn.href = `/whatsapp-connect.html?token=${authToken}`;
 
-        await checkConnectionStatus();
-        await loadMessageStats();
-        await loadNotifyEmail();
-        await renderLogs();
+        // API keys are account-level, not tied to WhatsApp being connected —
+        // unlocked immediately rather than waiting on checkConnectionStatus
+        // (which used to gate this via updateConnectionUI, delaying this
+        // section's reveal behind an unrelated, much slower network call).
+        const step2 = document.getElementById("step-2");
+        if (step2) step2.classList.remove("step-disabled");
+
+        // Independent sections — none of these depend on each other's
+        // result, so they fire in parallel rather than chaining behind
+        // checkConnectionStatus (the slowest of the four: it does a real
+        // network round trip to verify the WhatsApp connection, unlike the
+        // others which are local/db-only).
+        await Promise.all([
+          checkConnectionStatus(),
+          loadMessageStats(),
+          loadNotifyEmail(),
+          renderLogs(),
+          loadApiKeyStatus(),
+        ]);
 
         setupEventListeners();
       });
@@ -589,15 +604,6 @@
         document.getElementById("wa-loading")?.classList.add("hidden");
         const notConnected = document.getElementById("wa-not-connected");
         const connected = document.getElementById("wa-connected");
-        // API keys are account-level, not tied to WhatsApp being connected —
-        // unlocked unconditionally so this section doesn't sit in its
-        // loading skeleton forever for a user who hasn't connected (or has
-        // disconnected) WhatsApp.
-        const step2 = document.getElementById("step-2");
-        if (step2) {
-          step2.classList.remove("step-disabled");
-          loadApiKeyStatus();
-        }
 
         if (loggedIn) {
           notConnected.classList.add("hidden");
