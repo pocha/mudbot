@@ -254,6 +254,19 @@
                   class="hidden text-body-md text-on-surface-variant"
                 ></p>
                 <div
+                  id="wa-transient-warning"
+                  class="hidden bg-amber-50 border border-amber-200 rounded-lg p-3 gap-2"
+                >
+                  <span
+                    class="material-symbols-outlined text-amber-500 flex-shrink-0 text-[18px] mt-0.5"
+                    >warning</span
+                  >
+                  <p
+                    id="wa-transient-warning-text"
+                    class="text-on-surface font-body-md text-sm"
+                  ></p>
+                </div>
+                <div
                   class="bg-surface-container p-4 rounded-xl border border-outline-variant space-y-2 text-body-md text-on-surface-variant"
                 >
                   <p class="font-semibold text-on-surface">
@@ -589,9 +602,22 @@
           });
 
           if (response.ok) {
-            const { connected, phoneNumber } = await response.json();
+            const { connected, phoneNumber, reason } = await response.json();
             if (!connected) {
-              updateConnectionUI(false);
+              if (reason === "device_unlinked") {
+                updateConnectionUI(false);
+              } else {
+                // Not a confirmed unlink — a proxy hiccup, timeout, or the
+                // connection just closing too early. Showing "Connect
+                // WhatsApp" here would be misleading (nothing's actually
+                // unlinked), so keep the connected view and explain instead.
+                updateConnectionUI(
+                  true,
+                  null,
+                  null,
+                  "WhatsApp closed the connection too early, so we couldn't confirm your connection status. Please refresh the page in a little while.",
+                );
+              }
               return;
             }
             // Only for the IP/location display — /api/whatsapp already
@@ -611,16 +637,30 @@
         }
       }
 
-      function updateConnectionUI(loggedIn, proxyIp, phoneNumber) {
+      function updateConnectionUI(loggedIn, proxyIp, phoneNumber, warning) {
         document.getElementById("wa-loading")?.classList.add("hidden");
         const notConnected = document.getElementById("wa-not-connected");
         const connected = document.getElementById("wa-connected");
+        const phoneLine = document.getElementById("wa-phone-line");
+        const proxyLine = document.getElementById("wa-proxy-line");
+        const warningBox = document.getElementById("wa-transient-warning");
 
         if (loggedIn) {
           notConnected.classList.add("hidden");
           connected.classList.remove("hidden");
           connected.classList.add("flex");
-          const phoneLine = document.getElementById("wa-phone-line");
+
+          if (warning) {
+            document.getElementById("wa-transient-warning-text").textContent =
+              warning;
+            warningBox.classList.remove("hidden");
+            warningBox.classList.add("flex");
+            phoneLine.classList.add("hidden");
+            proxyLine.classList.add("hidden");
+            return;
+          }
+          warningBox.classList.add("hidden");
+          warningBox.classList.remove("flex");
           if (phoneNumber) {
             phoneLine.innerHTML = `Connected as <strong>+${escapeHtml(phoneNumber)}</strong>`;
             phoneLine.classList.remove("hidden");
@@ -628,9 +668,10 @@
             phoneLine.classList.add("hidden");
           }
           if (proxyIp) {
-            const proxyLine = document.getElementById("wa-proxy-line");
             proxyLine.innerHTML = `Watobot is routing your messages through IP <strong>${escapeHtml(proxyIp.ip)}</strong>, which belongs to <strong>${escapeHtml(proxyIp.city)}, ${escapeHtml(proxyIp.country)}</strong>, to make sure the device looks authentic to WhatsApp.`;
             proxyLine.classList.remove("hidden");
+          } else {
+            proxyLine.classList.add("hidden");
           }
         } else {
           // Previously a hard redirect to verify.html — now shows this inline

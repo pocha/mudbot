@@ -222,9 +222,9 @@ async function routes(fastify, options) {
   // (dashboard load) rather than polling.
   fastify.get('/api/whatsapp', { preHandler: authenticateUser }, async (request, reply) => {
     try {
-      const { connected, phoneNumber } = await mudslideService.confirmWhatsappIsActuallyConnected(request.user.userDir, request.user.token);
-      console.log('DEBUG /api/whatsapp', { userDir: request.user.userDir, connected, phoneNumber });
-      return { connected, phoneNumber };
+      const { connected, phoneNumber, reason } = await mudslideService.confirmWhatsappIsActuallyConnected(request.user.userDir, request.user.token);
+      console.log('DEBUG /api/whatsapp', { userDir: request.user.userDir, connected, phoneNumber, reason });
+      return { connected, phoneNumber, reason };
     } catch (error) {
       fastify.log.error(error);
       emailService.notifyOwnerOfError('confirmWhatsappIsActuallyConnected', request.user.userDir, error.message).catch(() => {});
