@@ -6,7 +6,7 @@ const { proxyConfPath, getNotifyEmail } = require('./userService');
 const proxyRelayManager = require('./proxyRelayManager');
 const usageService = require('./usageService');
 const emailService = require('./emailService');
-const { errorOnTimeout, withErrorOnTimeout } = require('./helpers/errorOnTimeout');
+const { errorOnTimeout } = require('./helpers/errorOnTimeout');
 
 const CONFIG = {
   MUDSLIDE_PATH: process.env.MUDSLIDE_PATH || 'mudslide',
@@ -81,6 +81,16 @@ const MUDSLIDE_QUERY_TIMEOUT_MS = 20000;
 // list. Locally cached creds.json still exists and looks fine (checkLoggedIn
 // is just a file check), so this is the only way to actually tell.
 const DEVICE_UNLINKED_MARKER = 'Device unlinked from WhatsApp';
+
+// Exact text mudslide's onConnectionOpen prints when connection.update fires
+// 'close' for any reason other than a confirmed device-unlink — a proxy that
+// can't route to WhatsApp at all looks like this, not a device-unlink.
+const CONNECTION_CLOSED_MARKER = 'Connection closed unexpectedly';
+
+function isConnectivityFailure(message) {
+  return typeof message === 'string' &&
+    (message.includes('timed out') || message.includes(CONNECTION_CLOSED_MARKER));
+}
 
 function mudslideEncFile(userDir) {
   return path.join(CONFIG.USERS_DIR, userDir, '.mudslide.enc');
@@ -211,6 +221,12 @@ async function confirmWhatsappIsActuallyConnected(userDir, token) {
       console.log('DEBUG confirmWhatsappIsActuallyConnected me failed', { userDir, message: err.message });
       if (err.message.includes(DEVICE_UNLINKED_MARKER)) {
         await purgeMudslideCache(userDir).catch(() => {});
+        return { connected: false, phoneNumber: null, reason: 'device_unlinked' };
+      }
+      const diagnosed = await diagnoseConnectivityFailure(userDir, token, err.message);
+      if (diagnosed !== err.message) {
+        console.log('DEBUG confirmWhatsappIsActuallyConnected proxy diagnosis', { userDir, diagnosed });
+        return { connected: false, phoneNumber: null, reason: 'proxy_unreachable' };
       }
       return { connected: false, phoneNumber: null };
     }
@@ -261,6 +277,7 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}) {
       // it via a small per-user note instead. Prefer that specific diagnostic
       // over the generic timeout message when one was recorded moments ago.
       errMsg = proxyRelayManager.takeLastRelayError(userDir) || err.message;
+      errMsg = await diagnoseConnectivityFailure(userDir, token, errMsg);
       if (relayHeld[userDir]) {
         relayHeld[userDir] = false;
         await proxyRelayManager.releaseRelay(userDir).catch(() => {});
@@ -345,6 +362,61 @@ async function getProxiedIpInfo(userDir, token, startedAt = Date.now()) {
   } finally {
     await proxyRelayManager.releaseRelay(userDir);
   }
+}
+
+// Distinguishes "the residential IP/proxy itself can't reach WhatsApp" from
+// "something else is wrong" — a plain curl through the user's proxy chain
+// rather than a full mudslide/Baileys connection (no credential decrypt, no
+// WebSocket handshake, no Signal protocol setup), so it's cheap enough to
+// run right after a timeout/connection-close failure without adding cost to
+// the healthy path. Returns true (proxy reachable, issue is elsewhere),
+// false (proxy itself is the problem), or null (no proxy configured for
+// this account — not applicable, don't blame the proxy either way).
+async function checkProxyReachable(userDir, token) {
+  const confPath = await proxyConfPath(userDir, token).catch(() => null);
+  if (!confPath || !CONFIG.PROXYCHAINS_PATH) return null;
+
+  try {
+    await proxyRelayManager.acquireRelay(userDir, token);
+  } catch {
+    return false;
+  }
+  try {
+    const stdout = await spawnWithTimeout(CONFIG.PROXYCHAINS_PATH, [
+      '-f', confPath, 'curl', '-s', '-o', '/dev/null', '-w', '%{http_code}', '--max-time', '8',
+      'https://web.whatsapp.com'
+    ], 12000).catch(() => '');
+    return /^2/.test(stdout.toString().trim());
+  } finally {
+    await proxyRelayManager.releaseRelay(userDir).catch(() => {});
+  }
+}
+
+const PROXY_UNREACHABLE_PREFIX = 'Residential proxy is not reachable — likely a bad or expired sticky IP, contact the Watobot operator.';
+
+// Only actually runs the (relatively expensive, ~up to 8-12s) proxy check
+// when the failure looks connectivity-related in the first place — a
+// device-unlink, a bad recipient, or any other non-connectivity error is
+// left alone, since checking proxy health wouldn't explain those anyway.
+async function diagnoseConnectivityFailure(userDir, token, message) {
+  if (!isConnectivityFailure(message)) return message;
+  const proxyOk = await checkProxyReachable(userDir, token).catch(() => null);
+  return proxyOk === false ? `${PROXY_UNREACHABLE_PREFIX} (${message})` : message;
+}
+
+// Same as withErrorOnTimeout, but on the timeout winning the race, also
+// diagnoses whether the residential proxy itself is the cause before
+// rethrowing — assumes (userDir, token, ...) is the wrapped fn's own
+// argument order, matching every function this is currently used on.
+function withErrorOnTimeoutAndDiagnosis(fn, timeoutMs, message) {
+  return async (userDir, token, ...rest) => {
+    try {
+      return await errorOnTimeout(fn(userDir, token, ...rest), timeoutMs, message);
+    } catch (err) {
+      err.message = await diagnoseConnectivityFailure(userDir, token, err.message);
+      throw err;
+    }
+  };
 }
 
 // label identifies the call in the user's debug log (e.g. 'me', 'groups',
@@ -611,8 +683,8 @@ async function purgeMudslideCache(userDir) {
 module.exports = {
   getQRCode,
   isWhatsappConnected,
-  confirmWhatsappIsActuallyConnected: withErrorOnTimeout(confirmWhatsappIsActuallyConnected, OPERATION_TIMEOUT_MS, `confirmWhatsappIsActuallyConnected timed out after ${OPERATION_TIMEOUT_MS}ms`),
-  getWhatsappProxyIp: withErrorOnTimeout(getWhatsappProxyIp, OPERATION_TIMEOUT_MS, `getWhatsappProxyIp timed out after ${OPERATION_TIMEOUT_MS}ms`),
+  confirmWhatsappIsActuallyConnected: withErrorOnTimeoutAndDiagnosis(confirmWhatsappIsActuallyConnected, OPERATION_TIMEOUT_MS, `confirmWhatsappIsActuallyConnected timed out after ${OPERATION_TIMEOUT_MS}ms`),
+  getWhatsappProxyIp: withErrorOnTimeoutAndDiagnosis(getWhatsappProxyIp, OPERATION_TIMEOUT_MS, `getWhatsappProxyIp timed out after ${OPERATION_TIMEOUT_MS}ms`),
   sendMessage,
   sendMedia,
   getGroups,
