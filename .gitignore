@@ -8,6 +8,7 @@ users/.proxy_port_counter
 scripts/.mudslide-test-cache/
 users/**/.mudslide
 users/**/logs.txt
+users/**/mudslide-debug.log
 .claude/
 server.log
 *.key

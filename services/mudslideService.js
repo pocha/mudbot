@@ -515,10 +515,12 @@ async function getWhatsappProxyIp(userDir, token) {
 }
 
 async function sendMessage(userDir, token, to, message) {
-  return withSession(userDir, token, (credPath, timeoutMs) =>
-    runMudslide(['-c', credPath, 'send', to, message], timeoutMs, userDir, token),
-    'sendMessage', { to, message }
-  );
+  return withSession(userDir, token, async (credPath, timeoutMs) => {
+    const output = await runMudslide(['-c', credPath, 'send', to, message], timeoutMs, userDir, token);
+    const entry = `\n--- ${new Date().toISOString()} to=${to} ---\n${output}\n`;
+    await fs.appendFile(path.join(CONFIG.USERS_DIR, userDir, 'mudslide-debug.log'), entry).catch(() => {});
+    return output;
+  }, 'sendMessage', { to, message });
 }
 
 async function sendMedia(userDir, token, to, mediaPath, caption = '') {
