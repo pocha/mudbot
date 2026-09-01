@@ -384,15 +384,12 @@ async function checkProxyReachable(userDir, token) {
   } catch {
     return false;
   }
-  try {
-    const stdout = await spawnWithTimeout(CONFIG.PROXYCHAINS_PATH, [
-      '-f', confPath, 'curl', '-s', '-o', '/dev/null', '-w', '%{http_code}', '--max-time', '8',
-      'https://web.whatsapp.com'
-    ], 12000).catch(() => '');
-    return /^2/.test(stdout.toString().trim());
-  } finally {
-    await proxyRelayManager.releaseRelay(userDir).catch(() => {});
-  }
+  const stdout = await spawnWithTimeout(CONFIG.PROXYCHAINS_PATH, [
+    '-f', confPath, 'curl', '-s', '-o', '/dev/null', '-w', '%{http_code}', '--max-time', '8',
+    'https://web.whatsapp.com'
+  ], 12000).catch(() => '');
+  await proxyRelayManager.releaseRelay(userDir).catch(() => {});
+  return /^2/.test(stdout.toString().trim());
 }
 
 const PROXY_UNREACHABLE_PREFIX = 'Residential proxy is not reachable — likely a bad or expired sticky IP, contact the Watobot operator.';
