@@ -395,6 +395,11 @@ async function getQRCode(userDir, token) {
     '-c', mudslideDir(userDir),
     '--connect-timeout', String(MUDSLIDE_CONNECT_TIMEOUT_MS),
     '--query-timeout', String(MUDSLIDE_QUERY_TIMEOUT_MS),
+    // The QR text captured below is shown directly to the end user in the
+    // dashboard — unlike sendMessage's debug logging, none of mudslide's own
+    // pino output belongs there, so silence it just for this invocation
+    // rather than touching the shared trace-level default.
+    '--log-level', 'silent',
     'login'
   ];
   const argv = useProxy
