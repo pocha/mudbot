@@ -201,38 +201,39 @@ async function notifySendFailure(userDir, token, action, error, meta) {
 // with its own log-type label.
 const ME_PHONE_NUMBER_RE = /Current user:\s*(\d+):/;
 
+// Routed through withSession (trackUsage: false — a health check isn't a
+// customer-facing "interaction") so it's serialized per-user against every
+// other mudslide op. Baileys allows only one live WebSocket per registered
+// device identity — two of these (or one of these racing a send/getGroups)
+// running at once get a server-side "stream:error conflict type=replaced",
+// kicking one connection out rather than both succeeding independently.
 async function confirmWhatsappIsActuallyConnected(userDir, token) {
-  const startedAt = Date.now();
   if (!(await isWhatsappConnected(userDir, token)).loggedIn) return { connected: false, phoneNumber: null };
-  await proxyRelayManager.acquireRelay(userDir, token);
+
   try {
-    const credPath = await decryptMudslideToTemp(userDir, token);
-    try {
-      const output = await runMudslide(['-c', credPath, 'me'], spawnBudget(startedAt), userDir, token, 'me');
-      const match = output.match(ME_PHONE_NUMBER_RE);
-      return { connected: true, phoneNumber: match ? match[1] : null };
-    } catch (err) {
-      // Only a confirmed unlinked-device disconnect purges the local
-      // session — anything else (timeout, a generic/ambiguous disconnect,
-      // a proxy hiccup) means the check itself failed, not that we've
-      // proven the device is still linked, so this must NOT default to
-      // true. A stale-but-reporting-fine connection is exactly the bug
-      // this function exists to catch.
-      console.log('DEBUG confirmWhatsappIsActuallyConnected me failed', { userDir, message: err.message });
-      if (err.message.includes(DEVICE_UNLINKED_MARKER)) {
-        await purgeMudslideCache(userDir).catch(() => {});
-        return { connected: false, phoneNumber: null, reason: 'device_unlinked' };
-      }
-      // runMudslide already ran diagnoseConnectivityFailure on this error —
-      // its message carries the proxy-unreachable prefix if that's the cause.
-      if (err.message.includes(PROXY_UNREACHABLE_PREFIX)) {
-        return { connected: false, phoneNumber: null, reason: 'proxy_unreachable' };
-      }
-      return { connected: false, phoneNumber: null };
+    const output = await withSession(userDir, token, (credPath, timeoutMs) =>
+      runMudslide(['-c', credPath, 'me'], timeoutMs, userDir, token, 'me'),
+      'confirmWhatsappIsActuallyConnected', {}, false);
+    const match = output.match(ME_PHONE_NUMBER_RE);
+    return { connected: true, phoneNumber: match ? match[1] : null };
+  } catch (err) {
+    // Only a confirmed unlinked-device disconnect purges the local
+    // session — anything else (timeout, a generic/ambiguous disconnect,
+    // a proxy hiccup) means the check itself failed, not that we've
+    // proven the device is still linked, so this must NOT default to
+    // true. A stale-but-reporting-fine connection is exactly the bug
+    // this function exists to catch.
+    console.log('DEBUG confirmWhatsappIsActuallyConnected me failed', { userDir, message: err.message });
+    if (err.message.includes(DEVICE_UNLINKED_MARKER)) {
+      await purgeMudslideCache(userDir).catch(() => {});
+      return { connected: false, phoneNumber: null, reason: 'device_unlinked' };
     }
-  } finally {
-    await cleanupTemp(userDir).catch(() => {});
-    await proxyRelayManager.releaseRelay(userDir).catch(() => {});
+    // runMudslide already ran diagnoseConnectivityFailure on this error —
+    // its message carries the proxy-unreachable prefix if that's the cause.
+    if (err.message.includes(PROXY_UNREACHABLE_PREFIX)) {
+      return { connected: false, phoneNumber: null, reason: 'proxy_unreachable' };
+    }
+    return { connected: false, phoneNumber: null };
   }
 }
 
@@ -240,7 +241,7 @@ async function confirmWhatsappIsActuallyConnected(userDir, token) {
 // ensuring WhatsApp sees one message at a time. Acquires the relay and decrypts
 // once on the first op in a batch, reuses both for subsequent ops, then releases
 // the relay and encrypts/cleans up only after the last queued op completes.
-function withSession(userDir, token, fn, action = 'unknown', meta = {}) {
+function withSession(userDir, token, fn, action = 'unknown', meta = {}, trackUsage = true) {
   userQueueDepth[userDir] = (userQueueDepth[userDir] || 0) + 1;
 
   const run = async () => {
@@ -291,7 +292,7 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}) {
       }
       throw err;
     } finally {
-      await usageService.appendUsageLog(userDir, action, succeeded, errMsg, meta, token);
+      if (trackUsage) await usageService.appendUsageLog(userDir, action, succeeded, errMsg, meta, token);
       userQueueDepth[userDir]--;
       if (userQueueDepth[userDir] === 0) {
         await cleanupTemp(userDir);
