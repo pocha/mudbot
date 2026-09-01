@@ -82,6 +82,16 @@ const MUDSLIDE_QUERY_TIMEOUT_MS = 20000;
 // is just a file check), so this is the only way to actually tell.
 const DEVICE_UNLINKED_MARKER = 'Device unlinked from WhatsApp';
 
+// Exact text mudslide's onConnectionOpen prints when connection.update fires
+// 'close' for any reason other than a confirmed device-unlink — a proxy that
+// can't route to WhatsApp at all looks like this, not a device-unlink.
+const CONNECTION_CLOSED_MARKER = 'Connection closed unexpectedly';
+
+function isConnectivityFailure(message) {
+  return typeof message === 'string' &&
+    (message.includes('timed out') || message.includes(CONNECTION_CLOSED_MARKER));
+}
+
 function mudslideEncFile(userDir) {
   return path.join(CONFIG.USERS_DIR, userDir, '.mudslide.enc');
 }
@@ -211,6 +221,12 @@ async function confirmWhatsappIsActuallyConnected(userDir, token) {
       console.log('DEBUG confirmWhatsappIsActuallyConnected me failed', { userDir, message: err.message });
       if (err.message.includes(DEVICE_UNLINKED_MARKER)) {
         await purgeMudslideCache(userDir).catch(() => {});
+        return { connected: false, phoneNumber: null, reason: 'device_unlinked' };
+      }
+      // runMudslide already ran diagnoseConnectivityFailure on this error —
+      // its message carries the proxy-unreachable prefix if that's the cause.
+      if (err.message.includes(PROXY_UNREACHABLE_PREFIX)) {
+        return { connected: false, phoneNumber: null, reason: 'proxy_unreachable' };
       }
       return { connected: false, phoneNumber: null };
     }
@@ -260,18 +276,22 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}) {
       // event callback, not in this call chain — so proxyRelayManager bridges
       // it via a small per-user note instead. Prefer that specific diagnostic
       // over the generic timeout message when one was recorded moments ago.
+      // err.message is already diagnosed if it came from runMudslide (see its
+      // own catch) — this outer timeout only ever fires for a stuck
+      // acquireRelay/decrypt (see spawnBudget's comment), neither of which is
+      // a proxy-health question, so nothing further to diagnose here.
       errMsg = proxyRelayManager.takeLastRelayError(userDir) || err.message;
       if (relayHeld[userDir]) {
         relayHeld[userDir] = false;
         await proxyRelayManager.releaseRelay(userDir).catch(() => {});
       }
       await cleanupTemp(userDir).catch(() => {});
+      if (SEND_ACTIONS.has(action)) {
+        notifySendFailure(userDir, token, action, errMsg, meta).catch(() => {});
+      }
       throw err;
     } finally {
       await usageService.appendUsageLog(userDir, action, succeeded, errMsg, meta, token);
-      if (!succeeded && SEND_ACTIONS.has(action)) {
-        notifySendFailure(userDir, token, action, errMsg, meta).catch(() => {});
-      }
       userQueueDepth[userDir]--;
       if (userQueueDepth[userDir] === 0) {
         await cleanupTemp(userDir);
@@ -347,6 +367,58 @@ async function getProxiedIpInfo(userDir, token, startedAt = Date.now()) {
   }
 }
 
+// Distinguishes "the residential IP/proxy itself can't reach WhatsApp" from
+// "something else is wrong" — a plain curl through the user's proxy chain
+// rather than a full mudslide/Baileys connection (no credential decrypt, no
+// WebSocket handshake, no Signal protocol setup), so it's cheap enough to
+// run right after a timeout/connection-close failure without adding cost to
+// the healthy path. Returns true (proxy reachable, issue is elsewhere),
+// false (proxy itself is the problem), or null (no proxy configured for
+// this account — not applicable, don't blame the proxy either way).
+async function checkProxyReachable(userDir, token) {
+  const confPath = await proxyConfPath(userDir, token).catch(() => null);
+  if (!confPath || !CONFIG.PROXYCHAINS_PATH) return null;
+
+  try {
+    await proxyRelayManager.acquireRelay(userDir, token);
+  } catch {
+    return false;
+  }
+  const stdout = await spawnWithTimeout(CONFIG.PROXYCHAINS_PATH, [
+    '-f', confPath, 'curl', '-s', '-o', '/dev/null', '-w', '%{http_code}', '--max-time', '8',
+    'https://web.whatsapp.com'
+  ], 12000).catch(() => '');
+  await proxyRelayManager.releaseRelay(userDir).catch(() => {});
+  return /^2/.test(stdout.toString().trim());
+}
+
+const PROXY_UNREACHABLE_PREFIX = 'Residential proxy is not reachable — likely a bad or expired sticky IP, contact the Watobot operator.';
+
+// Only actually runs the (relatively expensive, ~up to 8-12s) proxy check
+// when the failure looks connectivity-related in the first place — a
+// device-unlink, a bad recipient, or any other non-connectivity error is
+// left alone, since checking proxy health wouldn't explain those anyway.
+async function diagnoseConnectivityFailure(userDir, token, message) {
+  if (!isConnectivityFailure(message)) return message;
+  const proxyOk = await checkProxyReachable(userDir, token).catch(() => null);
+  return proxyOk === false ? `${PROXY_UNREACHABLE_PREFIX} (${message})` : message;
+}
+
+// Wraps a function that doesn't route through runMudslide (which diagnoses
+// this internally — see its own catch below) so its failures get the same
+// treatment. Assumes (userDir, token, ...) is the wrapped fn's own argument
+// order, matching every function this is used on.
+function diagnoseConnectivityFailureWrapper(fn) {
+  return async (userDir, token, ...rest) => {
+    try {
+      return await fn(userDir, token, ...rest);
+    } catch (err) {
+      err.message = await diagnoseConnectivityFailure(userDir, token, err.message);
+      throw err;
+    }
+  };
+}
+
 // label identifies the call in the user's debug log (e.g. 'me', 'groups',
 // 'to=<number>') — every invocation gets logged, success or failure, so a
 // health check like confirmWhatsappIsActuallyConnected's `me` call is no
@@ -369,6 +441,7 @@ async function runMudslide(args, timeoutMs, userDir, token, label = 'mudslide') 
     if (userDir) await appendMudslideDebugLog(userDir, label, output);
     return output;
   } catch (err) {
+    if (userDir) err.message = await diagnoseConnectivityFailure(userDir, token, err.message);
     if (userDir) await appendMudslideDebugLog(userDir, `${label} (FAILED)`, err.message || '');
     throw err;
   }
@@ -543,10 +616,14 @@ async function sendMessage(userDir, token, to, message) {
 // "reports success but doesn't decrypt on the recipient's device" case:
 // warnings/errors, session/prekey/retry-receipt activity (the signals a
 // failed session establishment or a recipient-side decrypt failure would
-// show up as), and mudslide's own non-pino signale output (e.g. the
-// "DEBUG sendPayload result" summary line), which never carries a "level" field.
+// show up as), connection-lifecycle events (a generic "Connection closed
+// unexpectedly" from a `me` check is otherwise a dead end — the actual
+// reason, e.g. Baileys' own "connection errored"/timeout/handshake lines,
+// logs at info (level 30) and was being silently dropped), and mudslide's
+// own non-pino signale output (e.g. the "DEBUG sendPayload result" summary
+// line), which never carries a "level" field.
 const PINO_LEVEL_RE = /"level":\s*(\d+)/;
-const RELEVANT_LOG_RE = /retry|resend|prekey|session|decrypt|encrypt|unavailable|not-authorized/i;
+const RELEVANT_LOG_RE = /retry|resend|prekey|session|decrypt|encrypt|unavailable|not-authorized|errored|handshake|<failure|already closed|Connection Failure/i;
 function filterRelevantMudslideOutput(output) {
   return output.split('\n').filter(line => {
     if (!line.trim()) return false;
@@ -591,7 +668,6 @@ async function getGroups(userDir, token) {
       } catch {}
       const match = line.match(/^(.*?)\s*\(([^)]+@g\.us)\)\s*$/);
       if (match) return { name: match[1].trim(), id: match[2].trim() };
-      if (line.includes('@g.us')) return { name: line.trim(), id: line.trim() };
       return null;
     }).filter(Boolean);
   }, 'getGroups');
@@ -605,10 +681,12 @@ async function purgeMudslideCache(userDir) {
 }
 
 module.exports = {
-  getQRCode,
+  getQRCode: diagnoseConnectivityFailureWrapper(getQRCode),
   isWhatsappConnected,
+  //diagnoseConnectivityFailureWrapper() cant be applied on confirmWhatsappIsActuallyConnected 
+  //as the return type is different based on the error. So simply throwing error will not do 
   confirmWhatsappIsActuallyConnected: withErrorOnTimeout(confirmWhatsappIsActuallyConnected, OPERATION_TIMEOUT_MS, `confirmWhatsappIsActuallyConnected timed out after ${OPERATION_TIMEOUT_MS}ms`),
-  getWhatsappProxyIp: withErrorOnTimeout(getWhatsappProxyIp, OPERATION_TIMEOUT_MS, `getWhatsappProxyIp timed out after ${OPERATION_TIMEOUT_MS}ms`),
+  getWhatsappProxyIp: diagnoseConnectivityFailureWrapper(withErrorOnTimeout(getWhatsappProxyIp, OPERATION_TIMEOUT_MS, `getWhatsappProxyIp timed out after ${OPERATION_TIMEOUT_MS}ms`)),
   sendMessage,
   sendMedia,
   getGroups,
