@@ -23,9 +23,54 @@ function decryptPayload(payload, tokenHashHex) {
   return JSON.parse(decrypted.toString('utf8'));
 }
 
+// Reads/writes a plain (unencrypted) per-user timestamp file — this is just
+// alert-frequency bookkeeping, not sensitive, so it doesn't need to go
+// through the token-keyed encryption helpers the way real user data does.
+const ALERT_BACKOFF_MS = 24 * 60 * 60 * 1000;
+async function shouldAlert(userDir) {
+  const markerPath = path.join(USERS_DIR, userDir, 'device_check_last_alert');
+  try {
+    const last = new Date((await fs.readFile(markerPath, 'utf8')).trim());
+    if (Date.now() - last.getTime() < ALERT_BACKOFF_MS) return false;
+  } catch {}
+  await fs.writeFile(markerPath, new Date().toISOString());
+  return true;
+}
+
+async function checkConnection(token) {
+  let connected = false;
+  let checkError = null;
+  try {
+    const res = await fetch(`${process.env.BASE_URL || 'http://localhost'}:${process.env.PORT || 80}/api/whatsapp`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) checkError = body.error || `HTTP ${res.status}`;
+    else {
+      connected = !!body.connected;
+      if (!connected) checkError = 'WhatsApp device is not connected';
+    }
+  } catch (err) {
+    checkError = err.message;
+  }
+
+  if (connected) return;
+  if (!(await shouldAlert(userDir))) return;
+
+  const userService = require('../services/userService');
+  const emailService = require('../services/emailService');
+  const userEmail = await userService.getNotifyEmail(userDir, token).catch(() => null);
+  await emailService.notifyDeviceDisconnected(userDir, checkError, userEmail).catch(() => {});
+}
+
 async function main() {
   const tokenHash = (await fs.readFile(path.join(USERS_DIR, userDir, 'token_hash'), 'utf8')).trim();
-  const { token, recipients, message, media } = decryptPayload(encryptedPayload, tokenHash);
+  const { type = 'send', token, recipients, message, media } = decryptPayload(encryptedPayload, tokenHash);
+
+  if (type === 'check-connection') {
+    await checkConnection(token);
+    return;
+  }
 
   for (const recipient of recipients) {
     try {
