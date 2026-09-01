@@ -543,10 +543,14 @@ async function sendMessage(userDir, token, to, message) {
 // "reports success but doesn't decrypt on the recipient's device" case:
 // warnings/errors, session/prekey/retry-receipt activity (the signals a
 // failed session establishment or a recipient-side decrypt failure would
-// show up as), and mudslide's own non-pino signale output (e.g. the
-// "DEBUG sendPayload result" summary line), which never carries a "level" field.
+// show up as), connection-lifecycle events (a generic "Connection closed
+// unexpectedly" from a `me` check is otherwise a dead end — the actual
+// reason, e.g. Baileys' own "connection errored"/timeout/handshake lines,
+// logs at info (level 30) and was being silently dropped), and mudslide's
+// own non-pino signale output (e.g. the "DEBUG sendPayload result" summary
+// line), which never carries a "level" field.
 const PINO_LEVEL_RE = /"level":\s*(\d+)/;
-const RELEVANT_LOG_RE = /retry|resend|prekey|session|decrypt|encrypt|unavailable|not-authorized/i;
+const RELEVANT_LOG_RE = /retry|resend|prekey|session|decrypt|encrypt|unavailable|not-authorized|errored|handshake|<failure|already closed|Connection Failure/i;
 function filterRelevantMudslideOutput(output) {
   return output.split('\n').filter(line => {
     if (!line.trim()) return false;
