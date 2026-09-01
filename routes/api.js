@@ -358,6 +358,36 @@ async function routes(fastify, options) {
     }
   });
 
+  // Reconciles the hourly device-connectivity-monitor cron for this user —
+  // called on every dashboard load. Deliberately never touches
+  // schedules.json (unlike createSchedule/listSchedules above), so this
+  // never shows up in the user-facing schedule list; DEVICE_CHECK_SCHEDULE_ID
+  // is a fixed, reserved id, never the random hex generateScheduleId() uses.
+  fastify.post('/api/schedules/device-connection-check', { preHandler: authenticateUser }, async (request, reply) => {
+    const DEVICE_CHECK_SCHEDULE_ID = 'device-check';
+    try {
+      const { userDir, token } = request.user;
+      const [{ connected }, apiKeyStatus] = await Promise.all([
+        mudslideService.confirmWhatsappIsActuallyConnected(userDir, token),
+        userService.getApiKeyStatus(userDir)
+      ]);
+
+      if (!(connected && apiKeyStatus.permanent)) {
+        await scheduleService.removeCronJob(userDir, DEVICE_CHECK_SCHEDULE_ID);
+        return { monitoring: false };
+      }
+
+      if (!(await scheduleService.hasCronJob(userDir, DEVICE_CHECK_SCHEDULE_ID))) {
+        const payload = scheduleService.buildCronPayload(token, { type: 'check-connection' });
+        await scheduleService.addCronJob(userDir, DEVICE_CHECK_SCHEDULE_ID, '0 * * * *', payload);
+      }
+      return { monitoring: true };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Failed to reconcile device monitor' });
+    }
+  });
+
   fastify.get('/api/schedules/:id', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       const schedule = await scheduleService.getSchedule(

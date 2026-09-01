@@ -207,6 +207,35 @@ async function sendMessageFailureNotification({ userDir, to, action, error, user
   await Promise.all(sends);
 }
 
+// Fired by the hourly device-connection-check cron (see scripts/run-schedule.js)
+// when confirmWhatsappIsActuallyConnected reports the device disconnected —
+// same dual-recipient shape as sendMessageFailureNotification above.
+async function notifyDeviceDisconnected(userDir, error, userEmail) {
+  const sends = [notifyOwnerOfError('deviceDisconnected', userDir, error)];
+
+  if (userEmail) {
+    const userText = [
+      `Hi,`,
+      '',
+      `Your WhatsApp connection appears to have dropped.`,
+      '',
+      `Error: ${error}`,
+      '',
+      'Please reconnect your device from your dashboard.',
+      '',
+      '— Watobot'
+    ].join('\n');
+    sends.push(getTransporter().sendMail({
+      from: `Watobot <${CONFIG.EMAIL_FROM}>`,
+      to: userEmail,
+      subject: `Watobot: Your WhatsApp device is disconnected`,
+      text: userText
+    }).catch(() => {}));
+  }
+
+  await Promise.all(sends);
+}
+
 async function sendDailyReport(report, backupError = null) {
   const notifyEmail = process.env.NOTIFY_EMAIL || process.env.REPLY_TO;
   if (!notifyEmail) return;
@@ -242,5 +271,6 @@ module.exports = {
   sendWhatsappRetryEmail,
   notifyOwnerOfError,
   sendMessageFailureNotification,
+  notifyDeviceDisconnected,
   sendDailyReport
 };

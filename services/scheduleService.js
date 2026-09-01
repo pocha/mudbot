@@ -68,12 +68,16 @@ function buildCronExpression(timezone, localTime, frequency, localDate) {
   return `${utcM} ${utcH} * * *`; // Daily (default)
 }
 
-// Encrypts {token, recipients, message, media} using sha256(token) as key.
-// scheduleId stays outside this payload as a plaintext cron argv.
+// Encrypts {type, token, recipients, message, media} using sha256(token) as
+// key. scheduleId stays outside this payload as a plaintext cron argv.
+// type defaults to 'send' (existing behavior) — only the device-connection
+// check (see routes/api.js) passes a different type, run-schedule.js
+// branches on it.
 function buildCronPayload(token, scheduleData) {
   const key = Buffer.from(computeTokenHash(token), 'hex');
   const iv = crypto.randomBytes(16);
   const payload = JSON.stringify({
+    type: scheduleData.type || 'send',
     token,
     recipients: scheduleData.recipients,
     message: scheduleData.message,
@@ -248,6 +252,16 @@ async function removeCronJob(userDir, scheduleId) {
   });
 }
 
+async function hasCronJob(userDir, scheduleId) {
+  return new Promise((resolve) => {
+    const getCrontab = spawn('crontab', ['-l']);
+    let current = '';
+    getCrontab.stdout.on('data', d => { current += d.toString(); });
+    getCrontab.stderr.on('data', () => {});
+    getCrontab.on('close', () => resolve(current.includes(`mudbot-${userDir}-${scheduleId}`)));
+  });
+}
+
 // Checks all schedules against crontab; re-adds any missing entries.
 // Called on GET /api/schedules to auto-restore cron after a server migration.
 async function syncCronJobs(userDir, token) {
@@ -279,8 +293,10 @@ module.exports = {
   updateSchedule,
   deleteSchedule,
   updateLastRun,
+  buildCronPayload,
   addCronJob,
   removeCronJob,
   removeAllCronJobs,
+  hasCronJob,
   syncCronJobs
 };

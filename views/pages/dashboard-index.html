@@ -560,10 +560,23 @@
           loadNotifyEmail(),
           renderLogs(),
           loadApiKeyStatus(),
+          reconcileDeviceMonitor(),
         ]);
 
         setupEventListeners();
       });
+
+      // Reconciles the hourly device-disconnect-monitor cron for this user
+      // (connected + permanent API key => monitored). Best-effort — never
+      // blocks dashboard load or surfaces an error to the user.
+      async function reconcileDeviceMonitor() {
+        try {
+          await fetch(`${API_BASE}/api/schedules/device-connection-check`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+        } catch {}
+      }
 
       async function checkConnectionStatus() {
         try {

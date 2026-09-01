@@ -19,6 +19,7 @@ const USERS_DIR = path.join(__dirname, '..', 'users');
 const { getUserDir } = require('../services/userService');
 const usageService = require('../services/usageService');
 const dailyReport = require('../scripts/daily-report');
+const scheduleService = require('../services/scheduleService');
 const MailDev = require('maildev');
 
 let serverProcess = null;
@@ -373,6 +374,26 @@ test('schedule removed from storage', async () => {
   const { status, body } = await get(`${BASE_URL}/api/schedules`, authHeader(token));
   assert.equal(status, 200);
   assert.equal(body.schedules.length, 0);
+});
+
+// --- device-connection-check (no real WhatsApp session in this test env, so
+// only the "not connected" branch is exercisable end-to-end) ---
+
+test('device-connection-check reports not monitoring when WhatsApp is not connected', async () => {
+  const { status, body } = await post(`${BASE_URL}/api/schedules/device-connection-check`, {}, authHeader(token));
+  assert.equal(status, 200);
+  assert.equal(body.monitoring, false);
+});
+
+test('device-connection-check never creates a device-check cron entry when not connected', async () => {
+  const userDir = getUserDir(TEST_EMAIL);
+  const has = await scheduleService.hasCronJob(userDir, 'device-check');
+  assert.equal(has, false);
+});
+
+test('device-connection-check never appears in the user-facing schedule list', async () => {
+  const { body } = await get(`${BASE_URL}/api/schedules`, authHeader(token));
+  assert.ok(!body.schedules.some(s => s.id === 'device-check'));
 });
 
 // --- usage stats (all file-based; no mudslide/WhatsApp calls involved) ---
