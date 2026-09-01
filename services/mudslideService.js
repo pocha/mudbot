@@ -276,8 +276,7 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}) {
       // event callback, not in this call chain — so proxyRelayManager bridges
       // it via a small per-user note instead. Prefer that specific diagnostic
       // over the generic timeout message when one was recorded moments ago.
-      errMsg = proxyRelayManager.takeLastRelayError(userDir) || err.message;
-      errMsg = await diagnoseConnectivityFailure(userDir, token, errMsg);
+      errMsg = await diagnoseConnectivityFailure(userDir, token, proxyRelayManager.takeLastRelayError(userDir) || err.message);
       if (relayHeld[userDir]) {
         relayHeld[userDir] = false;
         await proxyRelayManager.releaseRelay(userDir).catch(() => {});
