@@ -408,7 +408,7 @@ async function diagnoseConnectivityFailure(userDir, token, message) {
 // this internally — see its own catch below) so its failures get the same
 // treatment. Assumes (userDir, token, ...) is the wrapped fn's own argument
 // order, matching every function this is used on.
-function checkProxyOnConnectivityFailure(fn) {
+function diagnoseConnectivityFailureWrapper(fn) {
   return async (userDir, token, ...rest) => {
     try {
       return await fn(userDir, token, ...rest);
@@ -682,10 +682,12 @@ async function purgeMudslideCache(userDir) {
 }
 
 module.exports = {
-  getQRCode: checkProxyOnConnectivityFailure(getQRCode),
+  getQRCode: diagnoseConnectivityFailureWrapper(getQRCode),
   isWhatsappConnected,
+  //diagnoseConnectivityFailureWrapper() cant be applied on confirmWhatsappIsActuallyConnected 
+  //as the return type is different based on the error. So simply throwing error will not do 
   confirmWhatsappIsActuallyConnected: withErrorOnTimeout(confirmWhatsappIsActuallyConnected, OPERATION_TIMEOUT_MS, `confirmWhatsappIsActuallyConnected timed out after ${OPERATION_TIMEOUT_MS}ms`),
-  getWhatsappProxyIp: checkProxyOnConnectivityFailure(withErrorOnTimeout(getWhatsappProxyIp, OPERATION_TIMEOUT_MS, `getWhatsappProxyIp timed out after ${OPERATION_TIMEOUT_MS}ms`)),
+  getWhatsappProxyIp: diagnoseConnectivityFailureWrapper(withErrorOnTimeout(getWhatsappProxyIp, OPERATION_TIMEOUT_MS, `getWhatsappProxyIp timed out after ${OPERATION_TIMEOUT_MS}ms`)),
   sendMessage,
   sendMedia,
   getGroups,
