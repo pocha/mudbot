@@ -517,10 +517,30 @@ async function getWhatsappProxyIp(userDir, token) {
 async function sendMessage(userDir, token, to, message) {
   return withSession(userDir, token, async (credPath, timeoutMs) => {
     const output = await runMudslide(['-c', credPath, 'send', to, message], timeoutMs, userDir, token);
-    const entry = `\n--- ${new Date().toISOString()} to=${to} ---\n${output}\n`;
+    const entry = `\n--- ${new Date().toISOString()} to=${to} ---\n${filterRelevantMudslideOutput(output)}\n`;
     await fs.appendFile(path.join(CONFIG.USERS_DIR, userDir, 'mudslide-debug.log'), entry).catch(() => {});
     return output;
   }, 'sendMessage', { to, message });
+}
+
+// mudslide's trace-level logging is nearly all noisy per-frame websocket/pino
+// output — appending it raw grows mudslide-debug.log unbounded (1.5MB+ from
+// a single send). Keep only what's actually useful for diagnosing a
+// "reports success but doesn't decrypt on the recipient's device" case:
+// warnings/errors, session/prekey/retry-receipt activity (the signals a
+// failed session establishment or a recipient-side decrypt failure would
+// show up as), and mudslide's own non-pino signale output (e.g. the
+// "DEBUG sendPayload result" summary line), which never carries a "level" field.
+const PINO_LEVEL_RE = /"level":\s*(\d+)/;
+const RELEVANT_LOG_RE = /retry|resend|prekey|session|decrypt|encrypt|unavailable|not-authorized/i;
+function filterRelevantMudslideOutput(output) {
+  return output.split('\n').filter(line => {
+    if (!line.trim()) return false;
+    const levelMatch = line.match(PINO_LEVEL_RE);
+    if (!levelMatch) return true;
+    if (Number(levelMatch[1]) >= 40) return true;
+    return RELEVANT_LOG_RE.test(line);
+  }).join('\n');
 }
 
 async function sendMedia(userDir, token, to, mediaPath, caption = '') {
