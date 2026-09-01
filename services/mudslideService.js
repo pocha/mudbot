@@ -668,7 +668,6 @@ async function getGroups(userDir, token) {
       } catch {}
       const match = line.match(/^(.*?)\s*\(([^)]+@g\.us)\)\s*$/);
       if (match) return { name: match[1].trim(), id: match[2].trim() };
-      if (line.includes('@g.us')) return { name: line.trim(), id: line.trim() };
       return null;
     }).filter(Boolean);
   }, 'getGroups');
