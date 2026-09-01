@@ -198,7 +198,7 @@ async function confirmWhatsappIsActuallyConnected(userDir, token) {
   try {
     const credPath = await decryptMudslideToTemp(userDir, token);
     try {
-      const output = await runMudslide(['-c', credPath, 'me'], spawnBudget(startedAt), userDir, token);
+      const output = await runMudslide(['-c', credPath, 'me'], spawnBudget(startedAt), userDir, token, 'me');
       const match = output.match(ME_PHONE_NUMBER_RE);
       return { connected: true, phoneNumber: match ? match[1] : null };
     } catch (err) {
@@ -347,7 +347,12 @@ async function getProxiedIpInfo(userDir, token, startedAt = Date.now()) {
   }
 }
 
-async function runMudslide(args, timeoutMs, userDir, token) {
+// label identifies the call in the user's debug log (e.g. 'me', 'groups',
+// 'to=<number>') — every invocation gets logged, success or failure, so a
+// health check like confirmWhatsappIsActuallyConnected's `me` call is no
+// longer invisible here (it previously only ever reached a console.log on
+// failure, never on success, and never into the user's own log file).
+async function runMudslide(args, timeoutMs, userDir, token, label = 'mudslide') {
   const confPath = (userDir && token) ? await proxyConfPath(userDir, token) : null;
   const useProxy = confPath && CONFIG.PROXYCHAINS_PATH;
   const bin  = useProxy ? CONFIG.PROXYCHAINS_PATH : CONFIG.MUDSLIDE_PATH;
@@ -358,8 +363,15 @@ async function runMudslide(args, timeoutMs, userDir, token) {
   ];
   const argv = useProxy ? ['-f', confPath, CONFIG.MUDSLIDE_PATH, ...mudslideArgs] : mudslideArgs;
 
-  const stdout = await spawnWithTimeout(bin, argv, timeoutMs);
-  return stripProxy(stdout.toString());
+  try {
+    const stdout = await spawnWithTimeout(bin, argv, timeoutMs);
+    const output = stripProxy(stdout.toString());
+    if (userDir) await appendMudslideDebugLog(userDir, label, output);
+    return output;
+  } catch (err) {
+    if (userDir) await appendMudslideDebugLog(userDir, `${label} (FAILED)`, err.message || '');
+    throw err;
+  }
 }
 
 // Kills and forgets any login process tracked for userDir. Guards on identity
@@ -519,11 +531,35 @@ async function getWhatsappProxyIp(userDir, token) {
   return { proxyIp };
 }
 
+// mudslide's --auto-resync (see its whatsapp.ts) watches its own connect-time
+// backlog sync for a session's own-device decrypt failures — the signature a
+// desynced/corrupted (but present, so Baileys' own self-heal never kicks in)
+// session leaves — and force-rebuilds sessions before sending if it sees one.
+// This line is its own signale.await(...) announcing that it did so.
+const AUTO_RESYNC_TRIGGERED_RE = /Detected session sync issue, forcing resync with:/;
+function isOwnDeviceSyncFailureLine(line) {
+  return line.includes('"msg":"failed to decrypt message"') && line.includes('"fromMe":true');
+}
+
 async function sendMessage(userDir, token, to, message) {
   return withSession(userDir, token, async (credPath, timeoutMs) => {
-    const output = await runMudslide(['-c', credPath, 'send', to, message], timeoutMs, userDir, token);
-    const entry = `\n--- ${new Date().toISOString()} to=${to} ---\n${filterRelevantMudslideOutput(output)}\n`;
-    await fs.appendFile(path.join(CONFIG.USERS_DIR, userDir, 'mudslide-debug.log'), entry).catch(() => {});
+    const output = await runMudslide(['-c', credPath, 'send', to, message, '--auto-resync'], timeoutMs, userDir, token, `to=${to}`);
+
+    const lines = output.split('\n');
+    const resyncLineIdx = lines.findIndex(l => AUTO_RESYNC_TRIGGERED_RE.test(l));
+    if (resyncLineIdx !== -1) {
+      console.log(`DEBUG sendMessage auto-resync triggered`, { userDir, to });
+      const failuresAfterResync = lines.slice(resyncLineIdx + 1).filter(isOwnDeviceSyncFailureLine);
+      if (failuresAfterResync.length > 0) {
+        emailService.notifyOwnerOfError(
+          'sessionDesync',
+          userDir,
+          `Own-device session sync failures still observed after --auto-resync (${failuresAfterResync.length} occurrence(s))`,
+          { to }
+        ).catch(() => {});
+      }
+    }
+
     return output;
   }, 'sendMessage', { to, message });
 }
@@ -548,6 +584,11 @@ function filterRelevantMudslideOutput(output) {
   }).join('\n');
 }
 
+async function appendMudslideDebugLog(userDir, label, output) {
+  const entry = `\n--- ${new Date().toISOString()} ${label} ---\n${filterRelevantMudslideOutput(output)}\n`;
+  await fs.appendFile(path.join(CONFIG.USERS_DIR, userDir, 'mudslide-debug.log'), entry).catch(() => {});
+}
+
 async function sendMedia(userDir, token, to, mediaPath, caption = '') {
   return withSession(userDir, token, async (credPath, timeoutMs) => {
     const ext = mediaPath.split('.').pop().toLowerCase();
@@ -555,13 +596,13 @@ async function sendMedia(userDir, token, to, mediaPath, caption = '') {
     const cmd = isImage ? 'send-image' : 'send-file';
     const args = ['-c', credPath, cmd, to, mediaPath];
     if (caption) args.push('--caption', caption);
-    await runMudslide(args, timeoutMs, userDir, token);
+    await runMudslide(args, timeoutMs, userDir, token, `to=${to}`);
   }, 'sendMedia', { to, ...(caption && { caption }) });
 }
 
 async function getGroups(userDir, token) {
   return withSession(userDir, token, async (credPath, timeoutMs) => {
-    const output = await runMudslide(['-c', credPath, 'groups'], timeoutMs, userDir, token);
+    const output = await runMudslide(['-c', credPath, 'groups'], timeoutMs, userDir, token, 'groups');
 
     try {
       const parsed = JSON.parse(output);
