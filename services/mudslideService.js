@@ -283,12 +283,12 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}) {
         await proxyRelayManager.releaseRelay(userDir).catch(() => {});
       }
       await cleanupTemp(userDir).catch(() => {});
+      if (SEND_ACTIONS.has(action)) {
+        notifySendFailure(userDir, token, action, errMsg, meta).catch(() => {});
+      }
       throw err;
     } finally {
       await usageService.appendUsageLog(userDir, action, succeeded, errMsg, meta, token);
-      if (!succeeded && SEND_ACTIONS.has(action)) {
-        notifySendFailure(userDir, token, action, errMsg, meta).catch(() => {});
-      }
       userQueueDepth[userDir]--;
       if (userQueueDepth[userDir] === 0) {
         await cleanupTemp(userDir);
