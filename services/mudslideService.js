@@ -87,6 +87,13 @@ const DEVICE_UNLINKED_MARKER = 'Device unlinked from WhatsApp';
 // can't route to WhatsApp at all looks like this, not a device-unlink.
 const CONNECTION_CLOSED_MARKER = 'Connection closed unexpectedly';
 
+// Exact text mudslide's sendPayload/sendSocketMessage prints (via signale)
+// right after socket.sendMessage resolves — i.e. the message is genuinely
+// sent, before mudslide's own post-send wait (to answer a retry receipt) and
+// graceful exit. If watobot's own spawnWithTimeout deadline fires during that
+// wait, the send already succeeded even though the process gets killed.
+const SEND_SUCCESS_MARKER = 'Done';
+
 function isConnectivityFailure(message) {
   return typeof message === 'string' &&
     (message.includes('timed out') || message.includes(CONNECTION_CLOSED_MARKER));
@@ -326,7 +333,15 @@ function spawnWithTimeout(bin, args, timeoutMs, { cwd, input } = {}) {
 
     const timer = setTimeout(() => {
       proc.kill();
-      reject(new Error(`${bin} timed out after ${timeoutMs}ms`));
+      // mudslide prints its success line before its own post-send grace
+      // wait — if the send already succeeded, don't discard that just
+      // because we killed the process before it exited on its own.
+      const stdout = Buffer.concat(chunks).toString();
+      if (stdout.includes(SEND_SUCCESS_MARKER)) {
+        resolve(Buffer.concat(chunks));
+      } else {
+        reject(new Error(`${bin} timed out after ${timeoutMs}ms`));
+      }
     }, timeoutMs);
 
     proc.stdout.on('data', d => chunks.push(d));
