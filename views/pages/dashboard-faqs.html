@@ -97,7 +97,7 @@
 
       async function loadFaqEntries() {
         try {
-          const response = await fetch(`${API_BASE}/api/faq`, {
+          const response = await fetchWithTimeout(`${API_BASE}/api/faq`, {
             headers: { Authorization: `Bearer ${authToken}` },
           });
           if (response.ok) {
@@ -165,7 +165,7 @@
         if (!claims.length) return;
 
         try {
-          const res = await fetch(`${API_BASE}/api/faq/claim`, {
+          const res = await fetchWithTimeout(`${API_BASE}/api/faq/claim`, {
             method: "POST",
             headers: {
               Authorization: `Bearer ${authToken}`,

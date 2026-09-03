@@ -584,37 +584,28 @@
       // blocks dashboard load or surfaces an error to the user.
       async function reconcileDeviceMonitor() {
         try {
-          await fetch(`${API_BASE}/api/schedules/device-connection-check`, {
+          await fetchWithTimeout(`${API_BASE}/api/schedules/device-connection-check`, {
             method: "POST",
             headers: { Authorization: `Bearer ${authToken}` },
-          });
+          }, undefined, { silent: true });
         } catch {}
       }
 
-      // The backend's own confirmWhatsappIsActuallyConnected check can take
-      // up to ~60s in a real hang (a full mudslide spawn timeout) — far
-      // longer than we want this page to sit on a loading skeleton for. Abort
-      // client-side well before that and treat it the same as any other
-      // inconclusive check, rather than leaving the section stuck loading.
-      const CONNECTION_CHECK_TIMEOUT_MS = 40000;
       const CONNECTION_UNCERTAIN_WARNING =
         "We couldn't confirm whether your device is still connected. If you're seeing this repeatedly, we recommend disconnecting and reconnecting your WhatsApp.";
 
       async function checkConnectionStatus() {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(
-          () => controller.abort(),
-          CONNECTION_CHECK_TIMEOUT_MS,
-        );
         try {
           // /api/whatsapp actually connects to WhatsApp to verify the device
           // is still linked (unlike /api/whatsapp/status, which is just a
           // local file check and would stay "connected" even after the user
           // unlinks this device from WhatsApp's own "Linked Devices" list).
-          const response = await fetch(`${API_BASE}/api/whatsapp`, {
+          // fetchWithTimeout's default (30s) aborts well before the
+          // backend's own ~60s worst case, so this section never sits on a
+          // loading skeleton that long.
+          const response = await fetchWithTimeout(`${API_BASE}/api/whatsapp`, {
             headers: { Authorization: `Bearer ${authToken}` },
-            signal: controller.signal,
-          });
+          }, undefined, { silent: true });
 
           if (response.ok) {
             const { connected, phoneNumber, reason } = await response.json();
@@ -632,9 +623,9 @@
             }
             // Only for the IP/location display — /api/whatsapp already
             // confirmed connectivity above.
-            const ipResponse = await fetch(`${API_BASE}/api/whatsapp/ip`, {
+            const ipResponse = await fetchWithTimeout(`${API_BASE}/api/whatsapp/ip`, {
               headers: { Authorization: `Bearer ${authToken}` },
-            });
+            }, undefined, { silent: true });
             const { proxyIp } = ipResponse.ok ? await ipResponse.json() : {};
             updateConnectionUI(true, proxyIp, phoneNumber);
           } else if (response.status === 401) {
@@ -645,13 +636,11 @@
             updateConnectionUI(true, null, null, CONNECTION_UNCERTAIN_WARNING);
           }
         } catch (error) {
-          // Includes the AbortController firing above, plus any other
+          // Includes fetchWithTimeout's own abort, plus any other
           // network-level failure — the loading skeleton must not be left
           // stuck forever just because this one check didn't resolve.
           console.error("Error checking connection:", error);
           updateConnectionUI(true, null, null, CONNECTION_UNCERTAIN_WARNING);
-        } finally {
-          clearTimeout(timeoutId);
         }
       }
 
@@ -715,7 +704,7 @@
       async function loadApiKeyStatus() {
         try {
           document.getElementById("apikey-loading")?.classList.remove("hidden");
-          const statusRes = await fetch(`${API_BASE}/api/apikey/status`, {
+          const statusRes = await fetchWithTimeout(`${API_BASE}/api/apikey/status`, {
             headers: { Authorization: `Bearer ${authToken}` },
           });
           const status = await statusRes.json();
@@ -777,7 +766,7 @@
           btn.textContent = "Generating…";
         }
         try {
-          const res = await fetch(`${API_BASE}/api/apikey/generate`, {
+          const res = await fetchWithTimeout(`${API_BASE}/api/apikey/generate`, {
             method: "POST",
             headers: { Authorization: `Bearer ${authToken}` },
           });
@@ -860,7 +849,7 @@
 
       async function loadNotifyEmail() {
         try {
-          const response = await fetch(`${API_BASE}/api/user/notify-email`, {
+          const response = await fetchWithTimeout(`${API_BASE}/api/user/notify-email`, {
             headers: { Authorization: `Bearer ${authToken}` },
           });
           if (!response.ok) return;
@@ -885,7 +874,7 @@
         btn.textContent = "Saving…";
 
         try {
-          const response = await fetch(`${API_BASE}/api/user/notify-email`, {
+          const response = await fetchWithTimeout(`${API_BASE}/api/user/notify-email`, {
             method: "POST",
             headers: {
               Authorization: `Bearer ${authToken}`,
@@ -917,7 +906,7 @@
       async function loadMessageStats() {
         try {
           const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-          const response = await fetch(
+          const response = await fetchWithTimeout(
             `${API_BASE}/api/usage/stats?tz=${encodeURIComponent(tz)}`,
             { headers: { Authorization: `Bearer ${authToken}` } }
           );
@@ -996,7 +985,7 @@
           unknown: "API Call",
         };
 
-        const usageData = await fetch(`${API_BASE}/api/usage/logs?limit=50`, {
+        const usageData = await fetchWithTimeout(`${API_BASE}/api/usage/logs?limit=50`, {
           headers: { Authorization: `Bearer ${authToken}` },
         })
           .then((r) => (r.ok ? r.json() : { count: 0, logs: [] }))

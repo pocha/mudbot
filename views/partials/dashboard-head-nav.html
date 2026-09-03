@@ -81,6 +81,36 @@
           <span class="hidden lg:inline truncate">Leads</span>
         </a>
       </aside>
+      <script>
+        // Shared default timeout for every dashboard API call — every
+        // dashboard page includes this partial before its own scripts run,
+        // so fetchWithTimeout is available globally. Plain fetch() has no
+        // built-in timeout, so a hung backend call (e.g. a stuck mudslide
+        // spawn) would otherwise leave the caller waiting indefinitely with
+        // no feedback. Pass a different timeoutMs to override the duration.
+        //
+        // On an actual timeout, this alerts by default — most call sites
+        // were never individually audited for what happens to their own
+        // button/spinner state on a rejected fetch, so a generic alert is a
+        // safer default than silent failure. Pass { silent: true } for a
+        // call site that already handles its own timeout UI (e.g.
+        // checkConnectionStatus's warning box) or is deliberately
+        // best-effort (e.g. reconcileDeviceMonitor). Pass { label } to name
+        // what timed out in the alert text.
+        const DEFAULT_API_TIMEOUT_MS = 30000;
+        function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_API_TIMEOUT_MS, { silent = false, label } = {}) {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+          return fetch(url, { ...options, signal: controller.signal })
+            .catch((err) => {
+              if (err.name === "AbortError" && !silent) {
+                alert(`${label || "This request"} timed out. Please refresh the page.`);
+              }
+              throw err;
+            })
+            .finally(() => clearTimeout(timeoutId));
+        }
+      </script>
       <script type="module">
         // Highlights the current page's link in the nav row above — every
         // dashboard page includes this partial, so this runs once per page

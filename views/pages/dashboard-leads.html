@@ -122,7 +122,7 @@
       // hop matters) and signs in, so the leads list/edit/delete/manual-add
       // below can talk to Firestore directly, protected by Security Rules.
       async function initFirebase() {
-        const res = await fetch(`${API_BASE}/api/firebase-token`, {
+        const res = await fetchWithTimeout(`${API_BASE}/api/firebase-token`, {
           headers: { Authorization: `Bearer ${authToken}` },
         });
         if (!res.ok) throw new Error("Failed to get Firebase token");
@@ -327,7 +327,7 @@
         btn.disabled = true;
         btn.innerHTML = '<span class="inline-block w-4 h-4 border-2 border-on-surface-variant border-t-transparent rounded-full animate-spin"></span>';
         try {
-          const res = await fetch(`${API_BASE}/api/message`, {
+          const res = await fetchWithTimeout(`${API_BASE}/api/message`, {
             method: "POST",
             headers: {
               Authorization: `Bearer ${authToken}`,
