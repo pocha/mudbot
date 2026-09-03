@@ -591,7 +591,21 @@
         } catch {}
       }
 
+      // The backend's own confirmWhatsappIsActuallyConnected check can take
+      // up to ~60s in a real hang (a full mudslide spawn timeout) — far
+      // longer than we want this page to sit on a loading skeleton for. Abort
+      // client-side well before that and treat it the same as any other
+      // inconclusive check, rather than leaving the section stuck loading.
+      const CONNECTION_CHECK_TIMEOUT_MS = 40000;
+      const CONNECTION_UNCERTAIN_WARNING =
+        "We couldn't confirm whether your device is still connected. If you're seeing this repeatedly, we recommend disconnecting and reconnecting your WhatsApp.";
+
       async function checkConnectionStatus() {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(
+          () => controller.abort(),
+          CONNECTION_CHECK_TIMEOUT_MS,
+        );
         try {
           // /api/whatsapp actually connects to WhatsApp to verify the device
           // is still linked (unlike /api/whatsapp/status, which is just a
@@ -599,6 +613,7 @@
           // unlinks this device from WhatsApp's own "Linked Devices" list).
           const response = await fetch(`${API_BASE}/api/whatsapp`, {
             headers: { Authorization: `Bearer ${authToken}` },
+            signal: controller.signal,
           });
 
           if (response.ok) {
@@ -611,12 +626,7 @@
                 // connection just closing too early. Showing "Connect
                 // WhatsApp" here would be misleading (nothing's actually
                 // unlinked), so keep the connected view and explain instead.
-                updateConnectionUI(
-                  true,
-                  null,
-                  null,
-                  "WhatsApp closed the connection too early, so we couldn't confirm your connection status. Please refresh the page in a little while.",
-                );
+                updateConnectionUI(true, null, null, CONNECTION_UNCERTAIN_WARNING);
               }
               return;
             }
@@ -631,9 +641,17 @@
             alert("Session expired. Please login again.");
             localStorage.removeItem("authToken");
             window.location.href = "/";
+          } else {
+            updateConnectionUI(true, null, null, CONNECTION_UNCERTAIN_WARNING);
           }
         } catch (error) {
+          // Includes the AbortController firing above, plus any other
+          // network-level failure — the loading skeleton must not be left
+          // stuck forever just because this one check didn't resolve.
           console.error("Error checking connection:", error);
+          updateConnectionUI(true, null, null, CONNECTION_UNCERTAIN_WARNING);
+        } finally {
+          clearTimeout(timeoutId);
         }
       }
 

@@ -221,14 +221,24 @@ async function routes(fastify, options) {
   // seconds and a proxy+mudslide round trip, so this is for one-shot checks
   // (dashboard load) rather than polling.
   fastify.get('/api/whatsapp', { preHandler: authenticateUser }, async (request, reply) => {
+    // If the client (e.g. the dashboard's own fetch, on its 40s abort) gives
+    // up before this resolves, kill the real mudslide/proxychains4 process
+    // behind it instead of letting it run to its own ~60s ceiling regardless
+    // — otherwise repeated page refreshes queue up real, uncancelled work
+    // (see withSession's per-user queue) that nobody's waiting on anymore.
+    const controller = new AbortController();
+    const onClientClose = () => controller.abort();
+    request.raw.on('close', onClientClose);
     try {
-      const { connected, phoneNumber, reason } = await mudslideService.confirmWhatsappIsActuallyConnected(request.user.userDir, request.user.token);
+      const { connected, phoneNumber, reason } = await mudslideService.confirmWhatsappIsActuallyConnected(request.user.userDir, request.user.token, controller.signal);
       console.log('DEBUG /api/whatsapp', { userDir: request.user.userDir, connected, phoneNumber, reason });
       return { connected, phoneNumber, reason };
     } catch (error) {
       fastify.log.error(error);
       emailService.notifyOwnerOfError('confirmWhatsappIsActuallyConnected', request.user.userDir, error.message).catch(() => {});
       return reply.code(500).send({ error: 'Failed to check WhatsApp connection' });
+    } finally {
+      request.raw.off('close', onClientClose);
     }
   });
 
