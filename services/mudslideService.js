@@ -340,7 +340,13 @@ function spawnWithTimeout(bin, args, timeoutMs, { cwd, input } = {}) {
       if (stdout.includes(SEND_SUCCESS_MARKER)) {
         resolve(Buffer.concat(chunks));
       } else {
-        reject(new Error(`${bin} timed out after ${timeoutMs}ms`));
+        const err = new Error(`${bin} timed out after ${timeoutMs}ms`);
+        // Whatever mudslide printed before we killed it — otherwise a timeout
+        // is a dead end in the debug log: just the one-line error, with no
+        // way to tell whether it hung before the WA handshake, during it, or
+        // deep into a session/decrypt exchange.
+        err.partialOutput = stdout;
+        reject(err);
       }
     }, timeoutMs);
 
@@ -458,7 +464,10 @@ async function runMudslide(args, timeoutMs, userDir, token, label = 'mudslide') 
     return output;
   } catch (err) {
     if (userDir) err.message = await diagnoseConnectivityFailure(userDir, token, err.message);
-    if (userDir) await appendMudslideDebugLog(userDir, `${label} (FAILED)`, err.message || '');
+    if (userDir) {
+      const partial = err.partialOutput ? `\n${stripProxy(err.partialOutput)}` : '';
+      await appendMudslideDebugLog(userDir, `${label} (FAILED)`, (err.message || '') + partial);
+    }
     throw err;
   }
 }
@@ -639,7 +648,7 @@ async function sendMessage(userDir, token, to, message) {
 // own non-pino signale output (e.g. the "DEBUG sendPayload result" summary
 // line), which never carries a "level" field.
 const PINO_LEVEL_RE = /"level":\s*(\d+)/;
-const RELEVANT_LOG_RE = /retry|resend|prekey|session|decrypt|encrypt|unavailable|not-authorized|errored|handshake|<failure|already closed|Connection Failure/i;
+const RELEVANT_LOG_RE = /retry|resend|prekey|session|decrypt|encrypt|unavailable|not-authorized|errored|handshake|<failure|already closed|Connection Failure|usync|device/i;
 function filterRelevantMudslideOutput(output) {
   return output.split('\n').filter(line => {
     if (!line.trim()) return false;
