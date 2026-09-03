@@ -214,13 +214,21 @@ const ME_PHONE_NUMBER_RE = /Current user:\s*(\d+):/;
 // device identity — two of these (or one of these racing a send/getGroups)
 // running at once get a server-side "stream:error conflict type=replaced",
 // kicking one connection out rather than both succeeding independently.
-async function confirmWhatsappIsActuallyConnected(userDir, token) {
+async function confirmWhatsappIsActuallyConnected(userDir, token, signal) {
   if (!(await isWhatsappConnected(userDir, token)).loggedIn) return { connected: false, phoneNumber: null };
 
   try {
+    // signal is only for withSession's own "still queued, caller's gone"
+    // early-bail — deliberately NOT forwarded into runMudslide/spawn. Once
+    // this actually starts, Baileys is processing live session traffic
+    // (retry receipts, other contacts' sessions healing, etc.) that only
+    // gets safely persisted by encryptMudslideCache after a normal finish;
+    // killing it mid-connection risks discarding session updates the other
+    // side already considers delivered — the same desync shape as the
+    // SessionError/PreKeyError corruption this session spent so long on.
     const output = await withSession(userDir, token, (credPath, timeoutMs) =>
       runMudslide(['-c', credPath, 'me'], timeoutMs, userDir, token, 'me'),
-      'confirmWhatsappIsActuallyConnected', {}, false);
+      'confirmWhatsappIsActuallyConnected', {}, false, signal);
     const match = output.match(ME_PHONE_NUMBER_RE);
     return { connected: true, phoneNumber: match ? match[1] : null };
   } catch (err) {
@@ -248,7 +256,14 @@ async function confirmWhatsappIsActuallyConnected(userDir, token) {
 // ensuring WhatsApp sees one message at a time. Acquires the relay and decrypts
 // once on the first op in a batch, reuses both for subsequent ops, then releases
 // the relay and encrypts/cleans up only after the last queued op completes.
-function withSession(userDir, token, fn, action = 'unknown', meta = {}, trackUsage = true) {
+// signal (optional): an AbortSignal tied to the originating request (e.g. the
+// caller's HTTP client disconnecting) — threaded down to fn's own spawn so an
+// abandoned request can kill its actual child process instead of running to
+// its own timeout regardless. Also checked here: a call queued behind other
+// per-user ops (see userQueue below) can sit waiting long enough that its
+// caller is already gone by the time its turn comes — no point spending a
+// full relay-acquire/decrypt/spawn cycle on that.
+function withSession(userDir, token, fn, action = 'unknown', meta = {}, trackUsage = true, signal) {
   userQueueDepth[userDir] = (userQueueDepth[userDir] || 0) + 1;
 
   const run = async () => {
@@ -257,6 +272,7 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}, trackUsa
     const startedAt = Date.now();
 
     const doWork = async () => {
+      if (signal?.aborted) throw new Error('Request was aborted before this op started');
       // A previous op (this batch, or an earlier request) may have already
       // purged a device-unlinked session (see confirmWhatsappIsActuallyConnected) —
       // fail with a clear message here rather than a raw ENOENT from decrypt.
@@ -269,7 +285,7 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}, trackUsa
       // fn's own spawnWithTimeout call gets whatever's left of this batch's
       // budget (minus a margin), not the full OPERATION_TIMEOUT_MS again —
       // see spawnBudget()'s comment for why that margin matters.
-      const result = await fn(credPath, spawnBudget(startedAt));
+      const result = await fn(credPath, spawnBudget(startedAt), signal);
       await encryptMudslideCache(userDir, token, tempDir(userDir));
       return result;
     };
@@ -325,9 +341,15 @@ const stripProxy = s => s.split('\n').filter(l => !l.trim().startsWith('[proxych
 // (proc.kill()), unlike errorOnTimeout (used everywhere else in this file),
 // which can only stop the caller from waiting — it has no process handle to
 // kill, so it isn't used here.
-function spawnWithTimeout(bin, args, timeoutMs, { cwd, input } = {}) {
+// signal (optional): an AbortSignal — spawn() natively kills the process
+// when it fires (SIGTERM) and emits 'error' with an AbortError, which the
+// existing proc.on('error', ...) below already rejects with. This is what
+// lets an abandoned request (e.g. the caller's own HTTP client disconnected)
+// stop a real, possibly long-running child process instead of leaving it to
+// run to its own timeout regardless of whether anyone's still waiting on it.
+function spawnWithTimeout(bin, args, timeoutMs, { cwd, input, signal } = {}) {
   return new Promise((resolve, reject) => {
-    const proc = spawn(bin, args, cwd ? { cwd } : undefined);
+    const proc = spawn(bin, args, { ...(cwd ? { cwd } : {}), ...(signal ? { signal } : {}) });
     const chunks = [];
     let stderr = '';
 
@@ -369,7 +391,7 @@ function spawnWithTimeout(bin, args, timeoutMs, { cwd, input } = {}) {
   });
 }
 
-async function getProxiedIpInfo(userDir, token, startedAt = Date.now()) {
+async function getProxiedIpInfo(userDir, token, startedAt = Date.now(), signal) {
   const confPath = await proxyConfPath(userDir, token).catch(() => null);
   if (!confPath || !CONFIG.PROXYCHAINS_PATH) return null;
 
@@ -378,7 +400,7 @@ async function getProxiedIpInfo(userDir, token, startedAt = Date.now()) {
     const stdout = await spawnWithTimeout(CONFIG.PROXYCHAINS_PATH, [
       '-f', confPath, 'curl', '-s', '--max-time', '10',
       'http://ip-api.com/json/?fields=query,city,country,countryCode'
-    ], spawnBudget(startedAt)).catch(() => null);
+    ], spawnBudget(startedAt), { signal }).catch(() => null);
     if (!stdout) return null;
     try {
       const { query: ip, city, country, countryCode } = JSON.parse(stdout.toString());
@@ -446,7 +468,7 @@ function diagnoseConnectivityFailureWrapper(fn) {
 // health check like confirmWhatsappIsActuallyConnected's `me` call is no
 // longer invisible here (it previously only ever reached a console.log on
 // failure, never on success, and never into the user's own log file).
-async function runMudslide(args, timeoutMs, userDir, token, label = 'mudslide') {
+async function runMudslide(args, timeoutMs, userDir, token, label = 'mudslide', signal) {
   const confPath = (userDir && token) ? await proxyConfPath(userDir, token) : null;
   const useProxy = confPath && CONFIG.PROXYCHAINS_PATH;
   const bin  = useProxy ? CONFIG.PROXYCHAINS_PATH : CONFIG.MUDSLIDE_PATH;
@@ -458,7 +480,7 @@ async function runMudslide(args, timeoutMs, userDir, token, label = 'mudslide') 
   const argv = useProxy ? ['-f', confPath, CONFIG.MUDSLIDE_PATH, ...mudslideArgs] : mudslideArgs;
 
   try {
-    const stdout = await spawnWithTimeout(bin, argv, timeoutMs);
+    const stdout = await spawnWithTimeout(bin, argv, timeoutMs, { signal });
     const output = stripProxy(stdout.toString());
     if (userDir) await appendMudslideDebugLog(userDir, label, output);
     return output;
@@ -622,17 +644,26 @@ async function isWhatsappConnected(userDir, token) {
 // Real network round trip (acquires a relay) — deliberately not gated behind
 // isWhatsappConnected, since this can legitimately be called before the
 // device is confirmed connected.
-async function getWhatsappProxyIp(userDir, token) {
+async function getWhatsappProxyIp(userDir, token, signal) {
   const startedAt = Date.now();
   if (!(await isLoggedIn(userDir))) return { proxyIp: null };
-  const proxyIp = await getProxiedIpInfo(userDir, token, startedAt).catch(() => null);
+  // Unlike every other call in this file, this one is plain curl through the
+  // proxy — no mudslide/Baileys connection, no local session state to
+  // desync — so it's safe to actually kill mid-flight, not just while queued.
+  const proxyIp = await getProxiedIpInfo(userDir, token, startedAt, signal).catch(() => null);
   return { proxyIp };
 }
 
-async function sendMessage(userDir, token, to, message) {
+async function sendMessage(userDir, token, to, message, signal) {
+  // signal only gates withSession's early-bail while still queued — never
+  // forwarded into the actual send. Once a send has started, killing it
+  // risks the worst version of this: WhatsApp's servers may have already
+  // received it while our own local session update never gets persisted
+  // (encryptMudslideCache runs after a normal finish), silently desyncing a
+  // session that later shows up as SessionError/PreKeyError elsewhere.
   return withSession(userDir, token, async (credPath, timeoutMs) => {
     return runMudslide(['-c', credPath, 'send', to, message], timeoutMs, userDir, token, `to=${to}`);
-  }, 'sendMessage', { to, message });
+  }, 'sendMessage', { to, message }, true, signal);
 }
 
 // mudslide's trace-level logging is nearly all noisy per-frame websocket/pino
@@ -664,7 +695,8 @@ async function appendMudslideDebugLog(userDir, label, output) {
   await fs.appendFile(path.join(CONFIG.USERS_DIR, userDir, 'mudslide-debug.log'), entry).catch(() => {});
 }
 
-async function sendMedia(userDir, token, to, mediaPath, caption = '') {
+async function sendMedia(userDir, token, to, mediaPath, caption = '', signal) {
+  // Same reasoning as sendMessage above — signal only gates the queued case.
   return withSession(userDir, token, async (credPath, timeoutMs) => {
     const ext = mediaPath.split('.').pop().toLowerCase();
     const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
@@ -672,10 +704,12 @@ async function sendMedia(userDir, token, to, mediaPath, caption = '') {
     const args = ['-c', credPath, cmd, to, mediaPath];
     if (caption) args.push('--caption', caption);
     await runMudslide(args, timeoutMs, userDir, token, `to=${to}`);
-  }, 'sendMedia', { to, ...(caption && { caption }) });
+  }, 'sendMedia', { to, ...(caption && { caption }) }, true, signal);
 }
 
-async function getGroups(userDir, token) {
+async function getGroups(userDir, token, signal) {
+  // signal only gates withSession's early-bail while still queued — not
+  // forwarded to runMudslide/spawn, for the same reason as confirmWhatsappIsActuallyConnected above.
   return withSession(userDir, token, async (credPath, timeoutMs) => {
     const output = await runMudslide(['-c', credPath, 'groups'], timeoutMs, userDir, token, 'groups');
 
@@ -695,7 +729,7 @@ async function getGroups(userDir, token) {
       if (match) return { name: match[1].trim(), id: match[2].trim() };
       return null;
     }).filter(Boolean);
-  }, 'getGroups');
+  }, 'getGroups', {}, true, signal);
 }
 
 // Deletes all session files after the user confirms device removal from WhatsApp.

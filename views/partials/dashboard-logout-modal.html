@@ -74,7 +74,7 @@
         errMsg?.classList.add("hidden");
 
         try {
-          const res = await fetch(`${API_BASE}/api/whatsapp/logout`, {
+          const res = await fetchWithTimeout(`${API_BASE}/api/whatsapp/logout`, {
             method: "POST",
             headers: { Authorization: `Bearer ${authToken}` },
           });

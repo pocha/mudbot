@@ -342,7 +342,7 @@
 
       async function loadSchedules() {
         try {
-          const response = await fetch(`${API_BASE}/api/schedules`, {
+          const response = await fetchWithTimeout(`${API_BASE}/api/schedules`, {
             headers: { Authorization: `Bearer ${authToken}` },
           });
 
@@ -508,9 +508,15 @@
         spinner.classList.remove("hidden");
 
         try {
-          const res = await fetch(`${API_BASE}/api/whatsapp/groups`, {
-            headers: { Authorization: `Bearer ${authToken}` },
-          });
+          // Overrides the 30s default — this fetches the group list via a
+          // real mudslide connection, which the placeholder above already
+          // warns can take up to a minute; the default would abort a
+          // legitimately-slow-but-successful fetch prematurely.
+          const res = await fetchWithTimeout(
+            `${API_BASE}/api/whatsapp/groups`,
+            { headers: { Authorization: `Bearer ${authToken}` } },
+            60000,
+          );
           if (!res.ok) throw new Error("Failed to fetch groups");
           const data = await res.json();
           allGroups = data.groups || [];
@@ -704,7 +710,7 @@
         const method = isEdit ? "PUT" : "POST";
 
         try {
-          const response = await fetch(url, {
+          const response = await fetchWithTimeout(url, {
             method,
             headers: {
               Authorization: `Bearer ${authToken}`,
@@ -730,7 +736,7 @@
         if (!confirm("Are you sure you want to delete this schedule?")) return;
 
         try {
-          const response = await fetch(
+          const response = await fetchWithTimeout(
             `${API_BASE}/api/schedules/${scheduleId}`,
             {
               method: "DELETE",
@@ -768,7 +774,7 @@
           '<span class="material-symbols-outlined text-[20px] animate-spin">progress_activity</span> Sending…';
 
         try {
-          const response = await fetch(`${API_BASE}/api/message`, {
+          const response = await fetchWithTimeout(`${API_BASE}/api/message`, {
             method: "POST",
             headers: {
               Authorization: `Bearer ${authToken}`,

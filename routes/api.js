@@ -16,6 +16,24 @@ function functionUrl(name) {
   return `${base}/${name}`;
 }
 
+// Ties an AbortSignal to this request's own client connection closing early
+// (a page navigating away, the dashboard's own fetch timeout aborting,
+// etc.), so a long-running mudslide op behind the route can stop waiting on
+// a caller that's already gone. Deliberately NOT used on /api/whatsapp/qr —
+// that login flow is intentionally decoupled from the request lifecycle
+// (see getQRCode's own comment). For every mudslide-touching route this IS
+// used on, what the signal actually cancels is decided in the corresponding
+// mudslideService function, not here — most of them only cancel an op still
+// sitting in withSession's queue, never one already running, to avoid
+// discarding local session state that only gets persisted after a normal
+// finish (see confirmWhatsappIsActuallyConnected/sendMessage's own comments).
+function withClientAbortSignal(request, fn) {
+  const controller = new AbortController();
+  const onClientClose = () => controller.abort();
+  request.raw.on('close', onClientClose);
+  return fn(controller.signal).finally(() => request.raw.off('close', onClientClose));
+}
+
 async function routes(fastify, options) {
 
   const authenticateUser = async (request, reply) => {
@@ -222,7 +240,8 @@ async function routes(fastify, options) {
   // (dashboard load) rather than polling.
   fastify.get('/api/whatsapp', { preHandler: authenticateUser }, async (request, reply) => {
     try {
-      const { connected, phoneNumber, reason } = await mudslideService.confirmWhatsappIsActuallyConnected(request.user.userDir, request.user.token);
+      const { connected, phoneNumber, reason } = await withClientAbortSignal(request, signal =>
+        mudslideService.confirmWhatsappIsActuallyConnected(request.user.userDir, request.user.token, signal));
       console.log('DEBUG /api/whatsapp', { userDir: request.user.userDir, connected, phoneNumber, reason });
       return { connected, phoneNumber, reason };
     } catch (error) {
@@ -247,7 +266,8 @@ async function routes(fastify, options) {
   // actually going to display the IP.
   fastify.get('/api/whatsapp/ip', { preHandler: authenticateUser }, async (request, reply) => {
     try {
-      return await mudslideService.getWhatsappProxyIp(request.user.userDir, request.user.token);
+      return await withClientAbortSignal(request, signal =>
+        mudslideService.getWhatsappProxyIp(request.user.userDir, request.user.token, signal));
     } catch (error) {
       fastify.log.error(error);
       emailService.notifyOwnerOfError('getWhatsappProxyIp', request.user.userDir, error.message).catch(() => {});
@@ -267,7 +287,8 @@ async function routes(fastify, options) {
 
   fastify.get('/api/whatsapp/groups', { preHandler: [authenticateUser, requireWhatsapp] }, async (request, reply) => {
     try {
-      const groups = await mudslideService.getGroups(request.user.userDir, request.user.token);
+      const groups = await withClientAbortSignal(request, signal =>
+        mudslideService.getGroups(request.user.userDir, request.user.token, signal));
       return { groups };
     } catch (error) {
       fastify.log.error(error);
@@ -284,7 +305,8 @@ async function routes(fastify, options) {
   // same shape requireWhatsapp already returns elsewhere in this file.
   fastify.post('/api/whatsapp/notify-user-connected', { preHandler: authenticateUser }, async (request, reply) => {
     try {
-      const { connected } = await mudslideService.confirmWhatsappIsActuallyConnected(request.user.userDir, request.user.token);
+      const { connected } = await withClientAbortSignal(request, signal =>
+        mudslideService.confirmWhatsappIsActuallyConnected(request.user.userDir, request.user.token, signal));
       if (!connected) {
         return reply.code(409).send({ error: 'WhatsApp is not connected yet.', reason: 'whatsapp_not_connected' });
       }
@@ -367,10 +389,10 @@ async function routes(fastify, options) {
     const DEVICE_CHECK_SCHEDULE_ID = 'device-check';
     try {
       const { userDir, token } = request.user;
-      const [{ connected }, apiKeyStatus] = await Promise.all([
-        mudslideService.confirmWhatsappIsActuallyConnected(userDir, token),
+      const [{ connected }, apiKeyStatus] = await withClientAbortSignal(request, signal => Promise.all([
+        mudslideService.confirmWhatsappIsActuallyConnected(userDir, token, signal),
         userService.getApiKeyStatus(userDir)
-      ]);
+      ]));
 
       if (!(connected && apiKeyStatus.permanent)) {
         await scheduleService.removeCronJob(userDir, DEVICE_CHECK_SCHEDULE_ID);
@@ -456,9 +478,9 @@ async function routes(fastify, options) {
       // API callers (curl, Zapier, etc.) bypass that, so enforce it here too.
       // No-op for group JIDs (...@g.us), which never contain these chars.
       to = to.replace(/[\s\-()]/g, '');
-      await (media
-        ? mudslideService.sendMedia(request.user.userDir, request.user.token, to, media, message)
-        : mudslideService.sendMessage(request.user.userDir, request.user.token, to, message));
+      await withClientAbortSignal(request, signal => media
+        ? mudslideService.sendMedia(request.user.userDir, request.user.token, to, media, message, signal)
+        : mudslideService.sendMessage(request.user.userDir, request.user.token, to, message, signal));
       return { success: true };
     } catch (error) {
       fastify.log.error(error);
