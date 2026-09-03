@@ -631,11 +631,16 @@ async function isWhatsappConnected(userDir, token) {
   } catch {}
 
   if (plaintextReady && token) {
-    try {
-      await encryptMudslideCache(userDir, token);
-    } finally {
-      await fs.rm(mudslideDir(userDir), { recursive: true, force: true });
-    }
+    // Only remove the plaintext dir once it's actually safely encrypted —
+    // this used to run in a finally, deleting the plaintext even when
+    // encryptMudslideCache itself failed (a tar/spawn hiccup, a timeout,
+    // etc.), which permanently destroyed the just-scanned session with no
+    // way to retry: neither a valid .mudslide.enc nor the plaintext was left
+    // behind, so every check after that correctly reported loggedIn: false
+    // forever. Leaving the plaintext in place on failure lets the next poll
+    // simply retry the encrypt instead.
+    await encryptMudslideCache(userDir, token);
+    await fs.rm(mudslideDir(userDir), { recursive: true, force: true });
   }
 
   return { loggedIn: plaintextReady || encExists };
