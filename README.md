@@ -297,7 +297,7 @@ Send a message to an individual:
 curl -X POST https://<domain>/api/message \
   -H "x-api-key: <your-api-key>" \
   -H "Content-Type: application/json" \
-  -d '{"to": "919876543210", "message": "Hello!"}'
+  -d '{"to": "919538384545", "message": "Hello!"}'
 ```
 
 To message a WhatsApp group instead, first fetch your groups to get its JID, then send to that JID:
