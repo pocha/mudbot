@@ -20,8 +20,8 @@ const http = require('http');
 
 // A live-measured CONNECT round trip through this gateway (5 trials against
 // web.whatsapp.com:443) came back at 773-878ms every time — well under 1
-// second. Set to 5x that observed worst case for error margin, not a guess.
-const UPSTREAM_CONNECT_TIMEOUT_MS = 5000;
+// second. ~3.5x that observed worst case for error margin, not a guess.
+const PROXY_CONNECT_TIMEOUT_MS = 3000;
 
 function buildAuthHeader(username, country, targetSuffix, password) {
   const upstreamUser = `${username}__cr.${country}${targetSuffix}`;
@@ -34,7 +34,7 @@ function buildAuthHeader(username, country, targetSuffix, password) {
 // DataImpulse's gateway can accept the TCP connection and then simply never
 // respond — with no timeout that hangs forever, so the socket is destroyed
 // and this rejects with a specific, actionable message on the same timer.
-function attemptConnect({ upstreamHost, upstreamPort, targetHost, targetPort, authHeader, timeoutMs = UPSTREAM_CONNECT_TIMEOUT_MS }) {
+function attemptConnect({ upstreamHost, upstreamPort, targetHost, targetPort, authHeader, timeoutMs = PROXY_CONNECT_TIMEOUT_MS }) {
   return new Promise((resolve, reject) => {
     const socket = net.connect(upstreamPort, upstreamHost, () => {
       socket.write(
@@ -95,7 +95,7 @@ function startRelay({ country, targetSuffix = '', upstreamHost, upstreamPort, lo
         method: clientReq.method,
         path: clientReq.url,
         headers: { ...clientReq.headers, 'Proxy-Authorization': authHeader },
-        timeout: UPSTREAM_CONNECT_TIMEOUT_MS
+        timeout: PROXY_CONNECT_TIMEOUT_MS
       }, upstreamRes => resolve(upstreamRes));
       upstreamReq.on('timeout', () => upstreamReq.destroy(new Error(`Residential IP did not respond on port ${upstreamPort}`)));
       upstreamReq.on('error', reject);

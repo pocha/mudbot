@@ -7,6 +7,7 @@ const proxyRelayManager = require('./proxyRelayManager');
 const usageService = require('./usageService');
 const emailService = require('./emailService');
 const { errorOnTimeout, withErrorOnTimeout } = require('./helpers/errorOnTimeout');
+const { logCheckpoint } = require('./helpers/debugLog');
 
 const CONFIG = {
   MUDSLIDE_PATH: process.env.MUDSLIDE_PATH || 'mudslide',
@@ -35,8 +36,12 @@ const relayHeld = {};
 // process is killed for some other reason), it would hang forever with no
 // watchdog, permanently blocking every subsequent queued op for that user
 // behind it (see the note on withSession below).
-const DECRYPT_TIMEOUT_MS = 20000;
-const ENCRYPT_TIMEOUT_MS = 20000;
+// A tar of the small .mudslide credential folder is pure local disk I/O —
+// nowhere near 20s of legitimate work, even under load. That ceiling only
+// ever mattered as a backstop against a wedged spawn (see above), not as an
+// expected duration, so a few seconds is already generous.
+const DECRYPT_TIMEOUT_MS = 3000;
+const ENCRYPT_TIMEOUT_MS = 3000;
 
 // The one shared ceiling for every public API call in this file (the two
 // errorOnTimeout wraps below and withSession's own) — matches mudslide's own
@@ -69,10 +74,10 @@ function spawnBudget(startedAt) {
 // caught, with a real diagnostic message) before our outer spawnWithTimeout
 // kill does. connectTimeoutMs doesn't need to cover tunnel establishment to
 // the residential IP — dataimpulseRelay's own attemptConnect already bounds
-// that separately (5s) before Baileys' connect attempt even starts; this
-// only covers the TLS/WebSocket/noise-handshake layer on top of that
-// already-open tunnel.
-const MUDSLIDE_CONNECT_TIMEOUT_MS = 10000;
+// that separately (PROXY_CONNECT_TIMEOUT_MS, 3s) before Baileys' connect
+// attempt even starts; this only covers the TLS/WebSocket/noise-handshake
+// layer on top of that already-open tunnel.
+const MUDSLIDE_CONNECT_TIMEOUT_MS = 5000;
 const MUDSLIDE_QUERY_TIMEOUT_MS = 20000;
 
 // Exact text our mudslide fork's `me` prints (via signale, to stdout) when
@@ -119,15 +124,21 @@ async function isLoggedIn(userDir) {
 // fromDir: directory containing .mudslide to tar.
 //   - omit after QR scan → tars from users/<userDir>/, deletes the plaintext dir
 //   - pass tempDir(userDir) after send/groups → tars from /tmp, cleanupTemp handles deletion
+// Checkpoint-logged here, not at each call site, so every caller benefits
+// automatically — withSession's doWork, and isWhatsappConnected's own direct
+// call (it doesn't go through withSession at all). logCheckpoint itself
+// picks up the current request's label automatically (see its own comment).
 async function encryptMudslideCache(userDir, token, fromDir = null) {
   const cwd = fromDir || path.join(CONFIG.USERS_DIR, userDir);
   const key = crypto.createHash('sha256').update(token).digest();
 
+  await logCheckpoint(userDir, 'starting tar (encrypt)...');
   // If this times out, the tar output is incomplete — must never be written
   // to .mudslide.enc (that would corrupt the real, previously-good
   // credential with a truncated one), so just let it throw here and leave
   // .mudslide.enc untouched.
   const tarBuffer = await spawnWithTimeout('tar', ['-czf', '-', '.mudslide'], ENCRYPT_TIMEOUT_MS, { cwd });
+  await logCheckpoint(userDir, 'tar done, encrypting...');
 
   const iv = crypto.randomBytes(16);
   const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
@@ -137,10 +148,12 @@ async function encryptMudslideCache(userDir, token, fromDir = null) {
   if (!fromDir) {
     await fs.rm(mudslideDir(userDir), { recursive: true, force: true });
   }
+  await logCheckpoint(userDir, 'encrypt done');
 }
 
 // Decrypt .mudslide.enc → /tmp/mudbot-<userDir>/.mudslide, return that path.
 // If the temp dir already exists (previous op in same queue batch), reuse it.
+// Checkpoint-logged here for the same reason as encryptMudslideCache above.
 async function decryptMudslideToTemp(userDir, token) {
   const tmp = tempDir(userDir);
   const credPath = path.join(tmp, '.mudslide');
@@ -149,6 +162,7 @@ async function decryptMudslideToTemp(userDir, token) {
     return credPath;  // already decrypted by an earlier op in this batch
   } catch {}
 
+  await logCheckpoint(userDir, 'reading + decrypting...');
   const data = await fs.readFile(mudslideEncFile(userDir));
   const iv = data.slice(0, 16);
   const encrypted = data.slice(16);
@@ -160,6 +174,7 @@ async function decryptMudslideToTemp(userDir, token) {
   await fs.mkdir(tmp, { recursive: true });
 
   try {
+    await logCheckpoint(userDir, 'starting tar extract (decrypt)...');
     await spawnWithTimeout('tar', ['-xzf', '-', '-C', tmp], DECRYPT_TIMEOUT_MS, { input: tarBuffer });
   } catch (err) {
     // Extraction was killed or failed partway through — the temp dir may
@@ -169,6 +184,7 @@ async function decryptMudslideToTemp(userDir, token) {
     await fs.rm(tmp, { recursive: true, force: true }).catch(() => {});
     throw err;
   }
+  await logCheckpoint(userDir, 'decrypt done');
 
   return credPath;
 }
@@ -215,7 +231,15 @@ const ME_PHONE_NUMBER_RE = /Current user:\s*(\d+):/;
 // running at once get a server-side "stream:error conflict type=replaced",
 // kicking one connection out rather than both succeeding independently.
 async function confirmWhatsappIsActuallyConnected(userDir, token, signal) {
-  if (!(await isWhatsappConnected(userDir, token)).loggedIn) return { connected: false, phoneNumber: null };
+  // No session file at all (never connected, or manually removed) is the
+  // most certain "not connected" case there is — more certain, even, than
+  // the runtime-detected unlink below, since there's no ambiguity to hedge
+  // on. Reuse the same reason so the frontend shows "Connect WhatsApp"
+  // rather than its "we couldn't confirm" warning, which was written for
+  // genuinely inconclusive checks (a timeout, a proxy hiccup), not this.
+  if (!(await isWhatsappConnected(userDir, token)).loggedIn) {
+    return { connected: false, phoneNumber: null, reason: 'device_unlinked' };
+  }
 
   try {
     // signal is only for withSession's own "still queued, caller's gone"
@@ -479,12 +503,16 @@ async function runMudslide(args, timeoutMs, userDir, token, label = 'mudslide', 
   ];
   const argv = useProxy ? ['-f', confPath, CONFIG.MUDSLIDE_PATH, ...mudslideArgs] : mudslideArgs;
 
+  const spawnStartedAt = Date.now();
+  if (userDir) await logCheckpoint(userDir, `${label}: starting mudslide (budget ${timeoutMs}ms)...`);
   try {
     const stdout = await spawnWithTimeout(bin, argv, timeoutMs, { signal });
     const output = stripProxy(stdout.toString());
+    if (userDir) await logCheckpoint(userDir, `${label}: mudslide done, took ${Date.now() - spawnStartedAt}ms`);
     if (userDir) await appendMudslideDebugLog(userDir, label, output);
     return output;
   } catch (err) {
+    if (userDir) await logCheckpoint(userDir, `${label}: mudslide failed after ${Date.now() - spawnStartedAt}ms`);
     if (userDir) err.message = await diagnoseConnectivityFailure(userDir, token, err.message);
     if (userDir) {
       const partial = err.partialOutput ? `\n${stripProxy(err.partialOutput)}` : '';

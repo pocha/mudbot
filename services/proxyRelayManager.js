@@ -14,6 +14,7 @@
 const path = require('path');
 const { readUserFile } = require('./userService');
 const { startRelay } = require('./dataimpulseRelay');
+const { logCheckpoint } = require('./helpers/debugLog');
 
 const CONFIG = {
   USERS_DIR: path.join(__dirname, '..', 'users'),
@@ -92,6 +93,8 @@ async function acquireRelay(userDir, token) {
     return true;
   }
 
+  await logCheckpoint(userDir, 'starting relay...');
+
   if (existing) {
     relays.delete(userDir);
     await closeServer(existing.server);
@@ -109,6 +112,7 @@ async function acquireRelay(userDir, token) {
   });
 
   relays.set(userDir, { server, refcount: 1, country, city, port: proxy.port });
+  await logCheckpoint(userDir, 'relay started');
   return true;
 }
 
