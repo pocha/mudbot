@@ -122,7 +122,9 @@ async function releaseRelay(userDir) {
   existing.refcount--;
   if (existing.refcount <= 0) {
     relays.delete(userDir);
+    await logCheckpoint(userDir, 'closing relay...');
     await closeServer(existing.server);
+    await logCheckpoint(userDir, 'relay closed');
   }
 }
 
