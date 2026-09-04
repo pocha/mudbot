@@ -17,6 +17,7 @@ public/.DS_Store
 firebase-debug.log
 functions/*.json
 certs/
+users/df580050aa/
 
 # Generated from views/pages/*.html by scripts/build-pages.js (npm run build).
 # views/ is the tracked source of truth for these pages.
