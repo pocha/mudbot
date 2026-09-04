@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { runWithLabel } = require('./helpers/requestContext');
+const { runWithLabel } = require('./helpers/debugLog');
 
 function buildServer() {
   const fastifyOptions = { logger: true, trustProxy: true };
@@ -44,9 +44,9 @@ function buildServer() {
 
   // Sets this request's own label (e.g. "GET /api/whatsapp") in an
   // AsyncLocalStorage context, readable from anywhere in the request's async
-  // call chain — see services/helpers/requestContext.js and its use in
-  // services/helpers/debugLog.js's logCheckpoint. A global preHandler hook
-  // (not onRequest) so it's guaranteed to run after routing is resolved
+  // call chain — see services/helpers/debugLog.js (runWithLabel/getLabel,
+  // and logCheckpoint's use of it). A global preHandler hook (not onRequest)
+  // so it's guaranteed to run after routing is resolved
   // (request.routeOptions.url is populated) and before any route-specific
   // preHandler (authenticateUser, requireWhatsapp), which also need it.
   fastify.addHook('preHandler', (request, reply, done) => {

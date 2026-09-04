@@ -127,7 +127,7 @@ async function isLoggedIn(userDir) {
 // Checkpoint-logged here, not at each call site, so every caller benefits
 // automatically — withSession's doWork, and isWhatsappConnected's own direct
 // call (it doesn't go through withSession at all). logCheckpoint itself
-// picks up the current request's label from requestContext.
+// picks up the current request's label automatically (see its own comment).
 async function encryptMudslideCache(userDir, token, fromDir = null) {
   const cwd = fromDir || path.join(CONFIG.USERS_DIR, userDir);
   const key = crypto.createHash('sha256').update(token).digest();
