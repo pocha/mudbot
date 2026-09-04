@@ -496,12 +496,16 @@ async function runMudslide(args, timeoutMs, userDir, token, label = 'mudslide', 
   ];
   const argv = useProxy ? ['-f', confPath, CONFIG.MUDSLIDE_PATH, ...mudslideArgs] : mudslideArgs;
 
+  const spawnStartedAt = Date.now();
+  if (userDir) await logCheckpoint(userDir, `${label}: starting mudslide (budget ${timeoutMs}ms)...`);
   try {
     const stdout = await spawnWithTimeout(bin, argv, timeoutMs, { signal });
     const output = stripProxy(stdout.toString());
+    if (userDir) await logCheckpoint(userDir, `${label}: mudslide done, took ${Date.now() - spawnStartedAt}ms`);
     if (userDir) await appendMudslideDebugLog(userDir, label, output);
     return output;
   } catch (err) {
+    if (userDir) await logCheckpoint(userDir, `${label}: mudslide failed after ${Date.now() - spawnStartedAt}ms`);
     if (userDir) err.message = await diagnoseConnectivityFailure(userDir, token, err.message);
     if (userDir) {
       const partial = err.partialOutput ? `\n${stripProxy(err.partialOutput)}` : '';
