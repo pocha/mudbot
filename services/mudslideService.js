@@ -7,6 +7,7 @@ const proxyRelayManager = require('./proxyRelayManager');
 const usageService = require('./usageService');
 const emailService = require('./emailService');
 const { errorOnTimeout, withErrorOnTimeout } = require('./helpers/errorOnTimeout');
+const { logCheckpoint } = require('./helpers/debugLog');
 
 const CONFIG = {
   MUDSLIDE_PATH: process.env.MUDSLIDE_PATH || 'mudslide',
@@ -35,8 +36,12 @@ const relayHeld = {};
 // process is killed for some other reason), it would hang forever with no
 // watchdog, permanently blocking every subsequent queued op for that user
 // behind it (see the note on withSession below).
-const DECRYPT_TIMEOUT_MS = 20000;
-const ENCRYPT_TIMEOUT_MS = 20000;
+// A tar of the small .mudslide credential folder is pure local disk I/O —
+// nowhere near 20s of legitimate work, even under load. That ceiling only
+// ever mattered as a backstop against a wedged spawn (see above), not as an
+// expected duration, so a few seconds is already generous.
+const DECRYPT_TIMEOUT_MS = 3000;
+const ENCRYPT_TIMEOUT_MS = 3000;
 
 // The one shared ceiling for every public API call in this file (the two
 // errorOnTimeout wraps below and withSession's own) — matches mudslide's own
@@ -69,10 +74,10 @@ function spawnBudget(startedAt) {
 // caught, with a real diagnostic message) before our outer spawnWithTimeout
 // kill does. connectTimeoutMs doesn't need to cover tunnel establishment to
 // the residential IP — dataimpulseRelay's own attemptConnect already bounds
-// that separately (5s) before Baileys' connect attempt even starts; this
-// only covers the TLS/WebSocket/noise-handshake layer on top of that
-// already-open tunnel.
-const MUDSLIDE_CONNECT_TIMEOUT_MS = 10000;
+// that separately (PROXY_CONNECT_TIMEOUT_MS, 3s) before Baileys' connect
+// attempt even starts; this only covers the TLS/WebSocket/noise-handshake
+// layer on top of that already-open tunnel.
+const MUDSLIDE_CONNECT_TIMEOUT_MS = 5000;
 const MUDSLIDE_QUERY_TIMEOUT_MS = 20000;
 
 // Exact text our mudslide fork's `me` prints (via signale, to stdout) when
@@ -119,15 +124,22 @@ async function isLoggedIn(userDir) {
 // fromDir: directory containing .mudslide to tar.
 //   - omit after QR scan → tars from users/<userDir>/, deletes the plaintext dir
 //   - pass tempDir(userDir) after send/groups → tars from /tmp, cleanupTemp handles deletion
+// Checkpoint-logged here, not at each call site, so every caller benefits
+// automatically — withSession's doWork, and isWhatsappConnected's own direct
+// call (it doesn't go through withSession at all). See logCheckpoint's own
+// comment for why this matters: without it, a client-side timeout on a
+// request that's actually stuck in here left zero trace of how far it got.
 async function encryptMudslideCache(userDir, token, fromDir = null) {
   const cwd = fromDir || path.join(CONFIG.USERS_DIR, userDir);
   const key = crypto.createHash('sha256').update(token).digest();
 
+  await logCheckpoint(userDir, 'encryptMudslideCache: starting tar...');
   // If this times out, the tar output is incomplete — must never be written
   // to .mudslide.enc (that would corrupt the real, previously-good
   // credential with a truncated one), so just let it throw here and leave
   // .mudslide.enc untouched.
   const tarBuffer = await spawnWithTimeout('tar', ['-czf', '-', '.mudslide'], ENCRYPT_TIMEOUT_MS, { cwd });
+  await logCheckpoint(userDir, 'encryptMudslideCache: tar done, encrypting...');
 
   const iv = crypto.randomBytes(16);
   const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
@@ -137,10 +149,12 @@ async function encryptMudslideCache(userDir, token, fromDir = null) {
   if (!fromDir) {
     await fs.rm(mudslideDir(userDir), { recursive: true, force: true });
   }
+  await logCheckpoint(userDir, 'encryptMudslideCache: done');
 }
 
 // Decrypt .mudslide.enc → /tmp/mudbot-<userDir>/.mudslide, return that path.
 // If the temp dir already exists (previous op in same queue batch), reuse it.
+// Checkpoint-logged here for the same reason as encryptMudslideCache above.
 async function decryptMudslideToTemp(userDir, token) {
   const tmp = tempDir(userDir);
   const credPath = path.join(tmp, '.mudslide');
@@ -149,6 +163,7 @@ async function decryptMudslideToTemp(userDir, token) {
     return credPath;  // already decrypted by an earlier op in this batch
   } catch {}
 
+  await logCheckpoint(userDir, 'decryptMudslideToTemp: reading + decrypting...');
   const data = await fs.readFile(mudslideEncFile(userDir));
   const iv = data.slice(0, 16);
   const encrypted = data.slice(16);
@@ -160,6 +175,7 @@ async function decryptMudslideToTemp(userDir, token) {
   await fs.mkdir(tmp, { recursive: true });
 
   try {
+    await logCheckpoint(userDir, 'decryptMudslideToTemp: starting tar extract...');
     await spawnWithTimeout('tar', ['-xzf', '-', '-C', tmp], DECRYPT_TIMEOUT_MS, { input: tarBuffer });
   } catch (err) {
     // Extraction was killed or failed partway through — the temp dir may
@@ -169,6 +185,7 @@ async function decryptMudslideToTemp(userDir, token) {
     await fs.rm(tmp, { recursive: true, force: true }).catch(() => {});
     throw err;
   }
+  await logCheckpoint(userDir, 'decryptMudslideToTemp: done');
 
   return credPath;
 }
