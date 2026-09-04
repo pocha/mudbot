@@ -212,6 +212,18 @@
             ? ''
             : 'https://api.watobot.xyz';
 
+        // Plain fetch() has no built-in timeout, so a hung backend call (e.g.
+        // a stuck mudslide spawn behind confirmWhatsappIsActuallyConnected)
+        // would otherwise leave a caller waiting indefinitely with no
+        // feedback — see handleLoginConfirm's own use of this below.
+        function fetchWithTimeout(url, options = {}, timeoutMs = 30000) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+            return fetch(url, { ...options, signal: controller.signal }).finally(() =>
+                clearTimeout(timeoutId),
+            );
+        }
+
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
         let checkInterval = null;
@@ -464,7 +476,7 @@
             errMsg.classList.add('hidden');
 
             try {
-                const response = await fetch(`${API_BASE}/api/whatsapp/notify-user-connected`, {
+                const response = await fetchWithTimeout(`${API_BASE}/api/whatsapp/notify-user-connected`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
