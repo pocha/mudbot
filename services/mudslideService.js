@@ -232,7 +232,15 @@ const ME_PHONE_NUMBER_RE = /Current user:\s*(\d+):/;
 // running at once get a server-side "stream:error conflict type=replaced",
 // kicking one connection out rather than both succeeding independently.
 async function confirmWhatsappIsActuallyConnected(userDir, token, signal) {
-  if (!(await isWhatsappConnected(userDir, token)).loggedIn) return { connected: false, phoneNumber: null };
+  // No session file at all (never connected, or manually removed) is the
+  // most certain "not connected" case there is — more certain, even, than
+  // the runtime-detected unlink below, since there's no ambiguity to hedge
+  // on. Reuse the same reason so the frontend shows "Connect WhatsApp"
+  // rather than its "we couldn't confirm" warning, which was written for
+  // genuinely inconclusive checks (a timeout, a proxy hiccup), not this.
+  if (!(await isWhatsappConnected(userDir, token)).loggedIn) {
+    return { connected: false, phoneNumber: null, reason: 'device_unlinked' };
+  }
 
   try {
     // signal is only for withSession's own "still queued, caller's gone"
