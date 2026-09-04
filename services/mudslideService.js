@@ -126,20 +126,19 @@ async function isLoggedIn(userDir) {
 //   - pass tempDir(userDir) after send/groups → tars from /tmp, cleanupTemp handles deletion
 // Checkpoint-logged here, not at each call site, so every caller benefits
 // automatically — withSession's doWork, and isWhatsappConnected's own direct
-// call (it doesn't go through withSession at all). See logCheckpoint's own
-// comment for why this matters: without it, a client-side timeout on a
-// request that's actually stuck in here left zero trace of how far it got.
+// call (it doesn't go through withSession at all). logCheckpoint itself
+// picks up the current request's label from requestContext.
 async function encryptMudslideCache(userDir, token, fromDir = null) {
   const cwd = fromDir || path.join(CONFIG.USERS_DIR, userDir);
   const key = crypto.createHash('sha256').update(token).digest();
 
-  await logCheckpoint(userDir, 'encryptMudslideCache: starting tar...');
+  await logCheckpoint(userDir, 'starting tar (encrypt)...');
   // If this times out, the tar output is incomplete — must never be written
   // to .mudslide.enc (that would corrupt the real, previously-good
   // credential with a truncated one), so just let it throw here and leave
   // .mudslide.enc untouched.
   const tarBuffer = await spawnWithTimeout('tar', ['-czf', '-', '.mudslide'], ENCRYPT_TIMEOUT_MS, { cwd });
-  await logCheckpoint(userDir, 'encryptMudslideCache: tar done, encrypting...');
+  await logCheckpoint(userDir, 'tar done, encrypting...');
 
   const iv = crypto.randomBytes(16);
   const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
@@ -149,7 +148,7 @@ async function encryptMudslideCache(userDir, token, fromDir = null) {
   if (!fromDir) {
     await fs.rm(mudslideDir(userDir), { recursive: true, force: true });
   }
-  await logCheckpoint(userDir, 'encryptMudslideCache: done');
+  await logCheckpoint(userDir, 'encrypt done');
 }
 
 // Decrypt .mudslide.enc → /tmp/mudbot-<userDir>/.mudslide, return that path.
@@ -163,7 +162,7 @@ async function decryptMudslideToTemp(userDir, token) {
     return credPath;  // already decrypted by an earlier op in this batch
   } catch {}
 
-  await logCheckpoint(userDir, 'decryptMudslideToTemp: reading + decrypting...');
+  await logCheckpoint(userDir, 'reading + decrypting...');
   const data = await fs.readFile(mudslideEncFile(userDir));
   const iv = data.slice(0, 16);
   const encrypted = data.slice(16);
@@ -175,7 +174,7 @@ async function decryptMudslideToTemp(userDir, token) {
   await fs.mkdir(tmp, { recursive: true });
 
   try {
-    await logCheckpoint(userDir, 'decryptMudslideToTemp: starting tar extract...');
+    await logCheckpoint(userDir, 'starting tar extract (decrypt)...');
     await spawnWithTimeout('tar', ['-xzf', '-', '-C', tmp], DECRYPT_TIMEOUT_MS, { input: tarBuffer });
   } catch (err) {
     // Extraction was killed or failed partway through — the temp dir may
@@ -185,7 +184,7 @@ async function decryptMudslideToTemp(userDir, token) {
     await fs.rm(tmp, { recursive: true, force: true }).catch(() => {});
     throw err;
   }
-  await logCheckpoint(userDir, 'decryptMudslideToTemp: done');
+  await logCheckpoint(userDir, 'decrypt done');
 
   return credPath;
 }

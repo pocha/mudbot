@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { runWithLabel } = require('./helpers/requestContext');
 
 function buildServer() {
   const fastifyOptions = { logger: true, trustProxy: true };
@@ -40,6 +41,18 @@ function buildServer() {
   }
 
   const fastify = require('fastify')(fastifyOptions);
+
+  // Sets this request's own label (e.g. "GET /api/whatsapp") in an
+  // AsyncLocalStorage context, readable from anywhere in the request's async
+  // call chain — see services/helpers/requestContext.js and its use in
+  // services/helpers/debugLog.js's logCheckpoint. A global preHandler hook
+  // (not onRequest) so it's guaranteed to run after routing is resolved
+  // (request.routeOptions.url is populated) and before any route-specific
+  // preHandler (authenticateUser, requireWhatsapp), which also need it.
+  fastify.addHook('preHandler', (request, reply, done) => {
+    const label = `${request.method} ${request.routeOptions?.url || request.url}`;
+    runWithLabel(label, () => done());
+  });
 
   // @fastify/cors defaults to methods: 'GET,HEAD,POST' when not specified —
   // routes/api.js also uses PUT (update schedule) and DELETE (delete

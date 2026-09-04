@@ -93,7 +93,7 @@ async function acquireRelay(userDir, token) {
     return true;
   }
 
-  await logCheckpoint(userDir, 'acquireRelay: starting relay...');
+  await logCheckpoint(userDir, 'starting relay...');
 
   if (existing) {
     relays.delete(userDir);
@@ -112,7 +112,7 @@ async function acquireRelay(userDir, token) {
   });
 
   relays.set(userDir, { server, refcount: 1, country, city, port: proxy.port });
-  await logCheckpoint(userDir, 'acquireRelay: relay started');
+  await logCheckpoint(userDir, 'relay started');
   return true;
 }
 
