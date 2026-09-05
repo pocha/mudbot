@@ -56,8 +56,8 @@ async function readProxyMeta(userDir, token) {
   return JSON.parse(raw);
 }
 
-// server.close() by itself is non-destructive — it only stops new connections and waits for existing ones to end on their own, which is the wrong default for a relay we've already decided to discard entirely, so tunnels/connections are force-destroyed up front instead of waited on. That's still not a hard guarantee close()'s own callback ever fires (a socket that doesn't cleanly emit 'close' after destroy(), or closeAllConnections being unavailable pre-Node 18.2, would otherwise leave this — and every caller of it, including withSession's whole per-user queue — hanging forever), so an unconditional fallback resolves this regardless. Logs only when that fallback is actually what resolved it (not the normal case) — a real signal that some connection didn't die when asked to, worth knowing about even though it's no longer able to hang anything.
-async function closeServer(server, userDir, timeoutMs = 1000) {
+// server.close() is given a real chance to finish naturally first — it's non-destructive by design (stops new connections, waits for existing ones to end on their own), which is the right default here since forcing is an escalation, not the normal case. Only if it hasn't reported back within timeoutMs do destroyActiveTunnels/closeAllConnections force it — and this resolves either way regardless of whether that forcing actually makes close()'s own callback fire (a socket that doesn't cleanly emit 'close' after destroy(), or closeAllConnections being unavailable pre-Node 18.2, would otherwise leave this — and every caller of it, including withSession's whole per-user queue — hanging forever). Logs only when the forced path is what actually resolved it (not the normal case) — a real signal that some connection didn't die when asked to, worth knowing about even though it's no longer able to hang anything.
+async function closeServer(server, userDir, timeoutMs = 5000) {
   return new Promise(resolve => {
     let settled = false;
     const finish = forced => {
@@ -66,10 +66,12 @@ async function closeServer(server, userDir, timeoutMs = 1000) {
       if (forced) logCheckpoint(userDir, 'relay did not close cleanly within the timeout — forced').catch(() => {});
       resolve();
     };
-    server.destroyActiveTunnels?.();
-    server.closeAllConnections?.();
-    server.close(() => finish(false));
-    setTimeout(() => finish(true), timeoutMs);
+    const timer = setTimeout(() => {
+      server.destroyActiveTunnels?.();
+      server.closeAllConnections?.();
+      finish(true);
+    }, timeoutMs);
+    server.close(() => { clearTimeout(timer); finish(false); });
   });
 }
 
