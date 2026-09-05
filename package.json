@@ -9,7 +9,8 @@
     "build": "node scripts/build-pages.js",
     "test": "node test/flow.test.js && jest",
     "test-mudslide-proxy": "node scripts/test-mudslide-proxy.js",
-    "test-mudslide": "node scripts/test-mudslide.js"
+    "test-mudslide": "node scripts/test-mudslide.js",
+    "test-e2e": "node test/e2e-manual.js"
   },
   "repository": {
     "type": "git",

@@ -593,6 +593,8 @@
 
       const CONNECTION_UNCERTAIN_WARNING =
         "We couldn't confirm whether your device is still connected. If you're seeing this repeatedly, we recommend disconnecting and reconnecting your WhatsApp.";
+      const PROXY_UNREACHABLE_WARNING =
+        "The residential proxy is misbehaving at the moment, so we can't confirm if your device is actually connected. Please try refreshing in a bit — if it persists, ask the Watobot owner to recycle your proxy.";
 
       async function checkConnectionStatus() {
         try {
@@ -612,11 +614,16 @@
             if (!connected) {
               if (reason === "device_unlinked") {
                 updateConnectionUI(false);
+              } else if (reason === "proxy_unreachable") {
+                // The proxy itself failed the check, not WhatsApp — nothing's
+                // actually unlinked, and reconnecting the device wouldn't fix
+                // a proxy issue, so this gets its own specific explanation.
+                updateConnectionUI(true, null, null, PROXY_UNREACHABLE_WARNING);
               } else {
-                // Not a confirmed unlink — a proxy hiccup, timeout, or the
-                // connection just closing too early. Showing "Connect
-                // WhatsApp" here would be misleading (nothing's actually
-                // unlinked), so keep the connected view and explain instead.
+                // Not a confirmed unlink — a timeout, or the connection just
+                // closing too early. Showing "Connect WhatsApp" here would be
+                // misleading (nothing's actually unlinked), so keep the
+                // connected view and explain instead.
                 updateConnectionUI(true, null, null, CONNECTION_UNCERTAIN_WARNING);
               }
               return;

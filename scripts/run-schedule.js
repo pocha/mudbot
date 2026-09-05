@@ -40,6 +40,7 @@ async function shouldAlert(userDir) {
 async function checkConnection(token) {
   let connected = false;
   let checkError = null;
+  let reason = null;
   try {
     const res = await fetch(`${process.env.BASE_URL || 'http://localhost'}:${process.env.PORT || 80}/api/whatsapp`, {
       headers: { 'Authorization': `Bearer ${token}` }
@@ -50,11 +51,12 @@ async function checkConnection(token) {
       connected = !!body.connected;
       if (!connected) checkError = 'WhatsApp device is not connected';
     }
+    reason = body.reason;
   } catch (err) {
     checkError = err.message;
   }
 
-  if (connected) return;
+  if (connected || !checkError || reason !== 'device_unlinked') return;
   if (!(await shouldAlert(userDir))) return;
 
   const userService = require('../services/userService');

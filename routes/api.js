@@ -7,26 +7,16 @@ const faqService = require('../services/faqService');
 const calendlyService = require('../services/calendlyService');
 const countries = require('../services/countries.json');
 
-// Computed at call time, not module load — CLOUD_FUNCTIONS_BASE_URL (set by
-// scripts/functions-emulator.js when the local Functions emulator is
-// running) may not be known yet when this module is first required.
-// Defaults to the real deployed project.
+// Shown as-is to the end user whenever mudslideService.isProxyUnreachableError(error) is true — a transient DataImpulse-side issue, not something fixed by reconnecting the device, so the wording steers to "try again" rather than "disconnect and reconnect".
+const PROXY_UNREACHABLE_USER_MESSAGE = 'The residential proxy is misbehaving at the moment. Please try again in a bit.';
+
+// Computed at call time, not module load — CLOUD_FUNCTIONS_BASE_URL (set by scripts/functions-emulator.js) may not be known yet when this module is first required. Defaults to the real deployed project.
 function functionUrl(name) {
   const base = process.env.CLOUD_FUNCTIONS_BASE_URL || 'https://asia-south1-wato-bot.cloudfunctions.net';
   return `${base}/${name}`;
 }
 
-// Ties an AbortSignal to this request's own client connection closing early
-// (a page navigating away, the dashboard's own fetch timeout aborting,
-// etc.), so a long-running mudslide op behind the route can stop waiting on
-// a caller that's already gone. Deliberately NOT used on /api/whatsapp/qr —
-// that login flow is intentionally decoupled from the request lifecycle
-// (see getQRCode's own comment). For every mudslide-touching route this IS
-// used on, what the signal actually cancels is decided in the corresponding
-// mudslideService function, not here — most of them only cancel an op still
-// sitting in withSession's queue, never one already running, to avoid
-// discarding local session state that only gets persisted after a normal
-// finish (see confirmWhatsappIsActuallyConnected/sendMessage's own comments).
+// Ties an AbortSignal to this request's own client connection closing early, so a long-running mudslide op behind the route can stop waiting on a caller that's already gone. Not used on /api/whatsapp/qr (its login flow is intentionally decoupled from the request lifecycle). What the signal actually cancels for each route is decided in the corresponding mudslideService function, not here — most only cancel an op still queued, never one already running, to avoid discarding local session state that only persists after a normal finish.
 function withClientAbortSignal(request, fn) {
   const controller = new AbortController();
   const onClientClose = () => controller.abort();
@@ -60,10 +50,7 @@ async function routes(fastify, options) {
     }
   };
 
-  // Only the 2 routes that actually touch mudslide need this (schedules
-  // don't — they're only ever executed later by the cron job, not at
-  // creation time). Without it, calling these unconnected throws an ENOENT
-  // reading the (nonexistent) .mudslide.enc file, surfacing as a raw 500.
+  // Only the 2 routes that actually touch mudslide need this (schedules don't — they only run later via cron). Without it, an unconnected account throws a raw ENOENT reading the nonexistent .mudslide.enc file, surfacing as a raw 500.
   const requireWhatsapp = async (request, reply) => {
     try {
       const status = await mudslideService.isWhatsappConnected(request.user.userDir, request.user.token);
@@ -76,9 +63,7 @@ async function routes(fastify, options) {
     }
   };
 
-  // Scoped to the Calendly webhook + runtime-script routes only — never
-  // accepted by authenticateUser, so a leaked Calendly key can't be used
-  // against /api/message or any other route.
+  // Scoped to the Calendly webhook + runtime-script routes only — never accepted by authenticateUser, so a leaked Calendly key can't be used against /api/message or any other route.
   const authenticateCalendlyKey = async (request, reply) => {
     try {
       const key = request.query.token || request.headers['x-calendly-key'];
@@ -107,14 +92,9 @@ async function routes(fastify, options) {
       if (!email || !email.includes('@')) {
         return reply.code(400).send({ error: 'Valid email is required' });
       }
-      // `next` only ever needs to survive a same-origin redirect after the
-      // magic link is clicked — reject anything that isn't a bare relative
-      // path so this can't be turned into an open redirect via the email.
+      // `next` only ever needs to survive a same-origin redirect after the magic link is clicked — reject anything that isn't a bare relative path so this can't become an open redirect via the email.
       let safeNext = typeof next === 'string' && /^\/[^/\\].*$/.test(next) && !next.startsWith('//') ? next : null;
-      // Legacy flag from callers (e.g. the FAQ tool) that don't need the
-      // WhatsApp QR wizard at all — verify.html no longer branches on
-      // whatsappConnected itself, so this now just becomes an explicit
-      // `next` straight to the dashboard, same mechanism as any other caller.
+      // Legacy flag for callers (e.g. the FAQ tool) that don't need the WhatsApp QR wizard — verify.html no longer branches on whatsappConnected itself, so this now just becomes an explicit `next` straight to the dashboard.
       if (!safeNext && skipWhatsappConnect) safeNext = '/dashboard/';
       const { token } = await userService.registerUser(email);
       await emailService.sendRegistrationEmail(email, token, { next: safeNext });
@@ -125,20 +105,7 @@ async function routes(fastify, options) {
     }
   });
 
-  // Deliberately doesn't report whatsappConnected — verify.html is a thin
-  // gate now (just proves the token and redirects); whatsapp-connect.html
-  // is the one place that cares about connection status, and it checks
-  // GET /api/whatsapp/status itself once it's actually loaded.
-  //
-  // The new_registration owner notification fires from here (on
-  // firstVerification specifically, not every hit — see verifyToken) rather
-  // than from /api/register, since it's meant to signal a real person
-  // actually landed on the site, not just that a link was requested. email
-  // comes from the query string — verify.html's magic link already carries
-  // it, and nothing is persisted server-side before this point (registerUser
-  // deliberately writes nothing to disk for a brand-new email, so a
-  // mistyped one never leaves an orphaned directory), so this request is
-  // the only place that email is available from.
+  // Deliberately doesn't report whatsappConnected — verify.html is a thin gate now (proves the token, redirects); whatsapp-connect.html is the one place that cares, and checks GET /api/whatsapp/status itself once loaded. The new_registration owner notification fires from here (on firstVerification only, not every hit) rather than /api/register, since it signals a real person landed on the site, not just that a link was requested — email comes from the query string since registerUser writes nothing to disk for a brand-new email, so this request is the only place it's available.
   fastify.get('/api/verify/:token', async (request, reply) => {
     try {
       const user = await userService.verifyToken(request.params.token);
@@ -180,11 +147,7 @@ async function routes(fastify, options) {
 
   fastify.get('/api/countries', async () => countries);
 
-  // Country/city are detected AND validated client-side (see public/verify.html
-  // — geolocation via ipwho.is for the auto-detect path, Nominatim for manual
-  // entry, both called directly from the browser). By the time this route is
-  // hit, the city is already trusted, so this just validates the country
-  // code (cheap, local, no external call) and persists.
+  // Country/city are detected AND validated client-side (public/verify.html — ipwho.is for auto-detect, Nominatim for manual entry), so by the time this route is hit the city is already trusted; this just validates the country code (cheap, local) and persists.
   fastify.post('/api/user/location', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       const { country, city } = request.body || {};
@@ -234,10 +197,7 @@ async function routes(fastify, options) {
     }
   });
 
-  // Actually connects to WhatsApp to verify the device is still linked
-  // (unlike /status below, which is just a local file check) — costs real
-  // seconds and a proxy+mudslide round trip, so this is for one-shot checks
-  // (dashboard load) rather than polling.
+  // Actually connects to WhatsApp to verify the device is still linked (unlike /status below, a local file check) — costs real seconds and a proxy+mudslide round trip, so this is for one-shot checks (dashboard load), not polling.
   fastify.get('/api/whatsapp', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       const { connected, phoneNumber, reason } = await withClientAbortSignal(request, signal =>
@@ -260,16 +220,16 @@ async function routes(fastify, options) {
     }
   });
 
-  // proxyIp is fetched separately from /status specifically so it doesn't
-  // block or slow down status polling / the requireWhatsapp gate on every
-  // send — a real proxy+curl round trip only pays off when something is
-  // actually going to display the IP.
+  // Fetched separately from /status specifically so it doesn't block or slow down status polling / the requireWhatsapp gate on every send — a real proxy+curl round trip only pays off when something is actually going to display the IP.
   fastify.get('/api/whatsapp/ip', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       return await withClientAbortSignal(request, signal =>
         mudslideService.getWhatsappProxyIp(request.user.userDir, request.user.token, signal));
     } catch (error) {
       fastify.log.error(error);
+      if (mudslideService.isProxyUnreachableError(error)) {
+        return reply.code(503).send({ error: PROXY_UNREACHABLE_USER_MESSAGE, reason: 'proxy_unreachable' });
+      }
       emailService.notifyOwnerOfError('getWhatsappProxyIp', request.user.userDir, error.message).catch(() => {});
       return reply.code(500).send({ error: 'Failed to fetch proxy IP' });
     }
@@ -280,6 +240,9 @@ async function routes(fastify, options) {
       return await mudslideService.getQRCode(request.user.userDir, request.user.token);
     } catch (error) {
       fastify.log.error(error);
+      if (mudslideService.isProxyUnreachableError(error)) {
+        return reply.code(503).send({ error: PROXY_UNREACHABLE_USER_MESSAGE, reason: 'proxy_unreachable' });
+      }
       emailService.notifyOwnerOfError('getQRCode', request.user.userDir, error.message).catch(() => {});
       return reply.code(500).send({ error: 'Failed to get QR code' });
     }
@@ -292,22 +255,24 @@ async function routes(fastify, options) {
       return { groups };
     } catch (error) {
       fastify.log.error(error);
+      if (mudslideService.isProxyUnreachableError(error)) {
+        return reply.code(503).send({ error: PROXY_UNREACHABLE_USER_MESSAGE, reason: 'proxy_unreachable' });
+      }
       emailService.notifyOwnerOfError('getGroups', request.user.userDir, error.message).catch(() => {});
       return reply.code(500).send({ error: 'Failed to fetch groups' });
     }
   });
 
-  // Fired once the frontend claims the user's device shows connected — that's
-  // just a client-side assertion, so this re-verifies with the real network
-  // check (not the cheap isWhatsappConnected requireWhatsapp uses elsewhere)
-  // before telling the operator, rather than trusting the claim blindly. On
-  // 409 the frontend should show a "not confirmed yet, try again" prompt —
-  // same shape requireWhatsapp already returns elsewhere in this file.
+  // Fired once the frontend claims the device shows connected — a client-side assertion, so this re-verifies with the real network check before telling the operator, rather than trusting the claim blindly. On 409 the frontend should show a "not confirmed yet, try again" prompt, same shape requireWhatsapp returns elsewhere.
   fastify.post('/api/whatsapp/notify-user-connected', { preHandler: authenticateUser }, async (request, reply) => {
     try {
-      const { connected } = await withClientAbortSignal(request, signal =>
+      const { connected, reason } = await withClientAbortSignal(request, signal =>
         mudslideService.confirmWhatsappIsActuallyConnected(request.user.userDir, request.user.token, signal));
       if (!connected) {
+        // A proxy hiccup right now doesn't mean the QR scan failed — the device may well be linked, we just couldn't verify it — so this gets its own response instead of pushing the user to rescan a QR that was never the problem.
+        if (reason === 'proxy_unreachable') {
+          return reply.code(503).send({ error: PROXY_UNREACHABLE_USER_MESSAGE, reason: 'proxy_unreachable' });
+        }
         return reply.code(409).send({ error: 'WhatsApp is not connected yet.', reason: 'whatsapp_not_connected' });
       }
       userService.readUserFile(
@@ -341,11 +306,7 @@ async function routes(fastify, options) {
     }
   });
 
-  // Called after user confirms the device is gone from WhatsApp Linked Devices.
-  // Deletes local session files and removes all cron jobs. No mudslide/network
-  // call — we no longer ask mudslide to gracefully unlink the device first
-  // (that could take up to 60s and its outcome never changed what the user
-  // was shown), so the modal goes straight to "please remove it manually".
+  // Called after the user confirms the device is gone from WhatsApp's Linked Devices — deletes local session files and cron jobs. No mudslide/network call, since we no longer ask mudslide to gracefully unlink first (could take up to 60s and never changed what the user was shown).
   fastify.post('/api/whatsapp/logout', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       await scheduleService.removeAllCronJobs(request.user.userDir);
@@ -380,30 +341,33 @@ async function routes(fastify, options) {
     }
   });
 
-  // Reconciles the hourly device-connectivity-monitor cron for this user —
-  // called on every dashboard load. Deliberately never touches
-  // schedules.json (unlike createSchedule/listSchedules above), so this
-  // never shows up in the user-facing schedule list; DEVICE_CHECK_SCHEDULE_ID
-  // is a fixed, reserved id, never the random hex generateScheduleId() uses.
+  // Reconciles the hourly device-connectivity-monitor cron for this user, called on every dashboard load. Never touches schedules.json, so it never shows up in the user-facing schedule list — DEVICE_CHECK_SCHEDULE_ID is a fixed, reserved id, never the random hex generateScheduleId() uses.
   fastify.post('/api/schedules/device-connection-check', { preHandler: authenticateUser }, async (request, reply) => {
     const DEVICE_CHECK_SCHEDULE_ID = 'device-check';
     try {
       const { userDir, token } = request.user;
-      const [{ connected }, apiKeyStatus] = await withClientAbortSignal(request, signal => Promise.all([
+      const [{ connected, reason }, apiKeyStatus] = await withClientAbortSignal(request, signal => Promise.all([
         mudslideService.confirmWhatsappIsActuallyConnected(userDir, token, signal),
         userService.getApiKeyStatus(userDir)
       ]));
 
-      if (!(connected && apiKeyStatus.permanent)) {
+      if(connected && apiKeyStatus.permanent) {
+        // need to setup monitoring
+        if (!(await scheduleService.hasCronJob(userDir, DEVICE_CHECK_SCHEDULE_ID))) {
+          const payload = scheduleService.buildCronPayload(token, { type: 'check-connection' });
+          await scheduleService.addCronJob(userDir, DEVICE_CHECK_SCHEDULE_ID, '0 * * * *', payload);
+        }
+        return { monitoring: true };
+      }
+
+      if (reason == "device_unlinked" || !apiKeyStatus.permanent) {
         await scheduleService.removeCronJob(userDir, DEVICE_CHECK_SCHEDULE_ID);
         return { monitoring: false };
       }
 
-      if (!(await scheduleService.hasCronJob(userDir, DEVICE_CHECK_SCHEDULE_ID))) {
-        const payload = scheduleService.buildCronPayload(token, { type: 'check-connection' });
-        await scheduleService.addCronJob(userDir, DEVICE_CHECK_SCHEDULE_ID, '0 * * * *', payload);
-      }
-      return { monitoring: true };
+      // could be a glitch in connection check, let it stay as before
+      return { monitoring: await scheduleService.hasCronJob(userDir, DEVICE_CHECK_SCHEDULE_ID) };
+
     } catch (error) {
       fastify.log.error(error);
       return reply.code(500).send({ error: 'Failed to reconcile device monitor' });
@@ -473,10 +437,7 @@ async function routes(fastify, options) {
       if (!to || !message) {
         return reply.code(400).send({ error: 'to and message are required' });
       }
-      // Dashboard UI already strips spaces/hyphens/parens from phone numbers
-      // client-side (see recipient-number-input in public/dashboard/schedules.html) —
-      // API callers (curl, Zapier, etc.) bypass that, so enforce it here too.
-      // No-op for group JIDs (...@g.us), which never contain these chars.
+      // Dashboard UI already strips spaces/hyphens/parens client-side; API callers (curl, Zapier, etc.) bypass that, so enforce it here too — a no-op for group JIDs (...@g.us), which never contain these chars.
       to = to.replace(/[\s\-()]/g, '');
       await withClientAbortSignal(request, signal => media
         ? mudslideService.sendMedia(request.user.userDir, request.user.token, to, media, message, signal)
@@ -484,6 +445,9 @@ async function routes(fastify, options) {
       return { success: true };
     } catch (error) {
       fastify.log.error(error);
+      if (mudslideService.isProxyUnreachableError(error)) {
+        return reply.code(503).send({ error: PROXY_UNREACHABLE_USER_MESSAGE, reason: 'proxy_unreachable' });
+      }
       return reply.code(500).send({ error: 'Failed to send message' });
     }
   });
@@ -498,9 +462,7 @@ async function routes(fastify, options) {
     }
   });
 
-  // Called by dashboard/faqs.html on load with whatever's sitting in localStorage
-  // from an anonymous FAQ-tool publish — this is what actually attaches a
-  // jobId to the now-logged-in account.
+  // Called by dashboard/faqs.html on load with whatever's sitting in localStorage from an anonymous FAQ-tool publish — this is what actually attaches a jobId to the now-logged-in account.
   fastify.post('/api/faq/claim', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       const { claims } = request.body || {};
@@ -518,9 +480,7 @@ async function routes(fastify, options) {
   fastify.get('/api/calendly/authorize', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       const { returnTo } = request.query || {};
-      // Same relative-path-only rule as /api/register's `next` — this
-      // round-trips through Calendly's own redirect, so it's exactly as
-      // exposed to tampering as an emailed link.
+      // Same relative-path-only rule as /api/register's `next` — this round-trips through Calendly's own redirect, exactly as exposed to tampering as an emailed link.
       const safeReturnTo = typeof returnTo === 'string' && /^\/[^/\\].*$/.test(returnTo) && !returnTo.startsWith('//') ? returnTo : null;
       return { url: calendlyService.getAuthorizeUrl(request.user.userDir, request.user.token, safeReturnTo) };
     } catch (error) {
@@ -529,9 +489,7 @@ async function routes(fastify, options) {
     }
   });
 
-  // Calendly redirects the browser here after consent — no session auth
-  // available on this request, so the session token comes from the
-  // short-lived pending-connect entry created by /api/calendly/authorize.
+  // Calendly redirects the browser here after consent — no session auth on this request, so the session token comes from the short-lived pending-connect entry /api/calendly/authorize created.
   fastify.get('/api/calendly/oauth/callback', async (request, reply) => {
     try {
       const { code, state } = request.query;
@@ -539,11 +497,7 @@ async function routes(fastify, options) {
       if (!code || !pending) return reply.code(400).send({ error: 'Calendly connection expired, please try again' });
 
       await calendlyService.completeConnection(pending.userDir, pending.token, code);
-      // Mirrors dashboard-calendly.html's own API_BASE domain check: locally
-      // this Fastify server also serves public/ (same origin), but in
-      // production the frontend is a separate GitHub Pages origin
-      // (watobot.xyz) from this API server (api.watobot.xyz) — a relative
-      // redirect would otherwise resolve against the wrong one.
+      // Mirrors dashboard-calendly.html's own API_BASE domain check — locally this server also serves public/ (same origin), but in production the frontend (watobot.xyz) and API (api.watobot.xyz) are separate origins, so a relative redirect would resolve against the wrong one.
       const host = request.headers.host || '';
       const isLocal = host.startsWith('localhost') || host.startsWith('127.0.0.1');
       const frontendBase = isLocal ? '' : 'https://watobot.xyz';
@@ -556,11 +510,7 @@ async function routes(fastify, options) {
     }
   });
 
-  // Meeting CRUD, connection status display, and leads all live directly in
-  // Firestore now (frontend-managed, see views/pages/dashboard-calendly.html
-  // and firestore.rules) — this route exists only to hand back the two
-  // fields the VM alone can answer (its local encrypted calendly.json), so
-  // the frontend can self-heal its Firestore mirror of them on every load.
+  // Meeting CRUD, connection status, and leads all live directly in Firestore now (frontend-managed — see dashboard-calendly.html and firestore.rules); this route exists only to hand back the two fields only the VM can answer (its local encrypted calendly.json), so the frontend can self-heal its Firestore mirror on every load.
   fastify.get('/api/calendly/status', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       const config = await calendlyService.readConfig(request.user.userDir, request.user.token);
@@ -576,11 +526,7 @@ async function routes(fastify, options) {
     }
   });
 
-  // Backs the dashboard's "Add from Calendly" picker so users select an
-  // event type instead of pasting its booking URL by hand. Response items
-  // also carry phone-detection fields (phoneQuestionName/phoneDetectionStatus)
-  // computed from the same event type data Calendly already returns here —
-  // no separate detection endpoint needed.
+  // Backs the dashboard's "Add from Calendly" picker so users select an event type instead of pasting its booking URL by hand — response items also carry phone-detection fields computed from the same event type data, so no separate detection endpoint is needed.
   fastify.get('/api/calendly/event-types', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       const eventTypes = await calendlyService.getUserCalendars(request.user.userDir, request.user.token);
@@ -602,11 +548,7 @@ async function routes(fastify, options) {
     }
   });
 
-  // Returns the tiny runtime script the user embeds, scoped to one meeting:
-  // <script src="/api/calendly/code?token=...&meetingId=..."></script>.
-  // Deliberately does NOT use authenticateCalendlyKey — an invalid/missing
-  // token here should never break the visitor's page with a 401, just serve
-  // a no-op script.
+  // Returns the tiny runtime script the user embeds, scoped to one meeting. Deliberately does NOT use authenticateCalendlyKey — an invalid/missing token here should never break the visitor's page with a 401, just serve a no-op script.
   fastify.get('/api/calendly/code', async (request, reply) => {
     reply.header('Content-Type', 'application/javascript');
     reply.header('Cache-Control', 'no-store');
@@ -614,28 +556,14 @@ async function routes(fastify, options) {
     const user = key && meetingId && await userService.verifyCalendlyKey(key);
     if (!user) return '/* invalid calendly integration key */';
 
-    // This script runs on the *customer's* site, not ours — a relative
-    // fetch() URL would resolve against their page's own origin, not this
-    // API server, and silently never fire (the fetch is wrapped in a bare
-    // .catch() so visitors never see the failure). Same domain convention
-    // the dashboard frontend already uses for API_BASE.
+    // This script runs on the customer's site, not ours — a relative fetch() URL would resolve against their page's own origin and silently never fire, so this needs the absolute API origin (same domain convention the dashboard frontend uses for API_BASE).
     const host = request.headers.host || '';
     const isLocal = host.startsWith('localhost') || host.startsWith('127.0.0.1');
     const apiBase = isLocal ? `${request.protocol}://${host}` : 'https://api.watobot.xyz';
     return calendlyService.buildCalendlyEmbedScript(key, meetingId, apiBase);
   });
 
-  // Thin by design — all booking→lead logic (ownership check, meeting
-  // match, phone resolution, send, store) lives in
-  // calendlyService.createLeadFromCalendlyEvent, which throws ApiError with
-  // the right status for not-found/ownership-mismatch cases.
-  //
-  // Doubles as the dashboard's "Test Message" action (Watobot box) via the
-  // optional `test: true` body flag — same route, same authenticateCalendlyKey
-  // check (the dashboard already has its own calendlyKey from
-  // calendlyConfig.calendlyKey), reusing a recently-loaded lead's own
-  // event_uri/invitee_uri instead of a real new booking. No separate
-  // test-send endpoint.
+  // Thin by design — all booking→lead logic lives in calendlyService.createLeadFromCalendlyEvent, which throws ApiError with the right status for not-found/ownership-mismatch cases. Also doubles as the dashboard's "Test Message" action via the optional `test: true` body flag, reusing a recently-loaded lead's own event_uri/invitee_uri instead of a real new booking — no separate test-send endpoint.
   fastify.post('/api/calendly/:meetingId/lead', { preHandler: [authenticateCalendlyKey, requireWhatsapp] }, async (request, reply) => {
     try {
       const { event_uri: eventUri, invitee_uri: inviteeUri, test } = request.body || {};
@@ -664,20 +592,7 @@ async function routes(fastify, options) {
     }
   });
 
-  // Leads (listing, editing, deleting, manual creation) are handled directly
-  // by the dashboard frontend against Firestore, authenticated with the
-  // token this route hands back — see views/pages/dashboard-calendly.html
-  // and firestore.rules. This route is the ONLY place that check happens:
-  // authenticateUser has already run userService.verifyToken (the real
-  // check — it's the sole place with access to the per-user token_hash
-  // files that make it possible) before we ever call mintFirebaseToken.
-  // That Function itself performs no verification of its own — it can't,
-  // it has no access to those files — it just signs whatever (token,
-  // userDir) pair it's handed. Calling it directly (bypassing this route)
-  // would skip the only real check in the whole flow; it's only safe here
-  // because this route is IP-allowlisted as the sole caller (see
-  // functions/index.js: isAllowedVmCaller) and always calls it *after*,
-  // never before, verification succeeds.
+  // Leads (listing, editing, deleting, manual creation) are handled directly by the dashboard frontend against Firestore, authenticated with the token this route hands back. This is the ONLY place that check happens — authenticateUser has already run userService.verifyToken (the sole holder of the per-user token_hash files that make it possible) before mintFirebaseToken is ever called; that Function itself verifies nothing (it can't) and just signs whatever (token, userDir) pair it's handed, so calling it directly would skip the only real check in the flow — it's only safe here because this route is IP-allowlisted as the sole caller (functions/index.js: isAllowedVmCaller) and always calls it after verification succeeds, never before.
   fastify.get('/api/firebase-token', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       const { token, userDir } = request.user;

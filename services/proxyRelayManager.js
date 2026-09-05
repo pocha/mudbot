@@ -56,21 +56,35 @@ async function readProxyMeta(userDir, token) {
   return JSON.parse(raw);
 }
 
-// server.close() only waits for connections to end on their own — it never
-// terminates them. A CONNECT-tunneled socket (see dataimpulseRelay.js) can
-// sit open indefinitely if it doesn't close cleanly, so this races close()
-// against a short timeout and, if that fires, forces it: destroyActiveTunnels
-// (server.close() explicitly excludes upgraded/CONNECT sockets, so this is
-// the only thing that actually reaches them) plus closeAllConnections for
-// any ordinary ones.
-async function closeServer(server, timeoutMs = 5000) {
+// server.close() is given a real chance to finish naturally first — it's non-destructive by design (stops new connections, waits for existing ones to end on their own), which is the right default here since forcing is an escalation, not the normal case. Only if it hasn't reported back within timeoutMs do destroyActiveTunnels/closeAllConnections force it — and this resolves either way regardless of whether that forcing actually makes close()'s own callback fire (a socket that doesn't cleanly emit 'close' after destroy(), or closeAllConnections being unavailable pre-Node 18.2, would otherwise leave this — and every caller of it, including withSession's whole per-user queue — hanging forever). Logs only when the forced path is what actually resolved it (not the normal case) — a real signal that some connection didn't die when asked to, worth knowing about even though it's no longer able to hang anything.
+async function closeServer(server, userDir, timeoutMs = 5000) {
   return new Promise(resolve => {
+    let settled = false;
+    const finish = forced => {
+      if (settled) return;
+      settled = true;
+      if (forced) logCheckpoint(userDir, 'relay did not close cleanly within the timeout — forced').catch(() => {});
+      resolve();
+    };
     const timer = setTimeout(() => {
       server.destroyActiveTunnels?.();
       server.closeAllConnections?.();
+      finish(true);
     }, timeoutMs);
-    server.close(() => { clearTimeout(timer); resolve(); });
+    server.close(() => { clearTimeout(timer); finish(false); });
   });
+}
+
+// Synchronous and unconditionally terminal — used only by withSession's own last-resort queue-advance backstop (mudslideService.js), after it's already given up waiting on the normal acquire/release lifecycle for this user. Never awaits anything, so it can never itself become the next thing that hangs, and never goes through closeServer — just forces sockets closed immediately and forgets the server outright, freeing its port right away so the next acquireRelay for this user doesn't collide with a zombie still slowly tearing down.
+function forceDropRelay(userDir) {
+  const existing = relays.get(userDir);
+  if (!existing) return;
+  relays.delete(userDir);
+  try {
+    existing.server.destroyActiveTunnels?.();
+    existing.server.closeAllConnections?.();
+    existing.server.close(() => {});
+  } catch {}
 }
 
 // Ensures a relay is running for this user with their current country/city,
@@ -97,7 +111,7 @@ async function acquireRelay(userDir, token) {
 
   if (existing) {
     relays.delete(userDir);
-    await closeServer(existing.server);
+    await closeServer(existing.server, userDir);
   }
 
   const server = await startRelay({
@@ -123,15 +137,15 @@ async function releaseRelay(userDir) {
   if (existing.refcount <= 0) {
     relays.delete(userDir);
     await logCheckpoint(userDir, 'closing relay...');
-    await closeServer(existing.server);
+    await closeServer(existing.server, userDir);
     await logCheckpoint(userDir, 'relay closed');
   }
 }
 
 async function closeAllRelays() {
-  const all = [...relays.values()];
+  const all = [...relays.entries()];
   relays.clear();
-  await Promise.all(all.map(r => closeServer(r.server)));
+  await Promise.all(all.map(([userDir, r]) => closeServer(r.server, userDir)));
 }
 
-module.exports = { acquireRelay, releaseRelay, closeAllRelays, takeLastRelayError };
+module.exports = { acquireRelay, releaseRelay, closeAllRelays, takeLastRelayError, forceDropRelay };
