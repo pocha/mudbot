@@ -33,6 +33,9 @@ const ENCRYPT_TIMEOUT_MS = 3000;
 // The one shared ceiling for every public API call in this file — matches mudslide's own unmodified internal --timeout watchdog default.
 const OPERATION_TIMEOUT_MS = 60000;
 
+// withSession's own last-resort queue-advance backstop (see withSession's comment) — kept a healthy margin above OPERATION_TIMEOUT_MS so it only ever fires once doWork()'s own inner errorOnTimeout would already have given up, never racing ahead of it.
+const QUEUE_ADVANCE_TIMEOUT_MS = OPERATION_TIMEOUT_MS + 15000;
+
 // Margin subtracted from the inner mudslide/curl spawn's budget (see spawnBudget) so its real proc.kill() always wins the race against the outer errorOnTimeout's fake one, which starts its clock earlier and has no process handle of its own to kill.
 const SPAWN_TIMEOUT_MARGIN_MS = 8000;
 function spawnBudget(startedAt) {
@@ -177,8 +180,8 @@ async function confirmWhatsappIsActuallyConnected(userDir, token, signal) {
   }
 }
 
-// Queues fn(credPath) for the user so ops run strictly sequentially — acquires the relay and decrypts once per batch (reused by later ops), releases/encrypts only after the last queued op finishes. signal is threaded down to fn's own spawn so an abandoned request can kill its real child process, and is also checked here since a call queued long enough behind others can find its own caller already gone by the time its turn comes.
-function withSession(userDir, token, fn, action = 'unknown', meta = {}, trackUsage = true, signal) {
+// Queues fn(credPath) for the user so ops run strictly sequentially — acquires the relay and decrypts once per batch (reused by later ops), releases/encrypts only after the last queued op finishes. signal is threaded down to fn's own spawn so an abandoned request can kill its real child process, and is also checked here since a call queued long enough behind others can find its own caller already gone by the time its turn comes. operationTimeoutMs/queueAdvanceTimeoutMs default to their real production constants for every real caller — both are independently overridable only so test/mudslideService.queueHang.test.js can prove the queue-advance backstop's behavior without a real 75-second wait.
+function withSession(userDir, token, fn, action = 'unknown', meta = {}, trackUsage = true, signal, operationTimeoutMs = OPERATION_TIMEOUT_MS, queueAdvanceTimeoutMs = QUEUE_ADVANCE_TIMEOUT_MS) {
   userQueueDepth[userDir] = (userQueueDepth[userDir] || 0) + 1;
 
   const run = async () => {
@@ -202,7 +205,7 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}, trackUsa
     };
 
     try {
-      const result = await errorOnTimeout(doWork(), OPERATION_TIMEOUT_MS, `${action} timed out after ${OPERATION_TIMEOUT_MS}ms`);
+      const result = await errorOnTimeout(doWork(), operationTimeoutMs, `${action} timed out after ${operationTimeoutMs}ms`);
       succeeded = true;
       return result;
     } catch (err) {
@@ -236,17 +239,21 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}, trackUsa
   let startedSettled = false;
   started.then(() => { startedSettled = true; }, () => { startedSettled = true; });
 
-  const QUEUE_ADVANCE_TIMEOUT_MS = OPERATION_TIMEOUT_MS + 15000;
   userQueue[userDir] = Promise.race([
     started.then(() => {}, () => {}),
     new Promise(resolve => setTimeout(() => {
       if (startedSettled) return resolve();
+      // The one case this backstop exists for — leave a trace, since nothing
+      // else will: run() itself never settled, so its own checkpoints/logs
+      // (whatever it got through before wherever it's actually stuck) are
+      // the last thing in mudslide-debug.log until this line.
+      logCheckpoint(userDir, `${action}: queue-advance backstop fired after ${queueAdvanceTimeoutMs}ms — run() never settled, forcing this user's session state back to clean`).catch(() => {});
       proxyRelayManager.forceDropRelay(userDir);
       relayHeld[userDir] = false;
       userQueueDepth[userDir] = Math.max((userQueueDepth[userDir] || 1) - 1, 0);
       try { rmSync(tempDir(userDir), { recursive: true, force: true }); } catch {}
       resolve();
-    }, QUEUE_ADVANCE_TIMEOUT_MS))
+    }, queueAdvanceTimeoutMs))
   ]);
 
   return started;
@@ -622,3 +629,9 @@ module.exports = {
   killAllLoginProcs,
   isProxyUnreachableError
 };
+
+// Test-only scaffolding — never imported by real application code, only by
+// test/mudslideService.*.test.js, to exercise these internal mechanics
+// (marker detection, kill timing, queue backstop) directly rather than only
+// through the public API above.
+module.exports.__test = { runMudslide, withSession, diagnoseConnectivityFailure };

@@ -56,15 +56,20 @@ async function readProxyMeta(userDir, token) {
   return JSON.parse(raw);
 }
 
-// server.close() by itself is non-destructive — it only stops new connections and waits for existing ones to end on their own, which is the wrong default for a relay we've already decided to discard entirely, so tunnels/connections are force-destroyed up front instead of waited on. That's still not a hard guarantee close()'s own callback ever fires (a socket that doesn't cleanly emit 'close' after destroy(), or closeAllConnections being unavailable pre-Node 18.2, would otherwise leave this — and every caller of it, including withSession's whole per-user queue — hanging forever), so an unconditional fallback resolves this regardless.
-async function closeServer(server, timeoutMs = 1000) {
+// server.close() by itself is non-destructive — it only stops new connections and waits for existing ones to end on their own, which is the wrong default for a relay we've already decided to discard entirely, so tunnels/connections are force-destroyed up front instead of waited on. That's still not a hard guarantee close()'s own callback ever fires (a socket that doesn't cleanly emit 'close' after destroy(), or closeAllConnections being unavailable pre-Node 18.2, would otherwise leave this — and every caller of it, including withSession's whole per-user queue — hanging forever), so an unconditional fallback resolves this regardless. Logs only when that fallback is actually what resolved it (not the normal case) — a real signal that some connection didn't die when asked to, worth knowing about even though it's no longer able to hang anything.
+async function closeServer(server, userDir, timeoutMs = 1000) {
   return new Promise(resolve => {
     let settled = false;
-    const finish = () => { if (!settled) { settled = true; resolve(); } };
+    const finish = forced => {
+      if (settled) return;
+      settled = true;
+      if (forced) logCheckpoint(userDir, 'relay did not close cleanly within the timeout — forced').catch(() => {});
+      resolve();
+    };
     server.destroyActiveTunnels?.();
     server.closeAllConnections?.();
-    server.close(finish);
-    setTimeout(finish, timeoutMs);
+    server.close(() => finish(false));
+    setTimeout(() => finish(true), timeoutMs);
   });
 }
 
@@ -104,7 +109,7 @@ async function acquireRelay(userDir, token) {
 
   if (existing) {
     relays.delete(userDir);
-    await closeServer(existing.server);
+    await closeServer(existing.server, userDir);
   }
 
   const server = await startRelay({
@@ -130,15 +135,15 @@ async function releaseRelay(userDir) {
   if (existing.refcount <= 0) {
     relays.delete(userDir);
     await logCheckpoint(userDir, 'closing relay...');
-    await closeServer(existing.server);
+    await closeServer(existing.server, userDir);
     await logCheckpoint(userDir, 'relay closed');
   }
 }
 
 async function closeAllRelays() {
-  const all = [...relays.values()];
+  const all = [...relays.entries()];
   relays.clear();
-  await Promise.all(all.map(r => closeServer(r.server)));
+  await Promise.all(all.map(([userDir, r]) => closeServer(r.server, userDir)));
 }
 
 module.exports = { acquireRelay, releaseRelay, closeAllRelays, takeLastRelayError, forceDropRelay };
