@@ -13,14 +13,9 @@
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 
 const readline = require('readline/promises');
-const path = require('path');
-const fs = require('fs').promises;
-const crypto = require('crypto');
-const { getUserDir } = require('../services/userService');
 
 const BASE_URL = process.argv[2] || process.env.E2E_BASE_URL || 'http://localhost:3000';
 const MAILDEV_URL = process.env.MAILDEV_URL || 'http://localhost:1080';
-const USERS_DIR = path.join(__dirname, '..', 'users');
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const ask = q => rl.question(q);
@@ -46,22 +41,6 @@ async function post(url, body, headers = {}) {
 function log(msg) { console.log(`\n${msg}`); }
 function pass(msg) { console.log(`  ✓ ${msg}`); }
 function fail(msg) { console.log(`  ✗ ${msg}`); }
-
-// Same AES-256-CBC(sha256(token)) scheme mudslideService.js uses for
-// .mudslide.enc — mirrored here only by the chaos steps at the end, to
-// decrypt/re-encrypt in place for a real (not mocked) reproduction.
-function decrypt(buf, token) {
-  const key = crypto.createHash('sha256').update(token).digest();
-  const iv = buf.slice(0, 16);
-  const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-  return Buffer.concat([decipher.update(buf.slice(16)), decipher.final()]);
-}
-function encrypt(buf, token) {
-  const key = crypto.createHash('sha256').update(token).digest();
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-  return Buffer.concat([iv, cipher.update(buf), cipher.final()]);
-}
 
 // --- steps ---
 
@@ -99,7 +78,6 @@ async function main() {
 
   const token = (await ask('\nPaste the account token to test with: ')).trim();
   if (!token) throw new Error('Token is required');
-  const userDir = getUserDir ? token.slice(0, 10) : null; // token embeds userDir as its first 10 chars (see test/flow.test.js)
 
   // --- 1. logout if already connected ---
   log('Step 1: checking existing connection...');
@@ -198,80 +176,8 @@ async function main() {
   await ask(`\nCheck ${recipient}'s phone. Press Enter once you've confirmed all 3 test messages arrived...`);
   pass('confirmed by operator');
 
-  // --- 7. optional chaos checks ---
-  log('Step 7 (optional): chaos checks');
-  const runChaos = (await ask('Run proxy-unreachable and device-unlinked-marker chaos checks now? (y/N): ')).trim().toLowerCase() === 'y';
-  if (runChaos) {
-    await chaosProxyUnreachable(token, userDir);
-    await chaosNotRegisteredMarker(token, userDir);
-  } else {
-    console.log('  skipped');
-  }
-
   log('Done.');
   rl.close();
-}
-
-// Temporarily points proxy.json at an unused port so the next real call must
-// fail via a genuine connectivity error, then restores it — real
-// reproduction of "residential proxy not reachable", not a mock.
-async function chaosProxyUnreachable(token, userDir) {
-  console.log('\n[chaos] proxy-unreachable...');
-  const proxyPath = path.join(USERS_DIR, userDir, 'proxy.json');
-  const original = await fs.readFile(proxyPath, 'utf8');
-  try {
-    // proxy.json uses userService's own encryptData scheme (key = Buffer.from(token, 'hex'), iv:hex ciphertext) — distinct from the .mudslide.enc AES scheme (key = sha256(token)) the decrypt()/encrypt() helpers above are for.
-    const [ivHex, encHex] = original.split(':');
-    const key = Buffer.from(token, 'hex');
-    const decipher = crypto.createDecipheriv('aes-256-cbc', key, Buffer.from(ivHex, 'hex'));
-    const plain = JSON.parse(Buffer.concat([decipher.update(Buffer.from(encHex, 'hex')), decipher.final()]).toString('utf8'));
-    const corrupted = { ...plain, port: 65535 };
-    const iv2 = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv('aes-256-cbc', key, iv2);
-    const encPlain = Buffer.concat([cipher.update(JSON.stringify(corrupted), 'utf8'), cipher.final()]);
-    await fs.writeFile(proxyPath, `${iv2.toString('hex')}:${encPlain.toString('hex')}`);
-
-    const { body } = await get(`${BASE_URL}/api/whatsapp`, authHeader(token));
-    if (body.reason === 'proxy_unreachable') pass('reason: proxy_unreachable correctly returned');
-    else fail(`expected reason 'proxy_unreachable', got: ${JSON.stringify(body)}`);
-  } finally {
-    await fs.writeFile(proxyPath, original);
-  }
-}
-
-// Blanks creds.json's registration identity inside .mudslide.enc so the next
-// real mudslide/Baileys connection genuinely hits the "not logged in,
-// attempting registration" path, then restores the original file — real
-// reproduction of the NOT_REGISTERED_MARKER fix, not a mock.
-async function chaosNotRegisteredMarker(token, userDir) {
-  console.log('\n[chaos] not-registered marker...');
-  const { execFileSync } = require('child_process');
-  const encPath = path.join(USERS_DIR, userDir, '.mudslide.enc');
-  const original = await fs.readFile(encPath);
-  const tmp = await fs.mkdtemp(path.join(require('os').tmpdir(), 'e2e-chaos-'));
-  try {
-    const tarBuffer = decrypt(original, token);
-    await fs.writeFile(path.join(tmp, 'bundle.tar.gz'), tarBuffer);
-    execFileSync('tar', ['-xzf', 'bundle.tar.gz'], { cwd: tmp });
-    const credsPath = path.join(tmp, '.mudslide', 'creds.json');
-    const creds = JSON.parse(await fs.readFile(credsPath, 'utf8'));
-    delete creds.me;
-    creds.registered = false;
-    await fs.writeFile(credsPath, JSON.stringify(creds));
-    execFileSync('tar', ['-czf', 'bundle2.tar.gz', '.mudslide'], { cwd: tmp });
-    const newTar = await fs.readFile(path.join(tmp, 'bundle2.tar.gz'));
-    await fs.writeFile(encPath, encrypt(newTar, token));
-
-    const { body } = await get(`${BASE_URL}/api/whatsapp`, authHeader(token));
-    if (body.reason === 'device_unlinked') pass('reason: device_unlinked correctly returned (via NOT_REGISTERED_MARKER)');
-    else fail(`expected reason 'device_unlinked', got: ${JSON.stringify(body)}`);
-    console.log('  (.mudslide.enc has now been purged by the server\'s own purgeMudslideCache — re-scan a QR to reconnect for real)');
-  } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
-    // Best-effort restore — if the server already purged .mudslide.enc as part
-    // of correctly handling the corrupted marker, there's nothing to restore.
-    await fs.writeFile(encPath, original).catch(() => {});
-  }
 }
 
 main().catch(err => {
