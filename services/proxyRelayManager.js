@@ -56,21 +56,28 @@ async function readProxyMeta(userDir, token) {
   return JSON.parse(raw);
 }
 
-// server.close() only waits for connections to end on their own — it never
-// terminates them. A CONNECT-tunneled socket (see dataimpulseRelay.js) can
-// sit open indefinitely if it doesn't close cleanly, so this races close()
-// against a short timeout and, if that fires, forces it: destroyActiveTunnels
-// (server.close() explicitly excludes upgraded/CONNECT sockets, so this is
-// the only thing that actually reaches them) plus closeAllConnections for
-// any ordinary ones.
-async function closeServer(server, timeoutMs = 5000) {
+// server.close() by itself is non-destructive — it only stops new connections and waits for existing ones to end on their own, which is the wrong default for a relay we've already decided to discard entirely, so tunnels/connections are force-destroyed up front instead of waited on. That's still not a hard guarantee close()'s own callback ever fires (a socket that doesn't cleanly emit 'close' after destroy(), or closeAllConnections being unavailable pre-Node 18.2, would otherwise leave this — and every caller of it, including withSession's whole per-user queue — hanging forever), so an unconditional fallback resolves this regardless.
+async function closeServer(server, timeoutMs = 1000) {
   return new Promise(resolve => {
-    const timer = setTimeout(() => {
-      server.destroyActiveTunnels?.();
-      server.closeAllConnections?.();
-    }, timeoutMs);
-    server.close(() => { clearTimeout(timer); resolve(); });
+    let settled = false;
+    const finish = () => { if (!settled) { settled = true; resolve(); } };
+    server.destroyActiveTunnels?.();
+    server.closeAllConnections?.();
+    server.close(finish);
+    setTimeout(finish, timeoutMs);
   });
+}
+
+// Synchronous and unconditionally terminal — used only by withSession's own last-resort queue-advance backstop (mudslideService.js), after it's already given up waiting on the normal acquire/release lifecycle for this user. Never awaits anything, so it can never itself become the next thing that hangs, and never goes through closeServer — just forces sockets closed immediately and forgets the server outright, freeing its port right away so the next acquireRelay for this user doesn't collide with a zombie still slowly tearing down.
+function forceDropRelay(userDir) {
+  const existing = relays.get(userDir);
+  if (!existing) return;
+  relays.delete(userDir);
+  try {
+    existing.server.destroyActiveTunnels?.();
+    existing.server.closeAllConnections?.();
+    existing.server.close(() => {});
+  } catch {}
 }
 
 // Ensures a relay is running for this user with their current country/city,
@@ -134,4 +141,4 @@ async function closeAllRelays() {
   await Promise.all(all.map(r => closeServer(r.server)));
 }
 
-module.exports = { acquireRelay, releaseRelay, closeAllRelays, takeLastRelayError };
+module.exports = { acquireRelay, releaseRelay, closeAllRelays, takeLastRelayError, forceDropRelay };
