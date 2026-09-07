@@ -1,0 +1,139 @@
+<!--#var title="Free One-Click WhatsApp Messaging Chrome Extension (Great for Bulk Messaging) — Watobot"-->
+<!--#var description="A free Chrome extension that turns any phone number on any webpage into a clickable WhatsApp icon. Message contacts, leads, or lists in one click each — ideal for bulk WhatsApp messaging. Free and open source."-->
+<!--#var canonical="https://watobot.xyz/one-click-whatsapp-messaging-extension-free.html"-->
+<!--#var ogTitle="Free One-Click WhatsApp Messaging Chrome Extension — Watobot"-->
+<!--#var ogDescription="Turn any phone number on any webpage into a clickable WhatsApp icon — great for bulk WhatsApp messaging to leads and contacts. Free and open source."-->
+<!--#var twitterTitle="Free One-Click WhatsApp Messaging Chrome Extension — Watobot"-->
+<!--#var twitterDescription="Turn any phone number on any webpage into a clickable WhatsApp icon — great for bulk WhatsApp messaging to leads and contacts. Free and open source."-->
+<!--#var ogImage="https://watobot.xyz/assets/watobot-extension-16x9.png"-->
+<!--#include partial="marketing-head"-->
+<!--#include partial="marketing-header-nav"-->
+
+  <!-- Hero -->
+  <section class="px-gutter md:px-24 py-14 bg-surface-container-low">
+    <div class="max-w-5xl mx-auto flex flex-col gap-10">
+      <h1 class="font-headline-lg text-headline-lg text-on-surface text-center">One-click WhatsApp messaging, on any webpage</h1>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
+        <div class="aspect-video w-full rounded-xl overflow-hidden border border-outline-variant whatsapp-shadow relative">
+          <button id="extensionVideoPlayBtn" onclick="playExtensionVideo()" class="absolute inset-0 w-full h-full group cursor-pointer" aria-label="Play the Watobot extension demo video">
+            <img src="/assets/watobot-extension-16x9.png" alt="Watobot WhatsApp extension adding click-to-chat icons next to phone numbers" class="w-full h-full object-cover"/>
+            <span class="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
+              <span class="w-16 h-16 md:w-20 md:h-20 rounded-full bg-white/90 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                <span class="material-symbols-outlined text-primary text-[36px]" style="font-variation-settings:'FILL' 1;">play_arrow</span>
+              </span>
+            </span>
+          </button>
+        </div>
+        <div class="flex flex-col gap-4 items-start">
+          <ul class="text-on-surface-variant font-body-lg flex flex-col gap-2 list-disc list-inside">
+            <li>Watobot's browser extension finds phone numbers on any page you're viewing and adds a WhatsApp icon next to each one — click it to start chatting instantly.</li>
+            <li>Built for reaching out to leads, contacts, and lists fast, one click at a time.</li>
+            <li>Great for bulk WhatsApp messaging.</li>
+          </ul>
+          <div class="flex flex-col sm:flex-row gap-3 items-center">
+            <a href="https://github.com/pocha/watobot-extension/archive/refs/heads/main.zip" class="inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-on-primary px-8 py-4 font-label-md text-label-md font-bold hover:brightness-110 active:scale-95 transition-all">Download Extension</a>
+            <a href="https://github.com/pocha/watobot-extension" target="_blank" rel="noopener" class="text-primary underline font-bold font-body-md">Know More &rarr;</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // Facade thumbnail (screenshot + play button) swapped for the real
+    // embed only on click — avoids loading the YouTube iframe (and its own
+    // scripts/cookies) for every visitor who never plays the video.
+    function playExtensionVideo() {
+      document.getElementById('extensionVideoPlayBtn').outerHTML =
+        '<iframe class="w-full h-full" src="https://www.youtube.com/embed/2oD4It0d70s?autoplay=1" title="Watobot WhatsApp Extension demo" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>';
+    }
+  </script>
+
+  <!-- Features -->
+  <section class="px-gutter md:px-24 py-14 bg-surface">
+    <div class="max-w-2xl mx-auto flex flex-col gap-6">
+      <h2 class="font-headline-lg text-headline-lg text-on-surface text-center mb-4">Features</h2>
+      <div class="flex items-start gap-3">
+        <span class="material-symbols-outlined text-primary flex-shrink-0" style="font-variation-settings:'FILL' 1;">content_paste_off</span>
+        <div>
+          <p class="label-strong">No more copy-pasting phone numbers</p>
+          <p class="text-muted-sm">No more copying phone numbers into WhatsApp Web to message someone — click the WhatsApp icon right next to the number, wherever you found it.</p>
+        </div>
+      </div>
+      <div class="flex items-start gap-3">
+        <span class="material-symbols-outlined text-primary flex-shrink-0" style="font-variation-settings:'FILL' 1;">description</span>
+        <div>
+          <p class="label-strong">Template support</p>
+          <p class="text-muted-sm">Create message templates once, then send pre-defined messages quickly instead of typing the same thing out every time.</p>
+        </div>
+      </div>
+      <div class="flex items-start gap-3">
+        <span class="material-symbols-outlined text-primary flex-shrink-0" style="font-variation-settings:'FILL' 1;">history</span>
+        <div>
+          <p class="label-strong">Delivery history, with one-click retry</p>
+          <p class="text-muted-sm">See the status of every message you've sent, and retry any failed one in a single click.</p>
+        </div>
+      </div>
+      <div class="flex items-start gap-3">
+        <span class="material-symbols-outlined text-primary flex-shrink-0" style="font-variation-settings:'FILL' 1;">groups</span>
+        <div>
+          <p class="label-strong">Share one WhatsApp account with your whole team</p>
+          <p class="text-muted-sm">WhatsApp itself caps a single account at 4 linked devices. Since the extension sends through your Watobot API key rather than linking as its own device, any number of teammates can use the same connected WhatsApp account.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="px-gutter md:px-24 py-14 bg-surface-container-low">
+    <div class="max-w-3xl mx-auto">
+      <h2 class="font-headline-lg text-headline-lg text-on-surface text-center mb-10">How it works</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant flex flex-col gap-3">
+          <div class="w-10 h-10 bg-primary-container flex items-center justify-center rounded-lg text-on-primary-container font-bold">1</div>
+          <h3 class="section-title">Download & Install</h3>
+          <p class="text-muted">Download the zip from GitHub, unzip it, then load it into Chrome via <code>chrome://extensions</code> → Developer mode → Load unpacked. Takes under a minute — full steps below.</p>
+        </div>
+        <div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant flex flex-col gap-3">
+          <div class="w-10 h-10 bg-secondary-container flex items-center justify-center rounded-lg text-on-secondary-container font-bold">2</div>
+          <h3 class="section-title">Fill Watobot API Key</h3>
+          <p class="text-muted">Connect your WhatsApp account on <a href="https://watobot.xyz" class="text-primary underline">watobot.xyz</a>, generate an API key from the dashboard, and paste it into the extension.</p>
+        </div>
+        <div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant flex flex-col gap-3">
+          <div class="w-10 h-10 bg-tertiary-container flex items-center justify-center rounded-lg text-on-tertiary-container font-bold">3</div>
+          <h3 class="section-title">Start Messaging</h3>
+          <p class="text-muted">Browse normally — the extension adds a WhatsApp icon next to every phone number it finds. Click it to message that number right away.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Install steps -->
+  <section class="px-gutter md:px-24 py-14 bg-surface-container-low">
+    <div class="max-w-2xl mx-auto">
+      <h2 class="font-headline-lg text-headline-lg text-on-surface text-center mb-4">Installing the extension</h2>
+      <p class="text-muted text-center mb-8">This extension isn't on the Chrome Web Store yet, so Chrome requires one manual install step — it takes under a minute, and works the same way in other Chromium-based browsers (Edge, Brave).</p>
+      <ol class="flex flex-col gap-4 list-decimal list-inside">
+        <li class="text-on-surface font-body-md"><a href="https://github.com/pocha/watobot-extension/archive/refs/heads/main.zip" class="text-primary underline font-bold">Download the zip file</a> from GitHub.</li>
+        <li class="text-on-surface font-body-md">Unzip the downloaded file to a folder on your computer.</li>
+        <li class="text-on-surface font-body-md">Open Chrome and go to <code>chrome://extensions</code>.</li>
+        <li class="text-on-surface font-body-md">Turn on <strong>Developer mode</strong> (top-right toggle).</li>
+        <li class="text-on-surface font-body-md">Click <strong>Load unpacked</strong> and select the unzipped folder.</li>
+        <li class="text-on-surface font-body-md">Done — open any page with phone numbers on it to try it out.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="px-gutter md:px-24 py-14 bg-surface">
+    <div class="max-w-2xl mx-auto text-center flex flex-col gap-4 items-center">
+      <h2 class="font-headline-lg text-headline-lg text-on-surface">Free, open source, ready in a minute</h2>
+      <p class="text-muted">Download the extension, connect your Watobot API key, and start messaging in minutes.</p>
+      <div class="flex flex-col sm:flex-row gap-3 items-center">
+        <a href="https://github.com/pocha/watobot-extension/archive/refs/heads/main.zip" class="inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-on-primary px-8 py-4 font-label-md text-label-md font-bold hover:brightness-110 active:scale-95 transition-all">Download Extension</a>
+        <a href="https://github.com/pocha/watobot-extension" target="_blank" rel="noopener" class="text-primary underline font-bold font-body-md">Know More &rarr;</a>
+      </div>
+    </div>
+  </section>
+
+<!--#include partial="marketing-footer"-->

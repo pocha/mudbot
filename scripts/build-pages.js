@@ -56,6 +56,8 @@ const PAGE_MAP = {
     "free-whatsapp-recurring-messages.html",
   "free-calendly-whatsapp-integration.html":
     "free-calendly-whatsapp-integration.html",
+  "one-click-whatsapp-messaging-extension-free.html":
+    "one-click-whatsapp-messaging-extension-free.html",
   "comparison/alternative-to-greenapi.html":
     "comparison/alternative-to-greenapi.html",
   "comparison/alternative-to-waha.html":
