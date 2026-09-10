@@ -280,7 +280,12 @@ async function main() {
   }
 
   // --- 3. concurrent sends + groups ---
-  log('Step 3: sending 3 concurrent test messages + fetching groups');
+  // TEST_GROUP_JID: reproduces the "waiting for this message" group-send bug
+  // (Baileys sender-key-memory/LID issue — see mudslide lid-group-fix branch)
+  // alongside the normal 1:1 sends, in the same concurrent batch that
+  // triggers it in production.
+  const TEST_GROUP_JID = '120363431126667764@g.us';
+  log('Step 3: sending 3 concurrent test messages + 1 group message + fetching groups');
   const recipient = (await ask('Recipient phone number to send test messages to (digits only, country code, no +): ')).trim();
   const message = (await ask('Message text [default: "Test message from e2e-manual.js"]: ')).trim() || 'Test message from e2e-manual.js';
 
@@ -288,17 +293,20 @@ async function main() {
     post(`${BASE_URL}/api/message`, { to: recipient, message: `${message} #1` }, authHeader(token)),
     post(`${BASE_URL}/api/message`, { to: recipient, message: `${message} #2` }, authHeader(token)),
     post(`${BASE_URL}/api/message`, { to: recipient, message: `${message} #3` }, authHeader(token)),
+    post(`${BASE_URL}/api/message`, { to: TEST_GROUP_JID, message: `${message} (group)` }, authHeader(token)),
     get(`${BASE_URL}/api/whatsapp/groups`, authHeader(token))
   ]);
-  const [send1, send2, send3, groups] = results;
+  const [send1, send2, send3, sendGroup, groups] = results;
   [send1, send2, send3].forEach((r, i) => {
     if (r.status === 'fulfilled' && r.value.status === 200 && r.value.body.success) pass(`send #${i + 1} succeeded`);
     else fail(`send #${i + 1}: ${r.status === 'fulfilled' ? JSON.stringify(r.value.body) : r.reason}`);
   });
+  if (sendGroup.status === 'fulfilled' && sendGroup.value.status === 200 && sendGroup.value.body.success) pass(`group send succeeded (to ${TEST_GROUP_JID})`);
+  else fail(`group send: ${sendGroup.status === 'fulfilled' ? JSON.stringify(sendGroup.value.body) : sendGroup.reason}`);
   if (groups.status === 'fulfilled' && groups.value.status === 200) pass(`groups fetched (${(groups.value.body.groups || []).length} groups)`);
   else fail(`groups: ${groups.status === 'fulfilled' ? JSON.stringify(groups.value.body) : groups.reason}`);
 
-  await ask(`\nCheck ${recipient}'s phone. Press Enter once you've confirmed all 3 test messages arrived...`);
+  await ask(`\nCheck ${recipient}'s phone and the test group. Press Enter once you've confirmed all 3 direct messages and the group message arrived...`);
   pass('confirmed by operator');
 
   log('Done.');
