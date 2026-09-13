@@ -252,6 +252,52 @@ async function routes(fastify, options) {
     }
   });
 
+  fastify.get('/api/whatsapp/communities', { preHandler: [authenticateUser, requireWhatsapp] }, async (request, reply) => {
+    try {
+      const communities = await withClientAbortSignal(request, signal =>
+        mudslideService.getCommunities(request.user.userDir, request.user.token, signal));
+      return { communities };
+    } catch (error) {
+      fastify.log.error(error);
+      if (mudslideService.isProxyUnreachableError(error)) {
+        return reply.code(503).send({ error: PROXY_UNREACHABLE_USER_MESSAGE, reason: 'proxy_unreachable' });
+      }
+      emailService.notifyOwnerOfError('getCommunities', request.user.userDir, error.message).catch(() => {});
+      return reply.code(500).send({ error: 'Failed to fetch communities' });
+    }
+  });
+
+  // Returns community metadata + participants — used both to check whether the caller is a community admin (onboarding) and, by WaCoM's own hourly job, to check whether a given phone number has actually joined.
+  fastify.get('/api/whatsapp/communities/:jid', { preHandler: [authenticateUser, requireWhatsapp] }, async (request, reply) => {
+    try {
+      const info = await withClientAbortSignal(request, signal =>
+        mudslideService.getCommunityInfo(request.user.userDir, request.user.token, request.params.jid, signal));
+      return info;
+    } catch (error) {
+      fastify.log.error(error);
+      if (mudslideService.isProxyUnreachableError(error)) {
+        return reply.code(503).send({ error: PROXY_UNREACHABLE_USER_MESSAGE, reason: 'proxy_unreachable' });
+      }
+      emailService.notifyOwnerOfError('getCommunityInfo', request.user.userDir, error.message).catch(() => {});
+      return reply.code(500).send({ error: 'Failed to fetch community info' });
+    }
+  });
+
+  fastify.get('/api/whatsapp/communities/:jid/invite', { preHandler: [authenticateUser, requireWhatsapp] }, async (request, reply) => {
+    try {
+      const invite = await withClientAbortSignal(request, signal =>
+        mudslideService.getCommunityInvite(request.user.userDir, request.user.token, request.params.jid, signal));
+      return invite;
+    } catch (error) {
+      fastify.log.error(error);
+      if (mudslideService.isProxyUnreachableError(error)) {
+        return reply.code(503).send({ error: PROXY_UNREACHABLE_USER_MESSAGE, reason: 'proxy_unreachable' });
+      }
+      emailService.notifyOwnerOfError('getCommunityInvite', request.user.userDir, error.message).catch(() => {});
+      return reply.code(500).send({ error: 'Failed to fetch community invite' });
+    }
+  });
+
   // Fired once the frontend claims the device shows connected — a client-side assertion, so this re-verifies with the real network check before telling the operator, rather than trusting the claim blindly. On 409 the frontend should show a "not confirmed yet, try again" prompt, same shape requireWhatsapp returns elsewhere.
   fastify.post('/api/whatsapp/notify-user-connected', { preHandler: authenticateUser }, async (request, reply) => {
     try {
