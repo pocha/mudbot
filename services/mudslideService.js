@@ -609,6 +609,46 @@ async function getGroups(userDir, token, signal) {
   }, 'getGroups', {}, true, signal);
 }
 
+function parseJsonLines(output) {
+  try {
+    const parsed = JSON.parse(output);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {}
+
+  return output.split('\n').filter(Boolean).map(line => {
+    try {
+      return JSON.parse(line);
+    } catch {
+      return null;
+    }
+  }).filter(Boolean);
+}
+
+async function getCommunities(userDir, token, signal) {
+  return withSession(userDir, token, async (credPath, timeoutMs) => {
+    const output = await runMudslide(['-c', credPath, 'communities'], timeoutMs, userDir, token, 'communities');
+    return parseJsonLines(output).map(c => ({ name: c.subject || c.name || c.id, id: c.id })).filter(c => c.id);
+  }, 'getCommunities', {}, true, signal);
+}
+
+async function getCommunityInfo(userDir, token, communityId, signal) {
+  return withSession(userDir, token, async (credPath, timeoutMs) => {
+    const output = await runMudslide(['-c', credPath, 'community-info', communityId], timeoutMs, userDir, token, 'community-info');
+    const [info] = parseJsonLines(output);
+    if (!info) throw new Error('Could not read community info');
+    return info;
+  }, 'getCommunityInfo', { communityId }, true, signal);
+}
+
+async function getCommunityInvite(userDir, token, communityId, signal) {
+  return withSession(userDir, token, async (credPath, timeoutMs) => {
+    const output = await runMudslide(['-c', credPath, 'community-invite', communityId], timeoutMs, userDir, token, 'community-invite');
+    const [invite] = parseJsonLines(output);
+    if (!invite) throw new Error('Could not read community invite');
+    return invite;
+  }, 'getCommunityInvite', { communityId }, true, signal);
+}
+
 // Deletes all session files after the user confirms device removal from WhatsApp.
 async function purgeMudslideCache(userDir) {
   await fs.rm(mudslideDir(userDir), { recursive: true, force: true });
@@ -625,6 +665,9 @@ module.exports = {
   sendMessage,
   sendMedia,
   getGroups,
+  getCommunities,
+  getCommunityInfo,
+  getCommunityInvite,
   purgeMudslideCache,
   killAllLoginProcs,
   isProxyUnreachableError
