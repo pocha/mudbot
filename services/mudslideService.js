@@ -680,11 +680,13 @@ function parseJsonLines(output) {
   }).filter(Boolean);
 }
 
-async function getCommunities(userDir, token, signal) {
+async function getCommunities(userDir, token, adminOnly, signal) {
   return withSession(userDir, token, async (credPath, timeoutMs) => {
-    const output = await runMudslide(['-c', credPath, 'communities'], timeoutMs, userDir, token, 'communities');
+    const args = ['-c', credPath, 'communities'];
+    if (adminOnly) args.push('--admin-only');
+    const output = await runMudslide(args, timeoutMs, userDir, token, 'communities');
     return parseJsonLines(output).map(c => ({ name: c.subject || c.name || c.id, id: c.id })).filter(c => c.id);
-  }, 'getCommunities', {}, true, signal);
+  }, 'getCommunities', { adminOnly: !!adminOnly }, true, signal);
 }
 
 async function getCommunityInfo(userDir, token, communityId, signal) {

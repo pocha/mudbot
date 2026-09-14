@@ -254,8 +254,9 @@ async function routes(fastify, options) {
 
   fastify.get('/api/whatsapp/communities', { preHandler: [authenticateUser, requireWhatsapp] }, async (request, reply) => {
     try {
+      const adminOnly = request.query.adminOnly === 'true';
       const communities = await withClientAbortSignal(request, signal =>
-        mudslideService.getCommunities(request.user.userDir, request.user.token, signal));
+        mudslideService.getCommunities(request.user.userDir, request.user.token, adminOnly, signal));
       return { communities };
     } catch (error) {
       fastify.log.error(error);
