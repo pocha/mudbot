@@ -680,19 +680,26 @@ function parseJsonLines(output) {
   }).filter(Boolean);
 }
 
+// mudslide's stdout also carries Baileys' own pino logging at whatever
+// globalOptions.logLevel is configured to (trace here, see whatsapp.ts) —
+// every one of those lines is valid JSON too, so parseJsonLines(output)[0]
+// isn't reliably our actual result. Each getter below picks out the one
+// line shaped like its real command output instead of trusting position.
 async function getCommunities(userDir, token, adminOnly, signal) {
   return withSession(userDir, token, async (credPath, timeoutMs) => {
     const args = ['-c', credPath, 'communities'];
     if (adminOnly) args.push('--admin-only');
     const output = await runMudslide(args, timeoutMs, userDir, token, 'communities');
-    return parseJsonLines(output).map(c => ({ name: c.subject || c.name || c.id, id: c.id })).filter(c => c.id);
+    return parseJsonLines(output)
+      .filter(line => line && typeof line.id === 'string' && typeof line.subject === 'string')
+      .map(c => ({ name: c.subject || c.name || c.id, id: c.id }));
   }, 'getCommunities', { adminOnly: !!adminOnly }, true, signal);
 }
 
 async function getCommunityInfo(userDir, token, communityId, signal) {
   return withSession(userDir, token, async (credPath, timeoutMs) => {
     const output = await runMudslide(['-c', credPath, 'community-info', communityId], timeoutMs, userDir, token, 'community-info');
-    const [info] = parseJsonLines(output);
+    const info = parseJsonLines(output).find(line => line && Array.isArray(line.participants));
     if (!info) throw new Error('Could not read community info');
     return info;
   }, 'getCommunityInfo', { communityId }, true, signal);
@@ -701,7 +708,7 @@ async function getCommunityInfo(userDir, token, communityId, signal) {
 async function getCommunityInvite(userDir, token, communityId, signal) {
   return withSession(userDir, token, async (credPath, timeoutMs) => {
     const output = await runMudslide(['-c', credPath, 'community-invite', communityId], timeoutMs, userDir, token, 'community-invite');
-    const [invite] = parseJsonLines(output);
+    const invite = parseJsonLines(output).find(line => line && typeof line.code === 'string');
     if (!invite) throw new Error('Could not read community invite');
     return invite;
   }, 'getCommunityInvite', { communityId }, true, signal);
