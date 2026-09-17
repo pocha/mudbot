@@ -42,9 +42,9 @@ function spawnBudget(startedAt) {
   return Math.max(OPERATION_TIMEOUT_MS - (Date.now() - startedAt) - SPAWN_TIMEOUT_MARGIN_MS, 5000);
 }
 
-// Baileys' own connect/query timeouts passed via mudslide's --connect-timeout/--query-timeout — mudslide's unmodified defaults (3000/6000ms) were too tight for our proxy chain and caused spurious timeouts; both stay under OPERATION_TIMEOUT_MS so mudslide's own timeout handling gets a chance to produce a real diagnostic before our outer kill does.
-const MUDSLIDE_CONNECT_TIMEOUT_MS = 5000;
-const MUDSLIDE_QUERY_TIMEOUT_MS = 20000;
+// Baileys' own connect/query timeouts passed via mudslide's --connect-timeout/--query-timeout — both stay under OPERATION_TIMEOUT_MS so mudslide's own timeout handling gets a chance to produce a real diagnostic before our outer kill does. Query timeout is sized off real round-trip samples over our residential proxy (500-1450ms observed, 5s leaves ~3-4x headroom); every query (device-list usync, live-check's onWhatsApp, prekey/session fetches) happens before the message is actually written to the wire, so failing fast here is safe, not ambiguous. Connect timeout has no equivalent real data behind it yet — mudslide's own unmodified 3000ms default was previously found too tight for this proxy, so 2000ms is a deliberate bet, not a measured value.
+const MUDSLIDE_CONNECT_TIMEOUT_MS = 2000;
+const MUDSLIDE_QUERY_TIMEOUT_MS = 5000;
 
 // Exact text our mudslide fork prints when Baileys reports a loggedOut disconnect — i.e. the user removed this device from WhatsApp's "Linked Devices" list (the only way to tell, since the cached creds.json otherwise still looks fine).
 const DEVICE_UNLINKED_MARKER = 'Device unlinked from WhatsApp';
@@ -551,7 +551,7 @@ async function getWhatsappProxyIp(userDir, token, signal) {
 async function sendMessage(userDir, token, to, message, signal) {
   // signal only gates withSession's early-bail while queued — never forwarded to the actual send, since WhatsApp's servers may already have it while our own local session update (persisted only after a normal finish) hasn't, and killing mid-flight would desync the two.
   return withSession(userDir, token, async (credPath, timeoutMs) => {
-    return runMudslide(['-c', credPath, 'send', to, message], timeoutMs, userDir, token, `to=${to}`);
+    return runMudslide(['-c', credPath, 'send', to, message, '--live-check'], timeoutMs, userDir, token, `to=${to}`);
   }, 'sendMessage', { to, message }, true, signal);
 }
 
@@ -579,7 +579,7 @@ async function sendMedia(userDir, token, to, mediaPath, caption = '', signal) {
     const ext = mediaPath.split('.').pop().toLowerCase();
     const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
     const cmd = isImage ? 'send-image' : 'send-file';
-    const args = ['-c', credPath, cmd, to, mediaPath];
+    const args = ['-c', credPath, cmd, to, mediaPath, '--live-check'];
     if (caption) args.push('--caption', caption);
     await runMudslide(args, timeoutMs, userDir, token, `to=${to}`);
   }, 'sendMedia', { to, ...(caption && { caption }) }, true, signal);
