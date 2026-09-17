@@ -8,12 +8,12 @@ const proxyRelayManager = require('./proxyRelayManager');
 const usageService = require('./usageService');
 const { errorOnTimeout, withErrorOnTimeout } = require('./helpers/errorOnTimeout');
 const { logCheckpoint } = require('./helpers/debugLog');
+const errorHandling = require('./helpers/errorHandling');
 const {
   DEVICE_UNLINKED_MARKER,
   PROXY_UNREACHABLE_PREFIX,
-  isConnectivityFailure,
-  classify
-} = require('./helpers/errorHandling');
+  isConnectivityFailure
+} = errorHandling;
 
 const CONFIG = {
   MUDSLIDE_PATH: process.env.MUDSLIDE_PATH || 'mudslide',
@@ -153,7 +153,7 @@ async function confirmWhatsappIsActuallyConnected(userDir, token, signal) {
   } catch (err) {
     // Only a confirmed unlink purges the local session — any other failure (timeout, ambiguous disconnect, proxy hiccup) means the check itself failed, not that the device is still linked, so this must never default to true.
     console.log('DEBUG confirmWhatsappIsActuallyConnected me failed', { userDir, message: err.message });
-    classify(err, { userDir, token, action: 'confirmWhatsappIsActuallyConnected' });
+    errorHandling.classify(err, { userDir, token, action: 'confirmWhatsappIsActuallyConnected' });
     if (err.reason === 'device_unlinked') {
       await purgeMudslideCache(userDir).catch(() => {});
       return { connected: false, phoneNumber: null, reason: 'device_unlinked' };
@@ -205,7 +205,7 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}, trackUsa
       }
       await cleanupTemp(userDir).catch(() => {});
       // classify() is idempotent — a no-op if runMudslide's own catch already tagged this same error.
-      classify(err, { userDir, token, action });
+      errorHandling.classify(err, { userDir, token, action });
       throw err;
     } finally {
       if (trackUsage) await usageService.appendUsageLog(userDir, action, succeeded, errMsg, meta, token);
@@ -352,7 +352,7 @@ function diagnoseConnectivityFailureWrapper(fn, action) {
       return await fn(userDir, token, ...rest);
     } catch (err) {
       err.message = await diagnoseConnectivityFailure(userDir, token, err.message);
-      classify(err, { userDir, token, action });
+      errorHandling.classify(err, { userDir, token, action });
       throw err;
     }
   };
@@ -390,7 +390,7 @@ async function runMudslide(args, timeoutMs, userDir, token, label = 'mudslide', 
       err.message = await diagnoseConnectivityFailure(userDir, token, err.message);
       const partial = err.partialOutput ? `\n${stripProxy(err.partialOutput)}` : '';
       await appendMudslideDebugLog(userDir, `${label} (FAILED)`, (err.message || '') + partial);
-      classify(err, { userDir, token, action: label });
+      errorHandling.classify(err, { userDir, token, action: label });
     }
     throw err;
   }

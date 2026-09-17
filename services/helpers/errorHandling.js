@@ -17,30 +17,35 @@ function isConnectivityFailure(message) {
     (message.includes('timed out') || message.includes(CONNECTION_CLOSED_MARKER));
 }
 
-// One entry per distinguishable failure reason. `marker` is the literal text
-// classify() detects it from; `timed_out` has none — it's whatever's left
-// over once isConnectivityFailure() matches but nothing more specific did
-// (i.e. a real timeout that diagnoseConnectivityFailure could NOT confirm
-// was proxy-caused).
+// One entry per distinguishable failure reason — the single source of truth
+// for its detection marker, HTTP status, user-facing message, and whether it
+// notifies. `marker` is the literal text classify() detects it from;
+// `timed_out` has none — it's whatever's left over once isConnectivityFailure()
+// matches but nothing more specific did (a real timeout diagnoseConnectivityFailure
+// could NOT confirm was proxy-caused).
 const ERROR_TYPES = {
   device_unlinked: {
     marker: DEVICE_UNLINKED_MARKER,
     notifyOnEmail: true,
+    statusCode: 400,
     defaultUserMessage: 'Your WhatsApp is not connected. Please reconnect.'
   },
   proxy_unreachable: {
     marker: PROXY_UNREACHABLE_PREFIX,
     notifyOnEmail: true,
-    defaultUserMessage: 'Our residential proxy is temporarily unreachable. Please try again shortly.'
+    statusCode: 503,
+    defaultUserMessage: 'The residential proxy is misbehaving at the moment. Please try again in a bit.'
   },
   recipient_not_on_whatsapp: {
     marker: RECIPIENT_NOT_ON_WHATSAPP_MARKER,
     notifyOnEmail: false,
+    statusCode: 400,
     defaultUserMessage: 'This number is not on WhatsApp.'
   },
   timed_out: {
     marker: null,
     notifyOnEmail: false,
+    statusCode: 504,
     defaultUserMessage: 'The request took too long. Please try again.'
   }
 };
@@ -57,6 +62,13 @@ function matchReason(message) {
 // up through several catch blocks — only the first call classifies/notifies,
 // later calls are no-ops. Never call emailService.notifyError directly
 // elsewhere.
+//
+// Tags err.reason and, once classified, err.statusCode + a rewritten
+// err.message safe to show the end user directly — routes just do
+// `reply.code(err.statusCode || 500).send({ error: err.message, reason: err.reason })`,
+// no per-reason branching needed. The operator email below still gets the
+// original, unrewritten message (the actual diagnostic), since that happens
+// before the rewrite.
 function classify(err, { userDir, token, action } = {}) {
   if (!err || err.__classified) return err;
   err.__classified = true;
@@ -69,6 +81,10 @@ function classify(err, { userDir, token, action } = {}) {
   const shouldNotify = type ? type.notifyOnEmail : true;
   if (shouldNotify) {
     emailService.notifyError(action, userDir, err.message, token).catch(() => {});
+  }
+  if (type) {
+    err.statusCode = type.statusCode;
+    err.message = type.defaultUserMessage;
   }
   return err;
 }

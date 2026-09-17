@@ -8,9 +8,6 @@ const calendlyService = require('../services/calendlyService');
 const countries = require('../services/countries.json');
 const errorHandling = require('../services/helpers/errorHandling');
 
-// Shown as-is to the end user whenever error.reason === 'proxy_unreachable' — a transient DataImpulse-side issue, not something fixed by reconnecting the device, so the wording steers to "try again" rather than "disconnect and reconnect".
-const PROXY_UNREACHABLE_USER_MESSAGE = 'The residential proxy is misbehaving at the moment. Please try again in a bit.';
-
 // Computed at call time, not module load — CLOUD_FUNCTIONS_BASE_URL (set by scripts/functions-emulator.js) may not be known yet when this module is first required. Defaults to the real deployed project.
 function functionUrl(name) {
   const base = process.env.CLOUD_FUNCTIONS_BASE_URL || 'https://asia-south1-wato-bot.cloudfunctions.net';
@@ -229,10 +226,13 @@ async function routes(fastify, options) {
         mudslideService.getWhatsappProxyIp(request.user.userDir, request.user.token, signal));
     } catch (error) {
       fastify.log.error(error);
-      if (error.reason === 'proxy_unreachable') {
-        return reply.code(503).send({ error: PROXY_UNREACHABLE_USER_MESSAGE, reason: 'proxy_unreachable' });
-      }
-      return reply.code(500).send({ error: 'Failed to fetch proxy IP' });
+      // error.message is only safe to show once classify() has rewritten it to a
+      // known-safe string, i.e. once error.reason is set — an unclassified error's
+      // raw message could be anything, including internal diagnostic detail.
+      return reply.code(error.statusCode || 500).send({
+        error: (error.reason && error.message) || 'Failed to fetch proxy IP',
+        ...(error.reason && { reason: error.reason })
+      });
     }
   });
 
@@ -241,10 +241,10 @@ async function routes(fastify, options) {
       return await mudslideService.getQRCode(request.user.userDir, request.user.token);
     } catch (error) {
       fastify.log.error(error);
-      if (error.reason === 'proxy_unreachable') {
-        return reply.code(503).send({ error: PROXY_UNREACHABLE_USER_MESSAGE, reason: 'proxy_unreachable' });
-      }
-      return reply.code(500).send({ error: 'Failed to get QR code' });
+      return reply.code(error.statusCode || 500).send({
+        error: (error.reason && error.message) || 'Failed to get QR code',
+        ...(error.reason && { reason: error.reason })
+      });
     }
   });
 
@@ -255,10 +255,10 @@ async function routes(fastify, options) {
       return { groups };
     } catch (error) {
       fastify.log.error(error);
-      if (error.reason === 'proxy_unreachable') {
-        return reply.code(503).send({ error: PROXY_UNREACHABLE_USER_MESSAGE, reason: 'proxy_unreachable' });
-      }
-      return reply.code(500).send({ error: 'Failed to fetch groups' });
+      return reply.code(error.statusCode || 500).send({
+        error: (error.reason && error.message) || 'Failed to fetch groups',
+        ...(error.reason && { reason: error.reason })
+      });
     }
   });
 
@@ -270,7 +270,8 @@ async function routes(fastify, options) {
       if (!connected) {
         // A proxy hiccup right now doesn't mean the QR scan failed — the device may well be linked, we just couldn't verify it — so this gets its own response instead of pushing the user to rescan a QR that was never the problem.
         if (reason === 'proxy_unreachable') {
-          return reply.code(503).send({ error: PROXY_UNREACHABLE_USER_MESSAGE, reason: 'proxy_unreachable' });
+          return reply.code(errorHandling.ERROR_TYPES.proxy_unreachable.statusCode)
+            .send({ error: errorHandling.ERROR_TYPES.proxy_unreachable.defaultUserMessage, reason: 'proxy_unreachable' });
         }
         return reply.code(409).send({ error: 'WhatsApp is not connected yet.', reason: 'whatsapp_not_connected' });
       }
@@ -447,13 +448,10 @@ async function routes(fastify, options) {
       return { success: true };
     } catch (error) {
       fastify.log.error(error);
-      if (error.reason === 'proxy_unreachable') {
-        return reply.code(503).send({ error: PROXY_UNREACHABLE_USER_MESSAGE, reason: 'proxy_unreachable' });
-      }
-      if (error.reason === 'recipient_not_on_whatsapp' || error.reason === 'device_unlinked') {
-        return reply.code(400).send({ error: errorHandling.ERROR_TYPES[error.reason].defaultUserMessage, reason: error.reason });
-      }
-      return reply.code(500).send({ error: 'Failed to send message' });
+      return reply.code(error.statusCode || 500).send({
+        error: (error.reason && error.message) || 'Failed to send message',
+        ...(error.reason && { reason: error.reason })
+      });
     }
   });
 
