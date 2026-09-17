@@ -211,7 +211,7 @@ async function sendMessageFailureNotification({ userDir, to, action, error, user
 // when confirmWhatsappIsActuallyConnected reports the device disconnected —
 // same dual-recipient shape as sendMessageFailureNotification above.
 async function notifyDeviceDisconnected(userDir, error, userEmail) {
-  const sends = [notifyOwnerOfError('deviceDisconnected', userDir, error)];
+  const sends = [notifyOwnerOfError('deviceConnectCheck', userDir, error)];
 
   if (userEmail) {
     const userText = [
