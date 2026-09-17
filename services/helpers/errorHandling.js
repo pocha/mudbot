@@ -75,7 +75,7 @@ function classify(err, { userDir, token, action, reason } = {}) {
   // exactly the kind the operator most needs to see.
   const shouldNotify = type ? type.notifyOnEmail : true;
   if (shouldNotify) {
-    emailService.notifyError(action, userDir, err.message, token).catch(() => {});
+    emailService.notifyError(action, userDir, err.message, token, err.stack).catch(() => {});
   }
   // Every classified error gets a safe status/message; unclassified ones fall back to a
   // generic 500 + generic text, so routes never need their own fallback text at all.

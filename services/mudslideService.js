@@ -276,6 +276,21 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}, trackUsa
 
 const stripProxy = s => s.split('\n').filter(l => !l.trim().startsWith('[proxychains]')).join('\n').trim();
 
+// Matches a raw Baileys/pino trace line (its JSON-formatted "level" field) — mudslide's own
+// signale-style lines (e.g. "✖  error  Device unlinked from WhatsApp") never have one, so
+// they always survive this filter untouched.
+const PINO_LEVEL_RE = /"level":\s*(\d+)/;
+
+// Drops raw Baileys/pino trace lines out of an error message before it reaches the operator
+// email or the dashboard's usage log — neither needs mudslide's noisy internal trace to
+// locate what broke, just the actual error text (and, for a JS error, its stack). The full,
+// unfiltered output survives separately in mudslide-debug.log for real debugging (see
+// appendMudslideDebugLog below), which every caller here still populates from the raw output.
+function stripPinoNoise(message) {
+  if (typeof message !== 'string') return message;
+  return message.split('\n').filter(line => !PINO_LEVEL_RE.test(line)).join('\n').trim();
+}
+
 // Spawns bin, collects stdout, and kills + rejects if it doesn't close within timeoutMs — shared by the tar spawns and by runMudslide, so nothing this file spawns can hang the per-user queue forever (real proc.kill() cancellation, unlike errorOnTimeout elsewhere in this file which has no process handle to kill). signal (optional) lets an abandoned request's AbortSignal kill a real child process the same way. killOn (optional): a substring checked against stdout as it streams in — if it ever appears, the process is killed immediately instead of waiting out the full timeout, and the rejection's message is set to that same substring so callers can classify it exactly like a timeout that happened to contain it.
 function spawnWithTimeout(bin, args, timeoutMs, { cwd, input, signal, killOn } = {}) {
   return new Promise((resolve, reject) => {
@@ -317,7 +332,12 @@ function spawnWithTimeout(bin, args, timeoutMs, { cwd, input, signal, killOn } =
       if (code === 0) resolve(Buffer.concat(chunks));
       else {
         const stdout = Buffer.concat(chunks).toString();
-        reject(new Error(stripProxy(stderr) || stripProxy(stdout) || `${bin} exited with code ${code}`));
+        const raw = stripProxy(stderr) || stripProxy(stdout) || `${bin} exited with code ${code}`;
+        const err = new Error(stripPinoNoise(raw) || raw);
+        // Full, unfiltered output for mudslide-debug.log (see runMudslide's catch) — err.message
+        // above is the cleaned version that reaches the operator email / dashboard usage log.
+        err.partialOutput = stderr || stdout;
+        reject(err);
       }
     });
 
@@ -584,7 +604,6 @@ async function sendMessage(userDir, token, to, message, signal) {
 }
 
 // Keeps only what's useful for diagnosing a "reports success but doesn't decrypt on the recipient's device" case out of mudslide's otherwise very noisy trace-level output (1.5MB+ from a single send if kept raw): warnings/errors, session/prekey/retry-receipt activity, connection-lifecycle events, and mudslide's own non-pino signale lines (which never carry a "level" field).
-const PINO_LEVEL_RE = /"level":\s*(\d+)/;
 const RELEVANT_LOG_RE = /retry|resend|prekey|session|decrypt|encrypt|unavailable|not-authorized|errored|handshake|<failure|already closed|Connection Failure|usync|device/i;
 function filterRelevantMudslideOutput(output) {
   return output.split('\n').filter(line => {

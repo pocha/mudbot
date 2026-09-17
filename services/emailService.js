@@ -155,7 +155,7 @@ async function sendWhatsappRetryEmail(email, retryCount, userDir) {
 // Always alerts the admin (NOTIFY_EMAIL/REPLY_TO); CCs the account holder's
 // own opt-in address (userService's notify_email.enc) too, when they have
 // one and a token to look it up with.
-async function notifyError(action, userDir, error, token) {
+async function notifyError(action, userDir, error, token, stack = null) {
   const notifyEmail = process.env.NOTIFY_EMAIL || process.env.REPLY_TO;
   if (!notifyEmail) return;
 
@@ -165,6 +165,7 @@ async function notifyError(action, userDir, error, token) {
     `Action: ${action}`,
     `User:   ${userDir}`,
     `Error:  ${error}`,
+    ...(stack ? ['', 'Stack:', stack] : []),
     `Time:   ${new Date().toISOString()}`,
     '',
     `Replying to this email will reach Ashish, Watobot's creator.`
