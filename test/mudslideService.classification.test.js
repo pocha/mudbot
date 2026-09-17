@@ -43,7 +43,7 @@ describe('runMudslide classification (no proxy configured)', () => {
     proxyRelayManager.takeLastRelayError.mockReturnValue(null);
   });
 
-  test('device-unlinked marker: rejects with the exact marker text', async () => {
+  test('device-unlinked marker: rejects and tags reason: device_unlinked', async () => {
     const proc = fakeProc();
     spawn.mockImplementationOnce(() => {
       process.nextTick(() => {
@@ -54,8 +54,12 @@ describe('runMudslide classification (no proxy configured)', () => {
       return proc;
     });
 
-    await expect(mudslideService.__test.runMudslide(['me'], 5000, USER_DIR, TOKEN, 'me'))
-      .rejects.toThrow('Device unlinked from WhatsApp');
+    let error;
+    await mudslideService.__test.runMudslide(['me'], 5000, USER_DIR, TOKEN, 'me').catch(e => { error = e; });
+    // classify() (called inside runMudslide's own catch) tags .reason and rewrites
+    // .message to the safe user-facing default — the raw marker text no longer
+    // survives on the rejected error itself, only .reason identifies it now.
+    expect(error.reason).toBe('device_unlinked');
   });
 
   test('not-registered marker: kills the process almost immediately instead of waiting out the full timeout', async () => {
@@ -91,7 +95,7 @@ describe('runMudslide classification (no proxy configured)', () => {
     proc.emit('close', null);
     await new Promise(r => setTimeout(r, 10));
     expect(settled).toBe(true);
-    expect(error && error.message).toContain('Device unlinked from WhatsApp');
+    expect(error && error.reason).toBe('device_unlinked');
   });
 });
 
@@ -154,7 +158,7 @@ describe('runMudslide classification (proxy diagnostic path)', () => {
     let error;
     await mudslideService.__test.runMudslide(['me'], TIMEOUT_MS, USER_DIR, TOKEN, 'me').catch(e => { error = e; });
 
-    expect(mudslideService.isProxyUnreachableError(error)).toBe(true);
+    expect(error.reason).toBe('proxy_unreachable');
     // Jest's default 5000ms per-test timeout is tight against this
     // describe block's own beforeAll overhead (resetModules + re-requiring
     // several modules) — bumped below, not a sign anything here is slow by
@@ -168,11 +172,11 @@ describe('runMudslide classification (proxy diagnostic path)', () => {
     let error;
     await mudslideService.__test.runMudslide(['me'], TIMEOUT_MS, USER_DIR, TOKEN, 'me').catch(e => { error = e; });
 
-    // This is the real, previously-discussed gap: a proxy that's basically
-    // fine but whose WhatsApp connection specifically failed reads as an
-    // ambiguous, unlabeled failure — not proxy_unreachable — because
-    // checkProxyReachable's own curl happened to succeed. Documented here
-    // as a tripwire, not (yet) a bug this test is asserting should change.
-    expect(mudslideService.isProxyUnreachableError(error)).toBe(false);
+    // A proxy that's basically fine but whose WhatsApp connection specifically
+    // failed is NOT proxy_unreachable — checkProxyReachable's own curl
+    // succeeded — but it's still a real timeout, so classify() labels it
+    // timed_out rather than leaving it a fully ambiguous, unlabeled failure.
+    expect(error.reason).toBe('timed_out');
+    expect(error.reason).not.toBe('proxy_unreachable');
   }, 15000);
 });

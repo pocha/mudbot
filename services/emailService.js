@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const userService = require('./userService');
 
 // Email configuration from environment variables
 const CONFIG = {
@@ -149,91 +150,36 @@ async function sendWhatsappRetryEmail(email, retryCount, userDir) {
   } catch { /* fire-and-forget — never surfaces to caller */ }
 }
 
-// Generic admin-only alert for a failed mudslide-touching API call — used
-// directly in route handlers' catch blocks (routes/api.js) and reused below
-// by sendMessageFailureNotification for its admin-side email, so the two
-// don't duplicate the same sendMail boilerplate.
-async function notifyOwnerOfError(action, userDir, error, extra = {}) {
+// The one function for every failed mudslide-touching action, everywhere
+// (route handlers' catch blocks, send failures, the connection-check cron).
+// Always alerts the admin (NOTIFY_EMAIL/REPLY_TO); CCs the account holder's
+// own opt-in address (userService's notify_email.enc) too, when they have
+// one and a token to look it up with.
+async function notifyError(action, userDir, error, token) {
   const notifyEmail = process.env.NOTIFY_EMAIL || process.env.REPLY_TO;
   if (!notifyEmail) return;
+
+  const userEmail = token ? await userService.getNotifyEmail(userDir, token).catch(() => null) : null;
 
   const lines = [
     `Action: ${action}`,
     `User:   ${userDir}`,
-    ...Object.entries(extra).map(([k, v]) => `${k}: ${v}`),
     `Error:  ${error}`,
-    `Time:   ${new Date().toISOString()}`
+    `Time:   ${new Date().toISOString()}`,
+    '',
+    `Replying to this email will reach Ashish, Watobot's creator.`
   ];
 
   try {
     await getTransporter().sendMail({
       from: `Watobot <${CONFIG.EMAIL_FROM}>`,
       to: notifyEmail,
+      ...(userEmail ? { cc: userEmail } : {}),
+      replyTo: notifyEmail,
       subject: `Watobot: ${action} failed — ${userDir}`,
       text: lines.join('\n')
     });
   } catch { /* fire-and-forget — never surfaces to caller */ }
-}
-
-// Fired when a sendMessage/sendMedia call fails (see withSession's finally
-// block in services/mudslideService.js) — always alerts the admin
-// (NOTIFY_EMAIL/REPLY_TO), and additionally the user's own opt-in address
-// (services/userService.js's notify_email.enc) when they've set one.
-async function sendMessageFailureNotification({ userDir, to, action, error, userEmail }) {
-  const kind = action === 'sendMedia' ? 'media message' : 'message';
-
-  const sends = [notifyOwnerOfError(action, userDir, error, { To: to || 'unknown' })];
-
-  if (userEmail) {
-    const userText = [
-      `Hi,`,
-      '',
-      `We tried to send your ${kind} to ${to || 'the recipient'}, but it failed.`,
-      '',
-      `Error: ${error}`,
-      '',
-      'Check your dashboard and try again.',
-      '',
-      '— Watobot'
-    ].join('\n');
-    sends.push(getTransporter().sendMail({
-      from: `Watobot <${CONFIG.EMAIL_FROM}>`,
-      to: userEmail,
-      subject: `Watobot: Your ${kind} failed to send`,
-      text: userText
-    }).catch(() => {}));
-  }
-
-  await Promise.all(sends);
-}
-
-// Fired by the hourly device-connection-check cron (see scripts/run-schedule.js)
-// when confirmWhatsappIsActuallyConnected reports the device disconnected —
-// same dual-recipient shape as sendMessageFailureNotification above.
-async function notifyDeviceDisconnected(userDir, error, userEmail) {
-  const sends = [notifyOwnerOfError('deviceConnectCheck', userDir, error)];
-
-  if (userEmail) {
-    const userText = [
-      `Hi,`,
-      '',
-      `Your WhatsApp connection appears to have dropped.`,
-      '',
-      `Error: ${error}`,
-      '',
-      'Please reconnect your device from your dashboard.',
-      '',
-      '— Watobot'
-    ].join('\n');
-    sends.push(getTransporter().sendMail({
-      from: `Watobot <${CONFIG.EMAIL_FROM}>`,
-      to: userEmail,
-      subject: `Watobot: Your WhatsApp device is disconnected`,
-      text: userText
-    }).catch(() => {}));
-  }
-
-  await Promise.all(sends);
 }
 
 async function sendDailyReport(report, backupError = null) {
@@ -269,8 +215,6 @@ module.exports = {
   sendRegistrationEmail,
   sendOwnerNotification,
   sendWhatsappRetryEmail,
-  notifyOwnerOfError,
-  sendMessageFailureNotification,
-  notifyDeviceDisconnected,
+  notifyError,
   sendDailyReport
 };

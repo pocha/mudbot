@@ -6,9 +6,7 @@ const scheduleService = require('../services/scheduleService');
 const faqService = require('../services/faqService');
 const calendlyService = require('../services/calendlyService');
 const countries = require('../services/countries.json');
-
-// Shown as-is to the end user whenever mudslideService.isProxyUnreachableError(error) is true — a transient DataImpulse-side issue, not something fixed by reconnecting the device, so the wording steers to "try again" rather than "disconnect and reconnect".
-const PROXY_UNREACHABLE_USER_MESSAGE = 'The residential proxy is misbehaving at the moment. Please try again in a bit.';
+const { DEVICE_UNLINKED, PROXY_UNREACHABLE, ERROR_TYPES } = require('../services/helpers/errorHandling');
 
 // Computed at call time, not module load — CLOUD_FUNCTIONS_BASE_URL (set by scripts/functions-emulator.js) may not be known yet when this module is first required. Defaults to the real deployed project.
 function functionUrl(name) {
@@ -205,8 +203,9 @@ async function routes(fastify, options) {
       console.log('DEBUG /api/whatsapp', { userDir: request.user.userDir, connected, phoneNumber, reason });
       return { connected, phoneNumber, reason };
     } catch (error) {
+      // classify() (called inside confirmWhatsappIsActuallyConnected's own catch) already
+      // notified the operator if warranted — nothing more to do here than respond.
       fastify.log.error(error);
-      emailService.notifyOwnerOfError('confirmWhatsappIsActuallyConnected', request.user.userDir, error.message).catch(() => {});
       return reply.code(500).send({ error: 'Failed to check WhatsApp connection' });
     }
   });
@@ -227,11 +226,9 @@ async function routes(fastify, options) {
         mudslideService.getWhatsappProxyIp(request.user.userDir, request.user.token, signal));
     } catch (error) {
       fastify.log.error(error);
-      if (mudslideService.isProxyUnreachableError(error)) {
-        return reply.code(503).send({ error: PROXY_UNREACHABLE_USER_MESSAGE, reason: 'proxy_unreachable' });
-      }
-      emailService.notifyOwnerOfError('getWhatsappProxyIp', request.user.userDir, error.message).catch(() => {});
-      return reply.code(500).send({ error: 'Failed to fetch proxy IP' });
+      // classify() (called inside mudslideService.js) always sets statusCode + a safe
+      // user-facing message, classified or not — nothing route-specific needed here.
+      return reply.code(error.statusCode).send({ error: error.message, reason: error.reason });
     }
   });
 
@@ -240,11 +237,7 @@ async function routes(fastify, options) {
       return await mudslideService.getQRCode(request.user.userDir, request.user.token);
     } catch (error) {
       fastify.log.error(error);
-      if (mudslideService.isProxyUnreachableError(error)) {
-        return reply.code(503).send({ error: PROXY_UNREACHABLE_USER_MESSAGE, reason: 'proxy_unreachable' });
-      }
-      emailService.notifyOwnerOfError('getQRCode', request.user.userDir, error.message).catch(() => {});
-      return reply.code(500).send({ error: 'Failed to get QR code' });
+      return reply.code(error.statusCode).send({ error: error.message, reason: error.reason });
     }
   });
 
@@ -255,11 +248,7 @@ async function routes(fastify, options) {
       return { groups };
     } catch (error) {
       fastify.log.error(error);
-      if (mudslideService.isProxyUnreachableError(error)) {
-        return reply.code(503).send({ error: PROXY_UNREACHABLE_USER_MESSAGE, reason: 'proxy_unreachable' });
-      }
-      emailService.notifyOwnerOfError('getGroups', request.user.userDir, error.message).catch(() => {});
-      return reply.code(500).send({ error: 'Failed to fetch groups' });
+      return reply.code(error.statusCode).send({ error: error.message, reason: error.reason });
     }
   });
 
@@ -270,8 +259,9 @@ async function routes(fastify, options) {
         mudslideService.confirmWhatsappIsActuallyConnected(request.user.userDir, request.user.token, signal));
       if (!connected) {
         // A proxy hiccup right now doesn't mean the QR scan failed — the device may well be linked, we just couldn't verify it — so this gets its own response instead of pushing the user to rescan a QR that was never the problem.
-        if (reason === 'proxy_unreachable') {
-          return reply.code(503).send({ error: PROXY_UNREACHABLE_USER_MESSAGE, reason: 'proxy_unreachable' });
+        if (reason === PROXY_UNREACHABLE) {
+          const type = ERROR_TYPES[PROXY_UNREACHABLE];
+          return reply.code(type.statusCode).send({ error: type.defaultUserMessage, reason: PROXY_UNREACHABLE });
         }
         return reply.code(409).send({ error: 'WhatsApp is not connected yet.', reason: 'whatsapp_not_connected' });
       }
@@ -289,7 +279,6 @@ async function routes(fastify, options) {
       return { success: true };
     } catch (error) {
       fastify.log.error(error);
-      emailService.notifyOwnerOfError('confirmWhatsappIsActuallyConnected', request.user.userDir, error.message).catch(() => {});
       return reply.code(500).send({ error: 'Failed to confirm connection' });
     }
   });
@@ -360,7 +349,7 @@ async function routes(fastify, options) {
         return { monitoring: true };
       }
 
-      if (reason == "device_unlinked" || !apiKeyStatus.permanent) {
+      if (reason === DEVICE_UNLINKED || !apiKeyStatus.permanent) {
         await scheduleService.removeCronJob(userDir, DEVICE_CHECK_SCHEDULE_ID);
         return { monitoring: false };
       }
@@ -370,7 +359,13 @@ async function routes(fastify, options) {
 
     } catch (error) {
       fastify.log.error(error);
-      emailService.notifyOwnerOfError('deviceConnectionCheckCron', request.user.userDir, error.message).catch(() => {});
+      // This route never uses error.statusCode/error.message (always a flat 500 here), so
+      // classify() itself would be overkill — just notify directly if nothing upstream
+      // already did (confirmWhatsappIsActuallyConnected's own errors already have; a
+      // getApiKeyStatus failure never went through classify() at all).
+      if (!error.notified) {
+        emailService.notifyError('deviceConnectionCheckCron', request.user.userDir, error.message, request.user.token).catch(() => {});
+      }
       return reply.code(500).send({ error: 'Failed to reconcile device monitor' });
     }
   });
@@ -446,10 +441,7 @@ async function routes(fastify, options) {
       return { success: true };
     } catch (error) {
       fastify.log.error(error);
-      if (mudslideService.isProxyUnreachableError(error)) {
-        return reply.code(503).send({ error: PROXY_UNREACHABLE_USER_MESSAGE, reason: 'proxy_unreachable' });
-      }
-      return reply.code(500).send({ error: 'Failed to send message' });
+      return reply.code(error.statusCode).send({ error: error.message, reason: error.reason });
     }
   });
 
