@@ -1,16 +1,14 @@
 const emailService = require('../emailService');
 
 // The one source of truth for reason strings — every file that needs to
-// compare against, assign, or branch on a reason imports these instead of
-// typing the string literal, so renaming one only ever means changing it
-// here.
-const REASONS = {
-  DEVICE_UNLINKED: 'device_unlinked',
-  PROXY_UNREACHABLE: 'proxy_unreachable',
-  RECIPIENT_NOT_ON_WHATSAPP: 'recipient_not_on_whatsapp',
-  TIMED_OUT: 'timed_out',
-  UNEXPECTED_CLOSURE: 'unexpected_closure'
-};
+// compare against, assign, or branch on a reason imports these directly
+// (no REASONS. prefix) instead of typing the string literal, so renaming one
+// only ever means changing it here.
+const DEVICE_UNLINKED = 'device_unlinked';
+const PROXY_UNREACHABLE = 'proxy_unreachable';
+const RECIPIENT_NOT_ON_WHATSAPP = 'recipient_not_on_whatsapp';
+const TIMED_OUT = 'timed_out';
+const UNEXPECTED_CLOSURE = 'unexpected_closure';
 
 // One entry per distinguishable failure reason — the single source of truth
 // for its HTTP status, user-facing message, and whether it notifies.
@@ -20,27 +18,27 @@ const REASONS = {
 // already known, so it has nothing to import from mudslideService.js (and
 // nothing to create a require cycle with).
 const ERROR_TYPES = {
-  [REASONS.DEVICE_UNLINKED]: {
+  [DEVICE_UNLINKED]: {
     notifyOnEmail: true,
     statusCode: 400,
     defaultUserMessage: 'Your WhatsApp is not connected. Please reconnect.'
   },
-  [REASONS.PROXY_UNREACHABLE]: {
+  [PROXY_UNREACHABLE]: {
     notifyOnEmail: true,
     statusCode: 503,
     defaultUserMessage: 'The residential proxy is misbehaving at the moment. Please try again in a bit.'
   },
-  [REASONS.RECIPIENT_NOT_ON_WHATSAPP]: {
+  [RECIPIENT_NOT_ON_WHATSAPP]: {
     notifyOnEmail: true,
     statusCode: 400,
     defaultUserMessage: 'This number is not on WhatsApp.'
   },
-  [REASONS.TIMED_OUT]: {
+  [TIMED_OUT]: {
     notifyOnEmail: true,
     statusCode: 504,
     defaultUserMessage: 'The request took too long. Please try again.'
   },
-  [REASONS.UNEXPECTED_CLOSURE]: {
+  [UNEXPECTED_CLOSURE]: {
     notifyOnEmail: true,
     statusCode: 504,
     defaultUserMessage: 'Connection to WhatsApp was unexpectedly closed. Check if Watobot is still connected by visiting the dashboard.'
@@ -86,4 +84,12 @@ function classify(err, { userDir, token, action, reason } = {}) {
   return err;
 }
 
-module.exports = { REASONS, ERROR_TYPES, classify };
+module.exports = {
+  DEVICE_UNLINKED,
+  PROXY_UNREACHABLE,
+  RECIPIENT_NOT_ON_WHATSAPP,
+  TIMED_OUT,
+  UNEXPECTED_CLOSURE,
+  ERROR_TYPES,
+  classify
+};

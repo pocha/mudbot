@@ -6,7 +6,7 @@ const scheduleService = require('../services/scheduleService');
 const faqService = require('../services/faqService');
 const calendlyService = require('../services/calendlyService');
 const countries = require('../services/countries.json');
-const errorHandling = require('../services/helpers/errorHandling');
+const { DEVICE_UNLINKED, PROXY_UNREACHABLE, ERROR_TYPES } = require('../services/helpers/errorHandling');
 
 // Computed at call time, not module load — CLOUD_FUNCTIONS_BASE_URL (set by scripts/functions-emulator.js) may not be known yet when this module is first required. Defaults to the real deployed project.
 function functionUrl(name) {
@@ -259,9 +259,9 @@ async function routes(fastify, options) {
         mudslideService.confirmWhatsappIsActuallyConnected(request.user.userDir, request.user.token, signal));
       if (!connected) {
         // A proxy hiccup right now doesn't mean the QR scan failed — the device may well be linked, we just couldn't verify it — so this gets its own response instead of pushing the user to rescan a QR that was never the problem.
-        if (reason === errorHandling.REASONS.PROXY_UNREACHABLE) {
-          const type = errorHandling.ERROR_TYPES[errorHandling.REASONS.PROXY_UNREACHABLE];
-          return reply.code(type.statusCode).send({ error: type.defaultUserMessage, reason: errorHandling.REASONS.PROXY_UNREACHABLE });
+        if (reason === PROXY_UNREACHABLE) {
+          const type = ERROR_TYPES[PROXY_UNREACHABLE];
+          return reply.code(type.statusCode).send({ error: type.defaultUserMessage, reason: PROXY_UNREACHABLE });
         }
         return reply.code(409).send({ error: 'WhatsApp is not connected yet.', reason: 'whatsapp_not_connected' });
       }
@@ -349,7 +349,7 @@ async function routes(fastify, options) {
         return { monitoring: true };
       }
 
-      if (reason === errorHandling.REASONS.DEVICE_UNLINKED || !apiKeyStatus.permanent) {
+      if (reason === DEVICE_UNLINKED || !apiKeyStatus.permanent) {
         await scheduleService.removeCronJob(userDir, DEVICE_CHECK_SCHEDULE_ID);
         return { monitoring: false };
       }
