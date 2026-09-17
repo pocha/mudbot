@@ -174,9 +174,11 @@ async function confirmWhatsappIsActuallyConnected(userDir, token, signal) {
     }
     // runMudslide already ran diagnoseConnectivityFailure — its message carries this prefix if the proxy itself was the cause.
     if (err.message.includes(PROXY_UNREACHABLE_PREFIX)) {
+      emailService.notifyOwnerOfError('confirmWhatsappIsActuallyConnected', userDir, err.message).catch(() => {});
       return { connected: false, phoneNumber: null, reason: 'proxy_unreachable' };
     }
-    return { connected: false, phoneNumber: null };
+    // Anything else is unrecognized — let it propagate so callers' own catch blocks (500 + admin email) run, instead of silently reporting "not connected" for a failure we can't actually explain.
+    throw err;
   }
 }
 

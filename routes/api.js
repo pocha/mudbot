@@ -370,6 +370,7 @@ async function routes(fastify, options) {
 
     } catch (error) {
       fastify.log.error(error);
+      emailService.notifyOwnerOfError('deviceConnectionCheckCron', request.user.userDir, error.message).catch(() => {});
       return reply.code(500).send({ error: 'Failed to reconcile device monitor' });
     }
   });
