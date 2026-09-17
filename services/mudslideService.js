@@ -9,11 +9,6 @@ const usageService = require('./usageService');
 const { errorOnTimeout, withErrorOnTimeout } = require('./helpers/errorOnTimeout');
 const { logCheckpoint } = require('./helpers/debugLog');
 const errorHandling = require('./helpers/errorHandling');
-const {
-  DEVICE_UNLINKED_MARKER,
-  PROXY_UNREACHABLE_PREFIX,
-  isConnectivityFailure
-} = errorHandling;
 
 const CONFIG = {
   MUDSLIDE_PATH: process.env.MUDSLIDE_PATH || 'mudslide',
@@ -51,11 +46,26 @@ function spawnBudget(startedAt) {
 const MUDSLIDE_CONNECT_TIMEOUT_MS = 2000;
 const MUDSLIDE_QUERY_TIMEOUT_MS = 5000;
 
-// Baileys' own socket.js prints this (not mudslide) when the local creds.me is missing, and starts a fresh QR-pairing handshake instead of failing fast — same underlying condition as DEVICE_UNLINKED_MARKER (session needs re-linking), so it's collapsed into that same marker rather than tracked separately.
+// Exact text our mudslide fork prints when Baileys itself reports a loggedOut disconnect (e.g. during `me`) — real, captured process output, genuinely detected here, distinct from the two places elsewhere in this file that self-assign 'device_unlinked' directly (the local-file pre-check, and the NOT_REGISTERED_MARKER remap below) without mudslide ever printing this text.
+const DEVICE_UNLINKED_MARKER = 'Device unlinked from WhatsApp';
+
+// Baileys' own socket.js prints this (not mudslide) when the local creds.me is missing, and starts a fresh QR-pairing handshake instead of failing fast — same underlying condition as a confirmed device-unlink (session needs re-linking), so it's collapsed into that same reason rather than tracked separately.
 const NOT_REGISTERED_MARKER = 'not logged in, attempting registration';
+
+// Exact text mudslide's --live-check prints before exiting when the recipient isn't registered on WhatsApp at all — real, captured process output, same as NOT_REGISTERED_MARKER above.
+const RECIPIENT_NOT_ON_WHATSAPP_MARKER = 'Recipient does not exist on WhatsApp';
+
+// Exact text mudslide prints when connection.update fires 'close' for any reason other than a confirmed device-unlink — e.g. a proxy that can't route to WhatsApp at all. Also real, captured process output.
+const CONNECTION_CLOSED_MARKER = 'Connection closed unexpectedly';
 
 // Exact text mudslide prints right after socket.sendMessage resolves — if our own timeout kills the process during its post-send grace wait, this confirms the send already succeeded and shouldn't be discarded.
 const SEND_SUCCESS_MARKER = 'Done';
+
+// Substring of the message *we* construct in spawnWithTimeout/withSession's own timeout races (`${bin} timed out after ${timeoutMs}ms`, `${action} timed out after ${operationTimeoutMs}ms`) — never something Baileys/mudslide itself prints, so this is a self-assigned label, not a real marker.
+const TIMED_OUT_LABEL = 'timed out';
+
+// Our own diagnostic text, prepended by diagnoseConnectivityFailure once an active probe (checkProxyReachable) has confirmed the proxy itself, not anything else, was the cause. Never printed by Baileys/mudslide — kept only for the operator email's raw diagnostic content, not for re-detection (the reason is already known at the point this gets prepended).
+const PROXY_UNREACHABLE_LABEL = 'Residential proxy is not reachable — likely a bad or expired sticky IP, contact the Watobot operator.';
 
 function mudslideEncFile(userDir) {
   return path.join(CONFIG.USERS_DIR, userDir, '.mudslide.enc');
@@ -177,8 +187,12 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}, trackUsa
 
     const doWork = async () => {
       if (signal?.aborted) throw new Error('Request was aborted before this op started');
-      // A previous op may have already purged a device-unlinked session — fail clearly here rather than with a raw ENOENT from decrypt.
-      if (!(await isLoggedIn(userDir))) throw new Error(DEVICE_UNLINKED_MARKER);
+      // A previous op may have already purged a device-unlinked session — fail clearly here rather than with a raw ENOENT from decrypt. Tagged directly since there's nothing to detect — we already know the reason.
+      if (!(await isLoggedIn(userDir))) {
+        const err = new Error('Device is not linked to WhatsApp');
+        err.reason = 'device_unlinked';
+        throw err;
+      }
       if (!relayHeld[userDir]) {
         await proxyRelayManager.acquireRelay(userDir, token);
         relayHeld[userDir] = true;
@@ -195,17 +209,24 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}, trackUsa
       succeeded = true;
       return result;
     } catch (err) {
-      // proxyRelayManager bridges a relay-level failure (e.g. dead upstream) that can't naturally bubble up here — prefer that specific diagnostic over the generic message when one was recorded moments ago; runMudslide's own catch already diagnosed err.message otherwise.
+      // proxyRelayManager bridges a relay-level failure (e.g. dead upstream) that can't naturally bubble up here — prefer that specific diagnostic over whatever runMudslide's own catch already produced, when one was recorded moments ago. A relay error IS a proxy-unreachable condition directly, no need for runMudslide's own (expensive) probe-based diagnosis.
       const relayError = proxyRelayManager.takeLastRelayError(userDir);
-      if (relayError) err.message = relayError;
+      let reason;
+      if (relayError) {
+        err.message = relayError;
+        reason = 'proxy_unreachable';
+      }
       errMsg = err.message;
       if (relayHeld[userDir]) {
         relayHeld[userDir] = false;
         await proxyRelayManager.releaseRelay(userDir).catch(() => {});
       }
       await cleanupTemp(userDir).catch(() => {});
-      // classify() is idempotent — a no-op if runMudslide's own catch already tagged this same error.
-      errorHandling.classify(err, { userDir, token, action });
+      // classify() is idempotent — a no-op if this error already carries a reason (doWork()'s own
+      // pre-check, or runMudslide's own detection). Only the outer errorOnTimeout race's own
+      // generic timeout (a fresh Error with nothing tagged yet) needs detecting here.
+      if (!reason && typeof err.message === 'string' && err.message.includes(TIMED_OUT_LABEL)) reason = 'timed_out';
+      errorHandling.classify(err, { userDir, token, action, reason });
       throw err;
     } finally {
       if (trackUsage) await usageService.appendUsageLog(userDir, action, succeeded, errMsg, meta, token);
@@ -338,11 +359,17 @@ async function checkProxyReachable(userDir, token) {
   return /^2/.test(stdout.toString().trim());
 }
 
-// Only runs the relatively expensive (~8-12s) proxy check when the failure looks connectivity-related in the first place — a device-unlink or any other non-connectivity error wouldn't be explained by the proxy anyway.
+function isConnectivityFailure(message) {
+  return typeof message === 'string' &&
+    (message.includes(TIMED_OUT_LABEL) || message.includes(CONNECTION_CLOSED_MARKER));
+}
+
+// Only runs the relatively expensive (~8-12s) proxy check when the failure looks connectivity-related in the first place — a device-unlink or any other non-connectivity error wouldn't be explained by the proxy anyway. Returns the (possibly rewritten) message alongside the reason it determined, so the caller can pass both straight into classify() without re-detecting anything.
 async function diagnoseConnectivityFailure(userDir, token, message) {
-  if (!isConnectivityFailure(message)) return message;
+  if (!isConnectivityFailure(message)) return { message, reason: undefined };
   const proxyOk = await checkProxyReachable(userDir, token).catch(() => null);
-  return proxyOk === false ? `${PROXY_UNREACHABLE_PREFIX} (${message})` : message;
+  if (proxyOk === false) return { message: `${PROXY_UNREACHABLE_LABEL} (${message})`, reason: 'proxy_unreachable' };
+  return { message, reason: message.includes(CONNECTION_CLOSED_MARKER) ? 'unexpected_closure' : 'timed_out' };
 }
 
 // Wraps a function that doesn't route through runMudslide (which diagnoses this internally) so its failures get the same treatment — assumes (userDir, token, ...) is the wrapped fn's own argument order.
@@ -351,8 +378,9 @@ function diagnoseConnectivityFailureWrapper(fn, action) {
     try {
       return await fn(userDir, token, ...rest);
     } catch (err) {
-      err.message = await diagnoseConnectivityFailure(userDir, token, err.message);
-      errorHandling.classify(err, { userDir, token, action });
+      const { message, reason } = await diagnoseConnectivityFailure(userDir, token, err.message);
+      err.message = message;
+      errorHandling.classify(err, { userDir, token, action, reason });
       throw err;
     }
   };
@@ -381,16 +409,24 @@ async function runMudslide(args, timeoutMs, userDir, token, label = 'mudslide', 
     return output;
   } catch (err) {
     if (userDir) await logCheckpoint(userDir, `${label}: mudslide failed after ${Date.now() - spawnStartedAt}ms`);
-    // Baileys deciding the session needs re-pairing is the same condition as a confirmed unlink — collapse it into the one marker every caller already checks for, and purge now so nothing queued behind this repeats the same hang.
-    if (`${err.message || ''}\n${err.partialOutput || ''}`.includes(NOT_REGISTERED_MARKER)) {
-      err.message = DEVICE_UNLINKED_MARKER;
+    const combinedOutput = `${err.message || ''}\n${err.partialOutput || ''}`;
+    let reason;
+    // Baileys deciding the session needs re-pairing is the same condition as a confirmed unlink — collapse it into that reason and purge now so nothing queued behind this repeats the same hang.
+    if (combinedOutput.includes(DEVICE_UNLINKED_MARKER) || combinedOutput.includes(NOT_REGISTERED_MARKER)) {
+      reason = 'device_unlinked';
       if (userDir) await purgeMudslideCache(userDir).catch(() => {});
+    } else if (combinedOutput.includes(RECIPIENT_NOT_ON_WHATSAPP_MARKER)) {
+      reason = 'recipient_not_on_whatsapp';
     }
     if (userDir) {
-      err.message = await diagnoseConnectivityFailure(userDir, token, err.message);
+      if (!reason) {
+        const diagnosed = await diagnoseConnectivityFailure(userDir, token, err.message);
+        err.message = diagnosed.message;
+        reason = diagnosed.reason;
+      }
       const partial = err.partialOutput ? `\n${stripProxy(err.partialOutput)}` : '';
       await appendMudslideDebugLog(userDir, `${label} (FAILED)`, (err.message || '') + partial);
-      errorHandling.classify(err, { userDir, token, action: label });
+      errorHandling.classify(err, { userDir, token, action: label, reason });
     }
     throw err;
   }

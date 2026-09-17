@@ -226,13 +226,9 @@ async function routes(fastify, options) {
         mudslideService.getWhatsappProxyIp(request.user.userDir, request.user.token, signal));
     } catch (error) {
       fastify.log.error(error);
-      // error.message is only safe to show once classify() has rewritten it to a
-      // known-safe string, i.e. once error.reason is set — an unclassified error's
-      // raw message could be anything, including internal diagnostic detail.
-      return reply.code(error.statusCode || 500).send({
-        error: (error.reason && error.message) || 'Failed to fetch proxy IP',
-        ...(error.reason && { reason: error.reason })
-      });
+      // classify() (called inside mudslideService.js) always sets statusCode + a safe
+      // user-facing message, classified or not — nothing route-specific needed here.
+      return reply.code(error.statusCode).send({ error: error.message, reason: error.reason });
     }
   });
 
@@ -241,10 +237,7 @@ async function routes(fastify, options) {
       return await mudslideService.getQRCode(request.user.userDir, request.user.token);
     } catch (error) {
       fastify.log.error(error);
-      return reply.code(error.statusCode || 500).send({
-        error: (error.reason && error.message) || 'Failed to get QR code',
-        ...(error.reason && { reason: error.reason })
-      });
+      return reply.code(error.statusCode).send({ error: error.message, reason: error.reason });
     }
   });
 
@@ -255,10 +248,7 @@ async function routes(fastify, options) {
       return { groups };
     } catch (error) {
       fastify.log.error(error);
-      return reply.code(error.statusCode || 500).send({
-        error: (error.reason && error.message) || 'Failed to fetch groups',
-        ...(error.reason && { reason: error.reason })
-      });
+      return reply.code(error.statusCode).send({ error: error.message, reason: error.reason });
     }
   });
 
@@ -448,10 +438,7 @@ async function routes(fastify, options) {
       return { success: true };
     } catch (error) {
       fastify.log.error(error);
-      return reply.code(error.statusCode || 500).send({
-        error: (error.reason && error.message) || 'Failed to send message',
-        ...(error.reason && { reason: error.reason })
-      });
+      return reply.code(error.statusCode).send({ error: error.message, reason: error.reason });
     }
   });
 
