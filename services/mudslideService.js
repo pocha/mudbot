@@ -163,7 +163,7 @@ async function confirmWhatsappIsActuallyConnected(userDir, token, signal) {
   try {
     // signal only gates withSession's own "still queued, caller's gone" early-bail — never forwarded into the actual spawn, since killing a live Baileys connection mid-flight risks discarding session updates the other side already considers delivered.
     const output = await withSession(userDir, token, (credPath, timeoutMs) =>
-      runMudslide(['-c', credPath, 'me'], timeoutMs, userDir, token, 'me'),
+      runMudslide(['-c', credPath, 'me'], timeoutMs, userDir, token, 'me', 'confirmWhatsappIsActuallyConnected'),
       'confirmWhatsappIsActuallyConnected', {}, false, signal);
     const match = output.match(ME_PHONE_NUMBER_RE);
     return { connected: true, phoneNumber: match ? match[1] : null };
@@ -393,8 +393,11 @@ function diagnoseConnectivityFailureWrapper(fn, action) {
   };
 }
 
-// label identifies the call in the user's debug log (e.g. 'me', 'groups', 'to=<number>') — every invocation is logged, success or failure.
-async function runMudslide(args, timeoutMs, userDir, token, label = 'mudslide', signal) {
+// label identifies this specific invocation for the debug log (e.g. 'to=+919...', 'me', 'groups')
+// — action is the higher-level operation name (e.g. 'sendMessage') for the notification email's
+// subject, so a busy account's per-recipient label doesn't leak into "Action:" there. Defaults to
+// label for any caller that genuinely has nothing more specific to say.
+async function runMudslide(args, timeoutMs, userDir, token, label = 'mudslide', action = label, signal) {
   const confPath = (userDir && token) ? await proxyConfPath(userDir, token) : null;
   const useProxy = confPath && CONFIG.PROXYCHAINS_PATH;
   const bin  = useProxy ? CONFIG.PROXYCHAINS_PATH : CONFIG.MUDSLIDE_PATH;
@@ -433,7 +436,7 @@ async function runMudslide(args, timeoutMs, userDir, token, label = 'mudslide', 
       }
       const partial = err.partialOutput ? `\n${stripProxy(err.partialOutput)}` : '';
       await appendMudslideDebugLog(userDir, `${label} (FAILED)`, (err.message || '') + partial);
-      err = errorHandling.classify(err, { userDir, token, action: label, reason });
+      err = errorHandling.classify(err, { userDir, token, action, reason });
     }
     throw err;
   }
@@ -576,7 +579,7 @@ async function getWhatsappProxyIp(userDir, token, signal) {
 async function sendMessage(userDir, token, to, message, signal) {
   // signal only gates withSession's early-bail while queued — never forwarded to the actual send, since WhatsApp's servers may already have it while our own local session update (persisted only after a normal finish) hasn't, and killing mid-flight would desync the two.
   return withSession(userDir, token, async (credPath, timeoutMs) => {
-    return runMudslide(['-c', credPath, 'send', to, message, '--live-check'], timeoutMs, userDir, token, `to=${to}`);
+    return runMudslide(['-c', credPath, 'send', to, message, '--live-check'], timeoutMs, userDir, token, `to=${to}`, 'sendMessage');
   }, 'sendMessage', { to, message }, true, signal);
 }
 
@@ -606,14 +609,14 @@ async function sendMedia(userDir, token, to, mediaPath, caption = '', signal) {
     const cmd = isImage ? 'send-image' : 'send-file';
     const args = ['-c', credPath, cmd, to, mediaPath, '--live-check'];
     if (caption) args.push('--caption', caption);
-    await runMudslide(args, timeoutMs, userDir, token, `to=${to}`);
+    await runMudslide(args, timeoutMs, userDir, token, `to=${to}`, 'sendMedia');
   }, 'sendMedia', { to, ...(caption && { caption }) }, true, signal);
 }
 
 async function getGroups(userDir, token, signal) {
   // signal only gates withSession's early-bail while queued — not forwarded to runMudslide/spawn, same reasoning as confirmWhatsappIsActuallyConnected above.
   return withSession(userDir, token, async (credPath, timeoutMs) => {
-    const output = await runMudslide(['-c', credPath, 'groups'], timeoutMs, userDir, token, 'groups');
+    const output = await runMudslide(['-c', credPath, 'groups'], timeoutMs, userDir, token, 'groups', 'getGroups');
 
     try {
       const parsed = JSON.parse(output);
