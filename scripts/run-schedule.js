@@ -3,6 +3,7 @@ require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') }
 const fs = require('fs').promises;
 const path = require('path');
 const crypto = require('crypto');
+const { REASONS } = require('../services/helpers/errorHandling');
 
 const USERS_DIR = path.join(__dirname, '..', 'users');
 
@@ -56,7 +57,7 @@ async function checkConnection(token) {
     checkError = err.message;
   }
 
-  if (connected || !checkError || reason !== 'device_unlinked') return;
+  if (connected || !checkError || reason !== REASONS.DEVICE_UNLINKED) return;
   if (!(await shouldAlert(userDir))) return;
 
   const emailService = require('../services/emailService');

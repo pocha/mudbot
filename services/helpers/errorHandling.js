@@ -1,5 +1,17 @@
 const emailService = require('../emailService');
 
+// The one source of truth for reason strings — every file that needs to
+// compare against, assign, or branch on a reason imports these instead of
+// typing the string literal, so renaming one only ever means changing it
+// here.
+const REASONS = {
+  DEVICE_UNLINKED: 'device_unlinked',
+  PROXY_UNREACHABLE: 'proxy_unreachable',
+  RECIPIENT_NOT_ON_WHATSAPP: 'recipient_not_on_whatsapp',
+  TIMED_OUT: 'timed_out',
+  UNEXPECTED_CLOSURE: 'unexpected_closure'
+};
+
 // One entry per distinguishable failure reason — the single source of truth
 // for its HTTP status, user-facing message, and whether it notifies.
 // Detection (which raw Baileys/mudslide condition maps to which reason) lives
@@ -8,27 +20,27 @@ const emailService = require('../emailService');
 // already known, so it has nothing to import from mudslideService.js (and
 // nothing to create a require cycle with).
 const ERROR_TYPES = {
-  device_unlinked: {
+  [REASONS.DEVICE_UNLINKED]: {
     notifyOnEmail: true,
     statusCode: 400,
     defaultUserMessage: 'Your WhatsApp is not connected. Please reconnect.'
   },
-  proxy_unreachable: {
+  [REASONS.PROXY_UNREACHABLE]: {
     notifyOnEmail: true,
     statusCode: 503,
     defaultUserMessage: 'The residential proxy is misbehaving at the moment. Please try again in a bit.'
   },
-  recipient_not_on_whatsapp: {
+  [REASONS.RECIPIENT_NOT_ON_WHATSAPP]: {
     notifyOnEmail: true,
     statusCode: 400,
     defaultUserMessage: 'This number is not on WhatsApp.'
   },
-  timed_out: {
+  [REASONS.TIMED_OUT]: {
     notifyOnEmail: true,
     statusCode: 504,
     defaultUserMessage: 'The request took too long. Please try again.'
   },
-  unexpected_closure: {
+  [REASONS.UNEXPECTED_CLOSURE]: {
     notifyOnEmail: true,
     statusCode: 504,
     defaultUserMessage: 'Connection to WhatsApp was unexpectedly closed. Check if Watobot is still connected by visiting the dashboard.'
@@ -39,7 +51,11 @@ const ERROR_TYPES = {
 // call more than once as the same error propagates up through several catch
 // blocks — only the first call (whichever passes a reason, or finds one
 // already tagged by an earlier call) classifies/notifies; later calls are
-// no-ops. Never call emailService.notifyError directly elsewhere.
+// no-ops (see err.notified below). Never call emailService.notifyError
+// directly elsewhere — the one exception is a route that never uses
+// err.statusCode/err.message at all and just wants "notify if nothing
+// upstream already did", which should check err.notified itself rather than
+// pay for a full (and confusing, out of place) classify() call.
 //
 // `reason` is supplied by the caller — mudslideService.js does the actual
 // detection against real process output — or, for idempotency, read off
@@ -51,8 +67,8 @@ const ERROR_TYPES = {
 // above still gets the original, unrewritten message (the actual
 // diagnostic), since that happens before the rewrite.
 function classify(err, { userDir, token, action, reason } = {}) {
-  if (!err || err.__classified) return err;
-  err.__classified = true;
+  if (!err || err.notified) return err;
+  err.notified = true;
 
   const finalReason = reason || err.reason;
   err.reason = finalReason;
@@ -70,4 +86,4 @@ function classify(err, { userDir, token, action, reason } = {}) {
   return err;
 }
 
-module.exports = { ERROR_TYPES, classify };
+module.exports = { REASONS, ERROR_TYPES, classify };

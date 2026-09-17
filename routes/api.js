@@ -259,9 +259,9 @@ async function routes(fastify, options) {
         mudslideService.confirmWhatsappIsActuallyConnected(request.user.userDir, request.user.token, signal));
       if (!connected) {
         // A proxy hiccup right now doesn't mean the QR scan failed — the device may well be linked, we just couldn't verify it — so this gets its own response instead of pushing the user to rescan a QR that was never the problem.
-        if (reason === 'proxy_unreachable') {
-          return reply.code(errorHandling.ERROR_TYPES.proxy_unreachable.statusCode)
-            .send({ error: errorHandling.ERROR_TYPES.proxy_unreachable.defaultUserMessage, reason: 'proxy_unreachable' });
+        if (reason === errorHandling.REASONS.PROXY_UNREACHABLE) {
+          const type = errorHandling.ERROR_TYPES[errorHandling.REASONS.PROXY_UNREACHABLE];
+          return reply.code(type.statusCode).send({ error: type.defaultUserMessage, reason: errorHandling.REASONS.PROXY_UNREACHABLE });
         }
         return reply.code(409).send({ error: 'WhatsApp is not connected yet.', reason: 'whatsapp_not_connected' });
       }
@@ -349,7 +349,7 @@ async function routes(fastify, options) {
         return { monitoring: true };
       }
 
-      if (reason == "device_unlinked" || !apiKeyStatus.permanent) {
+      if (reason === errorHandling.REASONS.DEVICE_UNLINKED || !apiKeyStatus.permanent) {
         await scheduleService.removeCronJob(userDir, DEVICE_CHECK_SCHEDULE_ID);
         return { monitoring: false };
       }
@@ -359,10 +359,13 @@ async function routes(fastify, options) {
 
     } catch (error) {
       fastify.log.error(error);
-      // classify() is idempotent — a no-op if confirmWhatsappIsActuallyConnected already tagged
-      // this error, but still classifies+notifies for anything else in this route (e.g. a
-      // getApiKeyStatus failure) that's never been through it.
-      errorHandling.classify(error, { userDir: request.user.userDir, token: request.user.token, action: 'deviceConnectionCheckCron' });
+      // This route never uses error.statusCode/error.message (always a flat 500 here), so
+      // classify() itself would be overkill — just notify directly if nothing upstream
+      // already did (confirmWhatsappIsActuallyConnected's own errors already have; a
+      // getApiKeyStatus failure never went through classify() at all).
+      if (!error.notified) {
+        emailService.notifyError('deviceConnectionCheckCron', request.user.userDir, error.message, request.user.token).catch(() => {});
+      }
       return reply.code(500).send({ error: 'Failed to reconcile device monitor' });
     }
   });

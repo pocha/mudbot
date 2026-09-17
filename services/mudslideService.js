@@ -148,9 +148,9 @@ const ME_PHONE_NUMBER_RE = /Current user:\s*(\d+):/;
 
 // Routed through withSession (trackUsage: false, not a customer-facing interaction) so it's serialized against every other mudslide op — Baileys allows only one live WebSocket per device identity, and two of these racing get a server-side "stream:error conflict", kicking one out.
 async function confirmWhatsappIsActuallyConnected(userDir, token, signal) {
-  // No session file at all is the most certain "not connected" case there is — reuse 'device_unlinked' so the frontend shows "Connect WhatsApp" instead of its "we couldn't confirm" warning, which is for genuinely inconclusive checks, not this.
+  // No session file at all is the most certain "not connected" case there is — reuse DEVICE_UNLINKED so the frontend shows "Connect WhatsApp" instead of its "we couldn't confirm" warning, which is for genuinely inconclusive checks, not this.
   if (!(await isWhatsappConnected(userDir, token)).loggedIn) {
-    return { connected: false, phoneNumber: null, reason: 'device_unlinked' };
+    return { connected: false, phoneNumber: null, reason: errorHandling.REASONS.DEVICE_UNLINKED };
   }
 
   try {
@@ -163,15 +163,15 @@ async function confirmWhatsappIsActuallyConnected(userDir, token, signal) {
   } catch (err) {
     // Only a confirmed unlink purges the local session — any other failure (timeout, ambiguous disconnect, proxy hiccup) means the check itself failed, not that the device is still linked, so this must never default to true.
     console.log('DEBUG confirmWhatsappIsActuallyConnected me failed', { userDir, message: err.message });
-    errorHandling.classify(err, { userDir, token, action: 'confirmWhatsappIsActuallyConnected' });
-    if (err.reason === 'device_unlinked') {
+    err = errorHandling.classify(err, { userDir, token, action: 'confirmWhatsappIsActuallyConnected' });
+    if (err.reason === errorHandling.REASONS.DEVICE_UNLINKED) {
       await purgeMudslideCache(userDir).catch(() => {});
-      return { connected: false, phoneNumber: null, reason: 'device_unlinked' };
+      return { connected: false, phoneNumber: null, reason: errorHandling.REASONS.DEVICE_UNLINKED };
     }
-    if (err.reason === 'proxy_unreachable') {
-      return { connected: false, phoneNumber: null, reason: 'proxy_unreachable' };
+    if (err.reason === errorHandling.REASONS.PROXY_UNREACHABLE) {
+      return { connected: false, phoneNumber: null, reason: errorHandling.REASONS.PROXY_UNREACHABLE };
     }
-    // Anything else (including 'timed_out' or unclassified) is unrecognized enough to propagate, so callers' own catch blocks (500 + admin email) run, instead of silently reporting "not connected" for a failure we can't actually explain.
+    // Anything else (including TIMED_OUT or unclassified) is unrecognized enough to propagate, so callers' own catch blocks (500 + admin email) run, instead of silently reporting "not connected" for a failure we can't actually explain.
     throw err;
   }
 }
@@ -190,7 +190,7 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}, trackUsa
       // A previous op may have already purged a device-unlinked session — fail clearly here rather than with a raw ENOENT from decrypt. Tagged directly since there's nothing to detect — we already know the reason.
       if (!(await isLoggedIn(userDir))) {
         const err = new Error('Device is not linked to WhatsApp');
-        err.reason = 'device_unlinked';
+        err.reason = errorHandling.REASONS.DEVICE_UNLINKED;
         throw err;
       }
       if (!relayHeld[userDir]) {
@@ -214,7 +214,7 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}, trackUsa
       let reason;
       if (relayError) {
         err.message = relayError;
-        reason = 'proxy_unreachable';
+        reason = errorHandling.REASONS.PROXY_UNREACHABLE;
       }
       errMsg = err.message;
       if (relayHeld[userDir]) {
@@ -225,8 +225,8 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}, trackUsa
       // classify() is idempotent — a no-op if this error already carries a reason (doWork()'s own
       // pre-check, or runMudslide's own detection). Only the outer errorOnTimeout race's own
       // generic timeout (a fresh Error with nothing tagged yet) needs detecting here.
-      if (!reason && typeof err.message === 'string' && err.message.includes(TIMED_OUT_LABEL)) reason = 'timed_out';
-      errorHandling.classify(err, { userDir, token, action, reason });
+      if (!reason && typeof err.message === 'string' && err.message.includes(TIMED_OUT_LABEL)) reason = errorHandling.REASONS.TIMED_OUT;
+      err = errorHandling.classify(err, { userDir, token, action, reason });
       throw err;
     } finally {
       if (trackUsage) await usageService.appendUsageLog(userDir, action, succeeded, errMsg, meta, token);
@@ -368,8 +368,8 @@ function isConnectivityFailure(message) {
 async function diagnoseConnectivityFailure(userDir, token, message) {
   if (!isConnectivityFailure(message)) return { message, reason: undefined };
   const proxyOk = await checkProxyReachable(userDir, token).catch(() => null);
-  if (proxyOk === false) return { message: `${PROXY_UNREACHABLE_LABEL} (${message})`, reason: 'proxy_unreachable' };
-  return { message, reason: message.includes(CONNECTION_CLOSED_MARKER) ? 'unexpected_closure' : 'timed_out' };
+  if (proxyOk === false) return { message: `${PROXY_UNREACHABLE_LABEL} (${message})`, reason: errorHandling.REASONS.PROXY_UNREACHABLE };
+  return { message, reason: message.includes(CONNECTION_CLOSED_MARKER) ? errorHandling.REASONS.UNEXPECTED_CLOSURE : errorHandling.REASONS.TIMED_OUT };
 }
 
 // Wraps a function that doesn't route through runMudslide (which diagnoses this internally) so its failures get the same treatment — assumes (userDir, token, ...) is the wrapped fn's own argument order.
@@ -380,7 +380,7 @@ function diagnoseConnectivityFailureWrapper(fn, action) {
     } catch (err) {
       const { message, reason } = await diagnoseConnectivityFailure(userDir, token, err.message);
       err.message = message;
-      errorHandling.classify(err, { userDir, token, action, reason });
+      err = errorHandling.classify(err, { userDir, token, action, reason });
       throw err;
     }
   };
@@ -413,10 +413,10 @@ async function runMudslide(args, timeoutMs, userDir, token, label = 'mudslide', 
     let reason;
     // Baileys deciding the session needs re-pairing is the same condition as a confirmed unlink — collapse it into that reason and purge now so nothing queued behind this repeats the same hang.
     if (combinedOutput.includes(DEVICE_UNLINKED_MARKER) || combinedOutput.includes(NOT_REGISTERED_MARKER)) {
-      reason = 'device_unlinked';
+      reason = errorHandling.REASONS.DEVICE_UNLINKED;
       if (userDir) await purgeMudslideCache(userDir).catch(() => {});
     } else if (combinedOutput.includes(RECIPIENT_NOT_ON_WHATSAPP_MARKER)) {
-      reason = 'recipient_not_on_whatsapp';
+      reason = errorHandling.REASONS.RECIPIENT_NOT_ON_WHATSAPP;
     }
     if (userDir) {
       if (!reason) {
@@ -426,7 +426,7 @@ async function runMudslide(args, timeoutMs, userDir, token, label = 'mudslide', 
       }
       const partial = err.partialOutput ? `\n${stripProxy(err.partialOutput)}` : '';
       await appendMudslideDebugLog(userDir, `${label} (FAILED)`, (err.message || '') + partial);
-      errorHandling.classify(err, { userDir, token, action: label, reason });
+      err = errorHandling.classify(err, { userDir, token, action: label, reason });
     }
     throw err;
   }
