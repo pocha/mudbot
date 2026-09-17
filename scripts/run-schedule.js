@@ -59,10 +59,8 @@ async function checkConnection(token) {
   if (connected || !checkError || reason !== 'device_unlinked') return;
   if (!(await shouldAlert(userDir))) return;
 
-  const userService = require('../services/userService');
   const emailService = require('../services/emailService');
-  const userEmail = await userService.getNotifyEmail(userDir, token).catch(() => null);
-  await emailService.notifyDeviceDisconnected(userDir, checkError, userEmail).catch(() => {});
+  await emailService.notifyError('deviceConnectCheck', userDir, checkError, token).catch(() => {});
 }
 
 async function main() {

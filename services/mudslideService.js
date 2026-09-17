@@ -3,12 +3,17 @@ const path = require('path');
 const fs = require('fs').promises;
 const { rmSync } = require('fs');
 const crypto = require('crypto');
-const { proxyConfPath, getNotifyEmail } = require('./userService');
+const { proxyConfPath } = require('./userService');
 const proxyRelayManager = require('./proxyRelayManager');
 const usageService = require('./usageService');
-const emailService = require('./emailService');
 const { errorOnTimeout, withErrorOnTimeout } = require('./helpers/errorOnTimeout');
 const { logCheckpoint } = require('./helpers/debugLog');
+const {
+  DEVICE_UNLINKED_MARKER,
+  PROXY_UNREACHABLE_PREFIX,
+  isConnectivityFailure,
+  classify
+} = require('./helpers/errorHandling');
 
 const CONFIG = {
   MUDSLIDE_PATH: process.env.MUDSLIDE_PATH || 'mudslide',
@@ -46,22 +51,11 @@ function spawnBudget(startedAt) {
 const MUDSLIDE_CONNECT_TIMEOUT_MS = 2000;
 const MUDSLIDE_QUERY_TIMEOUT_MS = 5000;
 
-// Exact text our mudslide fork prints when Baileys reports a loggedOut disconnect — i.e. the user removed this device from WhatsApp's "Linked Devices" list (the only way to tell, since the cached creds.json otherwise still looks fine).
-const DEVICE_UNLINKED_MARKER = 'Device unlinked from WhatsApp';
-
 // Baileys' own socket.js prints this (not mudslide) when the local creds.me is missing, and starts a fresh QR-pairing handshake instead of failing fast — same underlying condition as DEVICE_UNLINKED_MARKER (session needs re-linking), so it's collapsed into that same marker rather than tracked separately.
 const NOT_REGISTERED_MARKER = 'not logged in, attempting registration';
 
-// Exact text mudslide prints when connection.update fires 'close' for any reason other than a confirmed device-unlink — e.g. a proxy that can't route to WhatsApp at all.
-const CONNECTION_CLOSED_MARKER = 'Connection closed unexpectedly';
-
 // Exact text mudslide prints right after socket.sendMessage resolves — if our own timeout kills the process during its post-send grace wait, this confirms the send already succeeded and shouldn't be discarded.
 const SEND_SUCCESS_MARKER = 'Done';
-
-function isConnectivityFailure(message) {
-  return typeof message === 'string' &&
-    (message.includes('timed out') || message.includes(CONNECTION_CLOSED_MARKER));
-}
 
 function mudslideEncFile(userDir) {
   return path.join(CONFIG.USERS_DIR, userDir, '.mudslide.enc');
@@ -137,15 +131,6 @@ async function cleanupTemp(userDir) {
   await fs.rm(tempDir(userDir), { recursive: true, force: true });
 }
 
-const SEND_ACTIONS = new Set(['sendMessage', 'sendMedia']);
-
-// Fire-and-forget — a notification failure must never affect the send's own outcome. emailService always alerts NOTIFY_EMAIL/REPLY_TO too, regardless of whether the user has their own notify-email set.
-async function notifySendFailure(userDir, token, action, error, meta) {
-  const userEmail = await getNotifyEmail(userDir, token).catch(() => null);
-  await emailService.sendMessageFailureNotification({
-    userDir, to: meta?.to, action, error, userEmail
-  });
-}
 
 // Standalone connectivity check (acquires/releases its own relay, not part of the per-user queue) — runs mudslide's `me`, purges the local session once a disconnect is confirmed, and returns { connected, phoneNumber }. Gated on the full isWhatsappConnected (not just the raw file check) so a just-scanned-but-not-yet-encrypted session doesn't read as disconnected.
 // phoneNumber is scraped from `me`'s own "Current user: <id>" line rather than adding a new output format to the mudslide fork.
@@ -168,16 +153,15 @@ async function confirmWhatsappIsActuallyConnected(userDir, token, signal) {
   } catch (err) {
     // Only a confirmed unlink purges the local session — any other failure (timeout, ambiguous disconnect, proxy hiccup) means the check itself failed, not that the device is still linked, so this must never default to true.
     console.log('DEBUG confirmWhatsappIsActuallyConnected me failed', { userDir, message: err.message });
-    if (err.message.includes(DEVICE_UNLINKED_MARKER)) {
+    classify(err, { userDir, token, action: 'confirmWhatsappIsActuallyConnected' });
+    if (err.reason === 'device_unlinked') {
       await purgeMudslideCache(userDir).catch(() => {});
       return { connected: false, phoneNumber: null, reason: 'device_unlinked' };
     }
-    // runMudslide already ran diagnoseConnectivityFailure — its message carries this prefix if the proxy itself was the cause.
-    if (err.message.includes(PROXY_UNREACHABLE_PREFIX)) {
-      emailService.notifyOwnerOfError('confirmWhatsappIsActuallyConnected', userDir, err.message).catch(() => {});
+    if (err.reason === 'proxy_unreachable') {
       return { connected: false, phoneNumber: null, reason: 'proxy_unreachable' };
     }
-    // Anything else is unrecognized — let it propagate so callers' own catch blocks (500 + admin email) run, instead of silently reporting "not connected" for a failure we can't actually explain.
+    // Anything else (including 'timed_out' or unclassified) is unrecognized enough to propagate, so callers' own catch blocks (500 + admin email) run, instead of silently reporting "not connected" for a failure we can't actually explain.
     throw err;
   }
 }
@@ -212,15 +196,16 @@ function withSession(userDir, token, fn, action = 'unknown', meta = {}, trackUsa
       return result;
     } catch (err) {
       // proxyRelayManager bridges a relay-level failure (e.g. dead upstream) that can't naturally bubble up here — prefer that specific diagnostic over the generic message when one was recorded moments ago; runMudslide's own catch already diagnosed err.message otherwise.
-      errMsg = proxyRelayManager.takeLastRelayError(userDir) || err.message;
+      const relayError = proxyRelayManager.takeLastRelayError(userDir);
+      if (relayError) err.message = relayError;
+      errMsg = err.message;
       if (relayHeld[userDir]) {
         relayHeld[userDir] = false;
         await proxyRelayManager.releaseRelay(userDir).catch(() => {});
       }
       await cleanupTemp(userDir).catch(() => {});
-      if (SEND_ACTIONS.has(action)) {
-        notifySendFailure(userDir, token, action, errMsg, meta).catch(() => {});
-      }
+      // classify() is idempotent — a no-op if runMudslide's own catch already tagged this same error.
+      classify(err, { userDir, token, action });
       throw err;
     } finally {
       if (trackUsage) await usageService.appendUsageLog(userDir, action, succeeded, errMsg, meta, token);
@@ -353,13 +338,6 @@ async function checkProxyReachable(userDir, token) {
   return /^2/.test(stdout.toString().trim());
 }
 
-const PROXY_UNREACHABLE_PREFIX = 'Residential proxy is not reachable — likely a bad or expired sticky IP, contact the Watobot operator.';
-
-// Lets callers outside this module recognize a proxy-unreachable failure without duplicating the prefix string — set whenever diagnoseConnectivityFailure below confirmed (via checkProxyReachable) that the proxy, not a device-unlink or anything else, was the cause.
-function isProxyUnreachableError(err) {
-  return typeof err?.message === 'string' && err.message.includes(PROXY_UNREACHABLE_PREFIX);
-}
-
 // Only runs the relatively expensive (~8-12s) proxy check when the failure looks connectivity-related in the first place — a device-unlink or any other non-connectivity error wouldn't be explained by the proxy anyway.
 async function diagnoseConnectivityFailure(userDir, token, message) {
   if (!isConnectivityFailure(message)) return message;
@@ -368,12 +346,13 @@ async function diagnoseConnectivityFailure(userDir, token, message) {
 }
 
 // Wraps a function that doesn't route through runMudslide (which diagnoses this internally) so its failures get the same treatment — assumes (userDir, token, ...) is the wrapped fn's own argument order.
-function diagnoseConnectivityFailureWrapper(fn) {
+function diagnoseConnectivityFailureWrapper(fn, action) {
   return async (userDir, token, ...rest) => {
     try {
       return await fn(userDir, token, ...rest);
     } catch (err) {
       err.message = await diagnoseConnectivityFailure(userDir, token, err.message);
+      classify(err, { userDir, token, action });
       throw err;
     }
   };
@@ -411,6 +390,7 @@ async function runMudslide(args, timeoutMs, userDir, token, label = 'mudslide', 
       err.message = await diagnoseConnectivityFailure(userDir, token, err.message);
       const partial = err.partialOutput ? `\n${stripProxy(err.partialOutput)}` : '';
       await appendMudslideDebugLog(userDir, `${label} (FAILED)`, (err.message || '') + partial);
+      classify(err, { userDir, token, action: label });
     }
     throw err;
   }
@@ -619,17 +599,16 @@ async function purgeMudslideCache(userDir) {
 }
 
 module.exports = {
-  getQRCode: diagnoseConnectivityFailureWrapper(getQRCode),
+  getQRCode: diagnoseConnectivityFailureWrapper(getQRCode, 'getQRCode'),
   isWhatsappConnected,
   // diagnoseConnectivityFailureWrapper can't apply to confirmWhatsappIsActuallyConnected — its return shape differs by error, so simply rethrowing won't do.
   confirmWhatsappIsActuallyConnected: withErrorOnTimeout(confirmWhatsappIsActuallyConnected, OPERATION_TIMEOUT_MS, `confirmWhatsappIsActuallyConnected timed out after ${OPERATION_TIMEOUT_MS}ms`),
-  getWhatsappProxyIp: diagnoseConnectivityFailureWrapper(withErrorOnTimeout(getWhatsappProxyIp, OPERATION_TIMEOUT_MS, `getWhatsappProxyIp timed out after ${OPERATION_TIMEOUT_MS}ms`)),
+  getWhatsappProxyIp: diagnoseConnectivityFailureWrapper(withErrorOnTimeout(getWhatsappProxyIp, OPERATION_TIMEOUT_MS, `getWhatsappProxyIp timed out after ${OPERATION_TIMEOUT_MS}ms`), 'getWhatsappProxyIp'),
   sendMessage,
   sendMedia,
   getGroups,
   purgeMudslideCache,
-  killAllLoginProcs,
-  isProxyUnreachableError
+  killAllLoginProcs
 };
 
 // Test-only scaffolding — never imported by real application code, only by
