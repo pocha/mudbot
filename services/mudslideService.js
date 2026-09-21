@@ -705,15 +705,6 @@ async function getCommunityInfo(userDir, token, communityId, signal) {
   }, 'getCommunityInfo', { communityId }, true, signal);
 }
 
-async function getCommunityInvite(userDir, token, communityId, signal) {
-  return withSession(userDir, token, async (credPath, timeoutMs) => {
-    const output = await runMudslide(['-c', credPath, 'community-invite', communityId], timeoutMs, userDir, token, 'community-invite');
-    const invite = parseJsonLines(output).find(line => line && typeof line.code === 'string');
-    if (!invite) throw new Error('Could not read community invite');
-    return invite;
-  }, 'getCommunityInvite', { communityId }, true, signal);
-}
-
 // Deletes all session files after the user confirms device removal from WhatsApp.
 async function purgeMudslideCache(userDir) {
   await fs.rm(mudslideDir(userDir), { recursive: true, force: true });
@@ -732,7 +723,6 @@ module.exports = {
   getGroups,
   getCommunities,
   getCommunityInfo,
-  getCommunityInvite,
   purgeMudslideCache,
   killAllLoginProcs
 };
