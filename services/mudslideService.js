@@ -665,6 +665,46 @@ async function getGroups(userDir, token, signal) {
   }, 'getGroups', {}, true, signal);
 }
 
+function parseJsonLines(output) {
+  try {
+    const parsed = JSON.parse(output);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {}
+
+  return output.split('\n').filter(Boolean).map(line => {
+    try {
+      return JSON.parse(line);
+    } catch {
+      return null;
+    }
+  }).filter(Boolean);
+}
+
+// mudslide's stdout also carries Baileys' own pino logging at whatever
+// globalOptions.logLevel is configured to (trace here, see whatsapp.ts) —
+// every one of those lines is valid JSON too, so parseJsonLines(output)[0]
+// isn't reliably our actual result. Each getter below picks out the one
+// line shaped like its real command output instead of trusting position.
+async function getCommunities(userDir, token, adminOnly, signal) {
+  return withSession(userDir, token, async (credPath, timeoutMs) => {
+    const args = ['-c', credPath, 'communities'];
+    if (adminOnly) args.push('--admin-only');
+    const output = await runMudslide(args, timeoutMs, userDir, token, 'communities');
+    return parseJsonLines(output)
+      .filter(line => line && typeof line.id === 'string' && typeof line.subject === 'string')
+      .map(c => ({ name: c.subject || c.name || c.id, id: c.id }));
+  }, 'getCommunities', { adminOnly: !!adminOnly }, true, signal);
+}
+
+async function getCommunityInfo(userDir, token, communityId, signal) {
+  return withSession(userDir, token, async (credPath, timeoutMs) => {
+    const output = await runMudslide(['-c', credPath, 'community-info', communityId], timeoutMs, userDir, token, 'community-info');
+    const info = parseJsonLines(output).find(line => line && Array.isArray(line.participants));
+    if (!info) throw new Error('Could not read community info');
+    return info;
+  }, 'getCommunityInfo', { communityId }, true, signal);
+}
+
 // Deletes all session files after the user confirms device removal from WhatsApp.
 async function purgeMudslideCache(userDir) {
   await fs.rm(mudslideDir(userDir), { recursive: true, force: true });
@@ -681,6 +721,8 @@ module.exports = {
   sendMessage,
   sendMedia,
   getGroups,
+  getCommunities,
+  getCommunityInfo,
   purgeMudslideCache,
   killAllLoginProcs
 };
