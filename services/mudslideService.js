@@ -281,14 +281,21 @@ const stripProxy = s => s.split('\n').filter(l => !l.trim().startsWith('[proxych
 // they always survive this filter untouched.
 const PINO_LEVEL_RE = /"level":\s*(\d+)/;
 
-// Drops raw Baileys/pino trace lines out of an error message before it reaches the operator
-// email or the dashboard's usage log — neither needs mudslide's noisy internal trace to
-// locate what broke, just the actual error text (and, for a JS error, its stack). The full,
-// unfiltered output survives separately in mudslide-debug.log for real debugging (see
-// appendMudslideDebugLog below), which every caller here still populates from the raw output.
-function stripPinoNoise(message) {
+// Baileys/libsignal print a failed decrypt of some unrelated incoming message (a status
+// broadcast, another participant's device, etc.) straight to stdout/stderr, not through pino —
+// harmless background noise it recovers from on its own (it shows up in plenty of otherwise-
+// successful sends too), so it never starts with the marker/summary text we actually want kept.
+const DECRYPT_NOISE_RE = /^(Failed to decrypt message|Session error:|\s+at\s)/;
+
+// Drops raw Baileys noise (pino trace lines, unrelated decrypt-failure dumps) out of an error
+// message before it reaches the operator email or the dashboard's usage log — neither needs
+// mudslide's noisy internal chatter to locate what broke, just the actual error text (and, for
+// a JS error, its stack). The full, unfiltered output survives separately in mudslide-debug.log
+// for real debugging (see appendMudslideDebugLog below), which every caller here still
+// populates from the raw output.
+function stripBaileysNoise(message) {
   if (typeof message !== 'string') return message;
-  return message.split('\n').filter(line => !PINO_LEVEL_RE.test(line)).join('\n').trim();
+  return message.split('\n').filter(line => !PINO_LEVEL_RE.test(line) && !DECRYPT_NOISE_RE.test(line)).join('\n').trim();
 }
 
 // Spawns bin, collects stdout, and kills + rejects if it doesn't close within timeoutMs — shared by the tar spawns and by runMudslide, so nothing this file spawns can hang the per-user queue forever (real proc.kill() cancellation, unlike errorOnTimeout elsewhere in this file which has no process handle to kill). signal (optional) lets an abandoned request's AbortSignal kill a real child process the same way. killOn (optional): a substring checked against stdout as it streams in — if it ever appears, the process is killed immediately instead of waiting out the full timeout, and the rejection's message is set to that same substring so callers can classify it exactly like a timeout that happened to contain it.
@@ -333,7 +340,9 @@ function spawnWithTimeout(bin, args, timeoutMs, { cwd, input, signal, killOn } =
       else {
         const stdout = Buffer.concat(chunks).toString();
         const raw = stripProxy(stderr) || stripProxy(stdout) || `${bin} exited with code ${code}`;
-        const err = new Error(stripPinoNoise(raw) || raw);
+        // Falls back to the exit code, not the raw text, when the whole thing was Baileys noise —
+        // reverting to raw here would defeat the point of stripping it in the first place.
+        const err = new Error(stripBaileysNoise(raw) || `${bin} exited with code ${code}`);
         // Full, unfiltered output for mudslide-debug.log (see runMudslide's catch) — err.message
         // above is the cleaned version that reaches the operator email / dashboard usage log.
         err.partialOutput = stderr || stdout;
