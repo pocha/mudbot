@@ -461,7 +461,7 @@ test('daily-report processUser reconciles drift and skips zero-activity days ent
   await fs.rm(tmpDir, { recursive: true, force: true });
 });
 
-test('re-registration invalidates old token and issues new one for same userDir', async () => {
+test('re-registration clears the account so whichever token is clicked first wins, then locks', async () => {
   const { status } = await post(`${BASE_URL}/api/register`, { email: TEST_EMAIL });
   assert.equal(status, 200);
 
@@ -471,12 +471,16 @@ test('re-registration invalidates old token and issues new one for same userDir'
   // New token maps to same userDir (first 10 chars of sha256(email))
   assert.equal(newToken.slice(0, 10), getUserDir(TEST_EMAIL));
 
-  // Old token must now be invalid (token_hash was overwritten)
-  const { status: oldStatus } = await get(`${BASE_URL}/api/verify/${token}`);
-  assert.equal(oldStatus, 401);
-
-  // New token is valid
-  const { status: newStatus, body } = await get(`${BASE_URL}/api/verify/${newToken}`);
-  assert.equal(newStatus, 200);
+  // Registering again deletes token_hash rather than immediately adopting
+  // the new token — so the old link, still unused in an inbox, works fine
+  // if it's the one that actually gets clicked first.
+  const { status: oldStatus, body } = await get(`${BASE_URL}/api/verify/${token}`);
+  assert.equal(oldStatus, 200);
   assert.equal(body.success, true);
+
+  // That first click re-locks the account to the old token — the new one
+  // is now the loser, exactly as the old one used to be under the previous
+  // (immediate-overwrite) behavior.
+  const { status: newStatus } = await get(`${BASE_URL}/api/verify/${newToken}`);
+  assert.equal(newStatus, 401);
 });

@@ -108,32 +108,21 @@ async function createOrUpdateProxyJson(userDir, token, { country = null, city = 
   return existing;
 }
 
-// For a brand-new email (no token_hash on disk yet), this is pure token
-// generation — no disk writes. The directory and token_hash aren't created
-// until the first successful verifyToken call (i.e. the first time the
-// emailed link is actually clicked), so a mistyped email never leaves behind
-// an orphaned, never-owned directory.
-//
-// For an email that already has a verified account, this is instead a
-// "resend my login link" request — token_hash is a one-way hash, so the old
-// token can never be recovered/resent. The only way to give this person a
-// working new link is to mint a new token and overwrite the hash right away
-// (invalidating the old token immediately), same as the pre-existing
-// behavior for repeat registrations. Deferring in this case wouldn't protect
-// anything (the directory already exists) and would just leave the new link
-// permanently unusable, since nothing would ever write its hash.
+// Never writes token_hash itself — for a brand-new email there's nothing to
+// write yet (verifyToken creates it on the first successful click), and for
+// an email that already has a verified account ("resend my login link"),
+// this instead deletes the existing token_hash rather than immediately
+// overwriting it with the new token's hash. That means whichever link gets
+// clicked first — the new one just requested, or an old one still sitting
+// unused in an inbox — becomes canonical again via verifyToken's own
+// first-click-wins logic, instead of the new token unilaterally winning
+// before anyone's even clicked it.
 async function registerUser(email) {
   const token = generateToken(email);
   const userDir = token.slice(0, 10);
   const tokenHashFile = path.join(CONFIG.USERS_DIR, userDir, 'token_hash');
 
-  try {
-    await fs.access(tokenHashFile); // throws if this is a first-time registration
-    await fs.writeFile(tokenHashFile, computeTokenHash(token));
-  } catch {
-    // no existing account for this email — nothing to do here;
-    // verifyToken creates it on the first successful click instead.
-  }
+  await fs.unlink(tokenHashFile).catch(() => {}); // no-op for a brand-new email — nothing to delete yet
 
   return { token, userDir };
 }
@@ -152,17 +141,23 @@ async function verifyToken(token) {
     if (computeTokenHash(token) !== storedHash) return null;
     return { token, userDir, firstVerification: false };
   } catch {
-    // No token_hash on disk yet — either this is the first click on a
-    // genuine registration link (materialize the account now) or the token
-    // is simply invalid. A 64-hex-char token is unguessable either way, so
-    // treating "no file yet" as "first use" here doesn't weaken anything —
-    // it's the same trust boundary registerUser used to enforce at register
-    // time, just checked here instead.
+    // No token_hash on disk — either a genuinely new account's first-ever
+    // click, or an existing account re-verifying after registerUser deleted
+    // its hash for a resend. A 64-hex-char token is unguessable either way,
+    // so treating "no file yet" as "first use" here doesn't weaken anything
+    // — it's the same trust boundary registerUser used to enforce at
+    // register time, just checked here instead.
+    //
+    // firstVerification specifically means "brand-new account" (gates the
+    // owner's one-time new_registration email) — checked against the
+    // directory's own existence, not token_hash, so a resend re-verification
+    // is never mistaken for a fresh signup.
     const fullUserDir = path.join(CONFIG.USERS_DIR, userDir);
+    const isNewAccount = await fs.access(fullUserDir).then(() => false, () => true);
     try {
       await fs.mkdir(path.join(fullUserDir, 'schedules'), { recursive: true });
       await fs.writeFile(tokenHashFile, computeTokenHash(token));
-      return { token, userDir, firstVerification: true };
+      return { token, userDir, firstVerification: isNewAccount };
     } catch {
       return null;
     }
