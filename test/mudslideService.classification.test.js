@@ -15,6 +15,7 @@ const { EventEmitter } = require('events');
 
 jest.mock('child_process');
 jest.mock('../services/proxyRelayManager');
+jest.mock('../services/emailService');
 
 function fakeProc() {
   const proc = new EventEmitter();
@@ -35,12 +36,14 @@ describe('runMudslide classification (no proxy configured)', () => {
   // needs the proxy diagnostic to run at all, so no extra mocking for it.
   const { spawn } = require('child_process');
   const proxyRelayManager = require('../services/proxyRelayManager');
+  const emailService = require('../services/emailService');
   const mudslideService = require('../services/mudslideService');
 
   beforeAll(() => {
     proxyRelayManager.acquireRelay.mockResolvedValue(true);
     proxyRelayManager.releaseRelay.mockResolvedValue();
     proxyRelayManager.takeLastRelayError.mockReturnValue(null);
+    emailService.notifyError.mockResolvedValue();
   });
 
   test('device-unlinked marker: rejects and tags reason: device_unlinked', async () => {
@@ -60,6 +63,36 @@ describe('runMudslide classification (no proxy configured)', () => {
     // .message to the safe user-facing default — the raw marker text no longer
     // survives on the rejected error itself, only .reason identifies it now.
     expect(error.reason).toBe('device_unlinked');
+  });
+
+  test('unrelated decrypt-noise-only failure (e.g. a stray Bad MAC on some other message): unclassified, but still emails the operator', async () => {
+    emailService.notifyError.mockClear();
+    const proc = fakeProc();
+    spawn.mockImplementationOnce(() => {
+      process.nextTick(() => {
+        // Real captured output — libsignal's own console.error dump for a
+        // failed decrypt of an unrelated incoming message, printed straight
+        // to stdout/stderr rather than through pino. stripBaileysNoise()
+        // strips every line of this (it's not a real diagnostic for *this*
+        // send), which previously left runMudslide with nothing to
+        // classify or explain — this only proves the notify-on-unclassified
+        // path still fires regardless, not that the message is meaningful.
+        proc.stdout.emit('data', Buffer.from(
+          'Failed to decrypt message with any known session...\n' +
+          'Session error:Error: Bad MAC Error: Bad MAC\n' +
+          '    at Object.verifyMAC (/home/nonbios/mudslide/node_modules/libsignal/src/crypto.js:87:15)\n'
+        ));
+        proc.emit('close', 1);
+      });
+      return proc;
+    });
+
+    let error;
+    await mudslideService.__test.runMudslide(['-c', 'x', 'send', 'to', 'msg'], 5000, USER_DIR, TOKEN, 'to=123', 'sendMessage').catch(e => { error = e; });
+
+    expect(error.reason).toBeUndefined();
+    expect(emailService.notifyError).toHaveBeenCalledTimes(1);
+    expect(emailService.notifyError).toHaveBeenCalledWith('sendMessage', USER_DIR, expect.any(String), TOKEN, expect.any(String));
   });
 
   test('not-registered marker: kills the process almost immediately instead of waiting out the full timeout', async () => {
@@ -125,6 +158,7 @@ describe('runMudslide classification (proxy diagnostic path)', () => {
     proxyRelayManager.acquireRelay.mockResolvedValue(true);
     proxyRelayManager.releaseRelay.mockResolvedValue();
     proxyRelayManager.takeLastRelayError.mockReturnValue(null);
+    require('../services/emailService').notifyError.mockResolvedValue();
 
     mudslideService = require('../services/mudslideService');
   });
