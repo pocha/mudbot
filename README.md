@@ -313,6 +313,17 @@ curl -X POST https://<domain>/api/message \
   -d '{"to": "919876543210-1234567890@g.us", "message": "Hello, everyone!"}'
 ```
 
+By default, Watobot skips a send if it's a near-duplicate of the last message sent to that same recipient — protection against a buggy caller accidentally re-sending the same message on repeat and risking the number getting flagged as spam. A skipped send responds with `200 {"success": false, "skipped": true, "reason": "duplicate_message"}` rather than an error, so it won't trigger your own retry logic.
+
+To intentionally bypass this (e.g. while testing), set `skipDuplicateCheck: true`:
+
+```bash
+curl -X POST https://<domain>/api/message \
+  -H "x-api-key: <your-api-key>" \
+  -H "Content-Type: application/json" \
+  -d '{"to": "919538384545", "message": "Hello!", "skipDuplicateCheck": true}'
+```
+
 ### Communities
 
 | Method | Path | Description |

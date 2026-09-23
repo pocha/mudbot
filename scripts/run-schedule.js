@@ -75,7 +75,10 @@ async function main() {
 
   for (const recipient of recipients) {
     try {
-      const body = { to: recipient, message };
+      // Scheduled sends are allowed to legitimately repeat content (their own
+      // minimum cadence is already once a day) — the live-caller dedup guard
+      // in /api/message is for buggy external retry loops, not this.
+      const body = { to: recipient, message, skipDuplicateCheck: true };
       if (media) body.media = media;
       const res = await fetch(`${process.env.BASE_URL || 'http://localhost'}:${process.env.PORT || 80}/api/message`, {
         method: 'POST',

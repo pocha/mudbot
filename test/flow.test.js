@@ -16,7 +16,7 @@ const MAILDEV_WEB_PORT = 1080;
 const MAILDEV_URL = `http://localhost:${MAILDEV_WEB_PORT}`;
 const TEST_EMAIL = `test-${crypto.randomBytes(4).toString('hex')}@example.com`;
 const USERS_DIR = path.join(__dirname, '..', 'users');
-const { getUserDir } = require('../services/userService');
+const { getUserDir, encryptData } = require('../services/userService');
 const usageService = require('../services/usageService');
 const dailyReport = require('../scripts/daily-report');
 const scheduleService = require('../services/scheduleService');
@@ -265,6 +265,46 @@ test('POST /api/user/notify-email saves, encrypts on disk, and GET returns it ba
   const getRes = await get(`${BASE_URL}/api/user/notify-email`, authHeader(token));
   assert.equal(getRes.status, 200);
   assert.equal(getRes.body.email, 'alerts@example.com');
+});
+
+test('POST /api/message skips a send that duplicates the recipient\'s last message', async () => {
+  const userDir = getUserDir(TEST_EMAIL);
+  const to = '919999999999';
+  const message = 'This is a test message for the dedup check';
+
+  // /api/message's requireWhatsapp preHandler only checks .mudslide.enc's
+  // existence (a local file check, not a real connection) — this test user
+  // never actually connects WhatsApp, so a placeholder file is enough to
+  // pass that gate and reach the dedup check itself.
+  const key = crypto.createHash('sha256').update(token).digest();
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+  const encrypted = Buffer.concat([cipher.update('fake tar content'), cipher.final()]);
+  await fs.writeFile(path.join(USERS_DIR, userDir, '.mudslide.enc'), Buffer.concat([iv, encrypted]));
+
+  // Manually seed the last-message store, rather than driving a real send
+  // through mudslide (not available in this test environment) — same
+  // encrypted-file format sendMessage itself writes.
+  const store = { [to]: { message, timestamp: new Date().toISOString() } };
+  await fs.writeFile(
+    path.join(USERS_DIR, userDir, 'last-messages.enc'),
+    encryptData(JSON.stringify(store), token)
+  );
+
+  const { status, body } = await post(
+    `${BASE_URL}/api/message`,
+    { to, message },
+    authHeader(token)
+  );
+  assert.equal(status, 200);
+  assert.equal(body.success, false);
+  assert.equal(body.skipped, true);
+  assert.equal(body.reason, 'duplicate_message');
+
+  // Later tests in this file assume this user is NOT connected — clean up
+  // the placeholder files rather than leaving them to contaminate those.
+  await fs.rm(path.join(USERS_DIR, userDir, '.mudslide.enc'), { force: true });
+  await fs.rm(path.join(USERS_DIR, userDir, 'last-messages.enc'), { force: true });
 });
 
 test('user directory and token_hash created', async () => {

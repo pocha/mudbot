@@ -34,7 +34,7 @@ async function bumpStatsCache(userDir, action, success) {
   await fs.writeFile(statsPath, JSON.stringify(stats)).catch(() => {});
 }
 
-async function appendUsageLog(userDir, action, success, error = null, meta = {}, token = null) {
+async function appendUsageLog(userDir, action, success, error = null, meta = {}, token = null, { countTowardStats = true } = {}) {
   const payload = { action, success, ...meta };
   if (error) payload.error = error;
   const ts = new Date().toISOString();
@@ -42,7 +42,7 @@ async function appendUsageLog(userDir, action, success, error = null, meta = {},
     ? { ts, enc: encryptData(JSON.stringify(payload), token) }
     : { ts, ...payload };
   await fs.appendFile(usageLogPath(userDir), JSON.stringify(entry) + '\n').catch(() => {});
-  await bumpStatsCache(userDir, action, success);
+  if (countTowardStats) await bumpStatsCache(userDir, action, success);
 }
 
 async function getUsageLogs(userDir, limit = 50, token = null) {
