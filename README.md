@@ -324,6 +324,29 @@ curl -X POST https://<domain>/api/message \
   -d '{"to": "919538384545", "message": "Hello!", "skipDuplicateCheck": true}'
 ```
 
+### Communities
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/whatsapp/communities` | List WhatsApp Communities linked to your connected account. Pass `?adminOnly=true` to only return ones you administer |
+| `GET` | `/api/whatsapp/communities/:jid` | Metadata, participants, profile picture, and invite link/code for one community |
+
+```bash
+curl "https://<domain>/api/whatsapp/communities?adminOnly=true" \
+  -H "x-api-key: <your-api-key>"
+# => {"communities": [{"id": "120363...@g.us", "name": "My Community"}, ...]}
+
+curl https://<domain>/api/whatsapp/communities/120363...@g.us \
+  -H "x-api-key: <your-api-key>"
+# => {
+#      "id": "120363...@g.us",
+#      "subject": "My Community",
+#      "pictureUrl": "https://pps.whatsapp.net/...",
+#      "inviteLink": "https://chat.whatsapp.com/...",
+#      "participants": [{"id": "9198...@s.whatsapp.net", "admin": "superadmin", "phoneNumber": "9198..."}, ...]
+#    }
+```
+
 ### Create Schedule
 
 Schedules are automated, recurring messages sent at a time you specify — set one up once and it keeps firing on its own (daily, weekly, monthly, or a single future date), with no need to keep anything running yourself.
