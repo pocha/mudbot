@@ -3,12 +3,13 @@ const path = require('path');
 const fs = require('fs').promises;
 const { rmSync } = require('fs');
 const crypto = require('crypto');
-const { proxyConfPath } = require('./userService');
+const { proxyConfPath, encryptData, decryptData } = require('./userService');
 const proxyRelayManager = require('./proxyRelayManager');
 const usageService = require('./usageService');
 const { errorOnTimeout, withErrorOnTimeout } = require('./helpers/errorOnTimeout');
 const { logCheckpoint } = require('./helpers/debugLog');
 const errorHandling = require('./helpers/errorHandling');
+const { isDuplicateMessage } = require('./helpers/messageSimilarity');
 const {
   DEVICE_UNLINKED,
   PROXY_UNREACHABLE,
@@ -605,11 +606,91 @@ async function getWhatsappProxyIp(userDir, token, signal) {
   return { proxyIp };
 }
 
-async function sendMessage(userDir, token, to, message, signal) {
+// ---------- message de-duplication ----------
+// Guards against a buggy caller re-sending the same message to the same
+// recipient on repeat, which risks WhatsApp flagging the number as spam.
+// One small encrypted file per user — bounded by distinct-recipient count,
+// not total message count, so it stays cheap even for a heavy sender (unlike
+// scanning usage.log, which has no per-recipient index and can reach 1MB+).
+
+function lastMessagesPath(userDir) {
+  return path.join(CONFIG.USERS_DIR, userDir, 'last-messages.enc');
+}
+
+// Digits-only for phone recipients (so "+91 98765 43210" / "919876543210" collide
+// on the same key); group JIDs (...@g.us) are left as-is — stripping digits would
+// collapse distinct groups onto the same key.
+function normalizeRecipientKey(to) {
+  return to.endsWith('@g.us') ? to : to.replace(/\D/g, '');
+}
+
+// Per-user promise chain — same shape as this file's own userQueue — so two
+// sendMessage calls to *different* recipients for the same user can't lose an
+// update to each other via an interleaved read-modify-write on the one shared
+// store file. Deliberately separate from withSession's queue: this check runs
+// *before* withSession is even entered (see sendMessage below), to avoid
+// burning a queue slot/relay/decrypt-encrypt cycle on a message that's about
+// to be discarded — the accepted tradeoff is a small race window for two
+// genuinely simultaneous sends to the same recipient, not something this
+// guards against.
+const dedupWriteQueues = {};
+function withDedupLock(userDir, fn) {
+  const prev = dedupWriteQueues[userDir] || Promise.resolve();
+  const run = prev.then(fn, fn);
+  dedupWriteQueues[userDir] = run.then(() => {}, () => {});
+  return run;
+}
+
+async function readLastMessages(userDir, token) {
+  try {
+    const raw = await fs.readFile(lastMessagesPath(userDir), 'utf8');
+    return JSON.parse(decryptData(raw, token));
+  } catch {
+    return {}; // no file yet, or corrupt/undecryptable — fail open to "no known last message"
+  }
+}
+
+// Never throws — a broken store must never block a real send.
+async function isDuplicateSend(userDir, token, to, message) {
+  return withDedupLock(userDir, async () => {
+    const store = await readLastMessages(userDir, token);
+    const entry = store[normalizeRecipientKey(to)];
+    return entry ? isDuplicateMessage(entry.message, message) : false;
+  }).catch(() => false);
+}
+
+// Called only after an actually-successful send — see sendMessage below.
+async function recordSentMessage(userDir, token, to, message) {
+  return withDedupLock(userDir, async () => {
+    const store = await readLastMessages(userDir, token);
+    store[normalizeRecipientKey(to)] = { message, timestamp: new Date().toISOString() };
+    await fs.writeFile(lastMessagesPath(userDir), encryptData(JSON.stringify(store), token));
+  }).catch(() => {});
+}
+
+async function purgeLastMessages(userDir) {
+  await fs.rm(lastMessagesPath(userDir), { force: true }).catch(() => {});
+}
+
+async function sendMessage(userDir, token, to, message, signal, skipDedup = false) {
+  if (!skipDedup && await isDuplicateSend(userDir, token, to, message)) {
+    // Visible in the user's own activity logs (so they can see a send was
+    // blocked) but explicitly excluded from the stats bump — a skipped send
+    // never actually reached WhatsApp, so it shouldn't count as an attempt.
+    await usageService.appendUsageLog(
+      userDir, 'sendMessage', false,
+      'Skipped — duplicate of the last message sent to this recipient',
+      { to, message, skipped: true, reason: 'duplicate_message' },
+      token, { countTowardStats: false }
+    );
+    return { skipped: true, reason: 'duplicate_message' };
+  }
   // signal only gates withSession's early-bail while queued — never forwarded to the actual send, since WhatsApp's servers may already have it while our own local session update (persisted only after a normal finish) hasn't, and killing mid-flight would desync the two.
-  return withSession(userDir, token, async (credPath, timeoutMs) => {
+  const result = await withSession(userDir, token, async (credPath, timeoutMs) => {
     return runMudslide(['-c', credPath, 'send', to, message, '--live-check'], timeoutMs, userDir, token, `to=${to}`, 'sendMessage');
   }, 'sendMessage', { to, message }, true, signal);
+  await recordSentMessage(userDir, token, to, message); // only reached on success — withSession throws on failure
+  return result;
 }
 
 // Keeps only what's useful for diagnosing a "reports success but doesn't decrypt on the recipient's device" case out of mudslide's otherwise very noisy trace-level output (1.5MB+ from a single send if kept raw): warnings/errors, session/prekey/retry-receipt activity, connection-lifecycle events, and mudslide's own non-pino signale lines (which never carry a "level" field).
@@ -710,6 +791,7 @@ async function purgeMudslideCache(userDir) {
   await fs.rm(mudslideDir(userDir), { recursive: true, force: true });
   await fs.rm(mudslideEncFile(userDir), { force: true });
   await fs.rm(`/tmp/watobot-proxy-${userDir}.conf`, { force: true });
+  await purgeLastMessages(userDir);
 }
 
 module.exports = {

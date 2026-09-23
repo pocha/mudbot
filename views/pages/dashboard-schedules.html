@@ -780,7 +780,9 @@
               Authorization: `Bearer ${authToken}`,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ to, message }),
+            // A manual test send is explicitly deliberate and may legitimately
+            // repeat the same content while iterating on a schedule's message.
+            body: JSON.stringify({ to, message, skipDuplicateCheck: true }),
           });
 
           if (response.ok) {
