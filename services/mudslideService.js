@@ -173,7 +173,7 @@ async function confirmWhatsappIsActuallyConnected(userDir, token, signal) {
     console.log('DEBUG confirmWhatsappIsActuallyConnected me failed', { userDir, message: err.message });
     err = errorHandling.classify(err, { userDir, token, action: 'confirmWhatsappIsActuallyConnected' });
     if (err.reason === DEVICE_UNLINKED) {
-      await purgeMudslideCache(userDir).catch(() => {});
+      await purgeMudslideCache(userDir, 'device unlinked — confirmed via me check').catch(() => {});
       return { connected: false, phoneNumber: null, reason: DEVICE_UNLINKED };
     }
     if (err.reason === PROXY_UNREACHABLE) {
@@ -454,7 +454,7 @@ async function runMudslide(args, timeoutMs, userDir, token, label = 'mudslide', 
     // Baileys deciding the session needs re-pairing is the same condition as a confirmed unlink — collapse it into that reason and purge now so nothing queued behind this repeats the same hang.
     if (combinedOutput.includes(DEVICE_UNLINKED_MARKER) || combinedOutput.includes(NOT_REGISTERED_MARKER)) {
       reason = DEVICE_UNLINKED;
-      if (userDir) await purgeMudslideCache(userDir).catch(() => {});
+      if (userDir) await purgeMudslideCache(userDir, `device unlinked — marker seen during ${label}`).catch(() => {});
     } else if (combinedOutput.includes(RECIPIENT_NOT_ON_WHATSAPP_MARKER)) {
       reason = RECIPIENT_NOT_ON_WHATSAPP;
     }
@@ -490,7 +490,7 @@ async function getQRCode(userDir, token) {
   const existing = loginProcs.get(userDir);
   if (existing) killLoginProc(userDir, existing);
 
-  await purgeMudslideCache(userDir);
+  await purgeMudslideCache(userDir, 'clearing stale state before a fresh QR login');
 
   const confPath = token ? await proxyConfPath(userDir, token) : null;
   const useProxy = confPath && CONFIG.PROXYCHAINS_PATH;
@@ -786,8 +786,12 @@ async function getCommunityInfo(userDir, token, communityId, signal) {
   }, 'getCommunityInfo', { communityId }, true, signal);
 }
 
-// Deletes all session files after the user confirms device removal from WhatsApp.
-async function purgeMudslideCache(userDir) {
+// Deletes all session files — after the user confirms device removal from
+// WhatsApp, on a confirmed unlink detected elsewhere, or to clear stale state
+// before a fresh QR login. `reason` is logged so a since-vanished .mudslide.enc
+// is traceable after the fact instead of leaving no record of why or when.
+async function purgeMudslideCache(userDir, reason = 'unspecified') {
+  await logCheckpoint(userDir, `purging local session (${reason})`);
   await fs.rm(mudslideDir(userDir), { recursive: true, force: true });
   await fs.rm(mudslideEncFile(userDir), { force: true });
   await fs.rm(`/tmp/watobot-proxy-${userDir}.conf`, { force: true });

@@ -331,7 +331,7 @@ async function routes(fastify, options) {
   fastify.post('/api/whatsapp/logout', { preHandler: authenticateUser }, async (request, reply) => {
     try {
       await scheduleService.removeAllCronJobs(request.user.userDir);
-      await mudslideService.purgeMudslideCache(request.user.userDir);
+      await mudslideService.purgeMudslideCache(request.user.userDir, 'user-initiated logout');
       return { success: true };
     } catch (error) {
       fastify.log.error(error);
