@@ -72,8 +72,15 @@ const SEND_SUCCESS_MARKER = 'Done';
 // Substring of the message *we* construct in spawnWithTimeout/withSession's own timeout races (`${bin} timed out after ${timeoutMs}ms`, `${action} timed out after ${operationTimeoutMs}ms`) — never something Baileys/mudslide itself prints, so this is a self-assigned label, not a real marker.
 const TIMED_OUT_LABEL = 'timed out';
 
-// Our own diagnostic text, prepended by diagnoseConnectivityFailure once an active probe (checkProxyReachable) has confirmed the proxy itself, not anything else, was the cause. Never printed by Baileys/mudslide — kept only for the operator email's raw diagnostic content, not for re-detection (the reason is already known at the point this gets prepended).
-const PROXY_UNREACHABLE_LABEL = 'Residential proxy is not reachable — likely a bad or expired sticky IP, contact the Watobot operator.';
+// Our own diagnostic text, used by diagnoseConnectivityFailure as the whole
+// message once an active probe (checkProxyReachable) has confirmed the proxy
+// itself, not anything else, was the cause — the underlying raw error (e.g.
+// "Connection closed unexpectedly") is deliberately dropped here, since the
+// proxy being unreachable is the actual, complete explanation; it still
+// survives separately in mudslide-debug.log via err.partialOutput. Never
+// printed by Baileys/mudslide — kept only for the operator email's content,
+// not for re-detection (the reason is already known at this point).
+const PROXY_UNREACHABLE_LABEL = 'Residential proxy is not reachable — likely a bad or expired sticky IP, contact the Watobot owner if this happens repeatedly so that your IP could be updated.';
 
 function mudslideEncFile(userDir) {
   return path.join(CONFIG.USERS_DIR, userDir, '.mudslide.enc');
@@ -405,7 +412,7 @@ function isConnectivityFailure(message) {
 async function diagnoseConnectivityFailure(userDir, token, message) {
   if (!isConnectivityFailure(message)) return { message, reason: undefined };
   const proxyOk = await checkProxyReachable(userDir, token).catch(() => null);
-  if (proxyOk === false) return { message: `${PROXY_UNREACHABLE_LABEL} (${message})`, reason: PROXY_UNREACHABLE };
+  if (proxyOk === false) return { message: PROXY_UNREACHABLE_LABEL, reason: PROXY_UNREACHABLE };
   return { message, reason: message.includes(CONNECTION_CLOSED_MARKER) ? UNEXPECTED_CLOSURE : TIMED_OUT };
 }
 
