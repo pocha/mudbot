@@ -260,11 +260,7 @@ async function routes(fastify, options) {
       return { communities };
     } catch (error) {
       fastify.log.error(error);
-      if (mudslideService.isProxyUnreachableError(error)) {
-        return reply.code(503).send({ error: PROXY_UNREACHABLE_USER_MESSAGE, reason: 'proxy_unreachable' });
-      }
-      emailService.notifyOwnerOfError('getCommunities', request.user.userDir, error.message).catch(() => {});
-      return reply.code(500).send({ error: 'Failed to fetch communities' });
+      return reply.code(error.statusCode).send({ error: error.message, reason: error.reason });
     }
   });
 
@@ -276,11 +272,7 @@ async function routes(fastify, options) {
       return info;
     } catch (error) {
       fastify.log.error(error);
-      if (mudslideService.isProxyUnreachableError(error)) {
-        return reply.code(503).send({ error: PROXY_UNREACHABLE_USER_MESSAGE, reason: 'proxy_unreachable' });
-      }
-      emailService.notifyOwnerOfError('getCommunityInfo', request.user.userDir, error.message).catch(() => {});
-      return reply.code(500).send({ error: 'Failed to fetch community info' });
+      return reply.code(error.statusCode).send({ error: error.message, reason: error.reason });
     }
   });
 
